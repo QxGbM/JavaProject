@@ -1,12 +1,5 @@
 .SUFFIXES: .cpp .cu
 
-CFLAGS		+= -std=c++11 -ggdb3 -O3 -fopenmp -I. -Wall -Wfatal-errors
-NVCCFLAGS	+= -std=c++11 -I./include -arch sm_60 -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
-LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lblas -llapacke -lcuda -lcudart 
-
-CXX 		= g++
-NVCC 		= nvcc
-
 USE_CUB		= TRUE
 
 #USE_KBLAS 	= TRUE
@@ -38,9 +31,15 @@ LDFLAGS += -lmkl_intel_lp64 -lmkl_sequential -lmkl_core
 
 endif
 
-HELPERS = helper_functions.o cuda_helper_functions.o
+CXX 		= g++
+NVCC 		= nvcc
 
-BIN = ./bin
+BIN	= ./bin
+INCLUDE	= ./include
+
+CFLAGS		+= -std=c++11 -ggdb3 -O3 -fopenmp -I$(INCLUDE) -Wall -Wfatal-errors
+NVCCFLAGS	+= -std=c++11 -I$(INCLUDE) -arch sm_60 -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
+LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lblas -llapacke -lcuda -lcudart 
 
 .cpp.o:
 	mkdir --parents $(BIN)
@@ -53,16 +52,16 @@ BIN = ./bin
 all:
 	make gpu_lu
 
-gpu_lu: $(BIN)/dense_lu_test.o
-	$(CXX) $? $(LDFLAGS)
+gpu_lu: dense_lu_test.o
+	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
+	./$(BIN)/$@
+
+pivot: pivot.o
+	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
 	./a.out
 
-pivot: $(BIN)/pivot.o
-	$(CXX) $? $(LDFLAGS)
-	./a.out
-
-svd: $(BIN)/svd.o
-	$(CXX) $? $(LDFLAGS)
+svd: svd.o
+	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
 	./a.out
 
 clean:
