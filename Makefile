@@ -1,14 +1,23 @@
 .SUFFIXES: .cpp .cu
 
 CFLAGS		+= -std=c++11 -ggdb3 -O3 -fopenmp -I. -Wall -Wfatal-errors
-NVCCFLAGS	+= -std=c++11 -I. -arch sm_60 -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
+NVCCFLAGS	+= -std=c++11 -I./include -arch sm_60 -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
 LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lblas -llapacke -lcuda -lcudart 
 
 CXX 		= g++
 NVCC 		= nvcc
 
+USE_CUB		= TRUE
+
 #USE_KBLAS 	= TRUE
 #USE_MKL	= TRUE
+
+ifdef USE_CUB
+
+CUB_ROOT	= /home/qxm/cub
+NVCCFLAGS	+= -I$(CUB_ROOT)
+
+endif
 
 ifdef USE_KBLAS
 
@@ -31,26 +40,31 @@ endif
 
 HELPERS = helper_functions.o cuda_helper_functions.o
 
+BIN = ./bin
+
 .cpp.o:
-	$(CXX) $(CFLAGS) -c $? -o $@
+	mkdir --parents $(BIN)
+	$(CXX) $(CFLAGS) -c $? -o $(BIN)/$@
 
 .cu.o:
-	$(NVCC) $(NVCCFLAGS) -c $? -o $@
+	mkdir --parents $(BIN)
+	$(NVCC) $(NVCCFLAGS) -c $? -o $(BIN)/$@
 
 all:
 	make gpu_lu
 
-gpu_lu: dense_lu_test.o dense_lu.o gpu_lu.o $(HELPERS)
+gpu_lu: $(BIN)/dense_lu_test.o
 	$(CXX) $? $(LDFLAGS)
 	./a.out
 
-pivot: pivot.o $(HELPERS)
+pivot: $(BIN)/pivot.o
 	$(CXX) $? $(LDFLAGS)
 	./a.out
 
-svd: svd.o $(HELPERS)
+svd: $(BIN)/svd.o
 	$(CXX) $? $(LDFLAGS)
 	./a.out
 
 clean:
-	(cd cuda_src && $(RM) -r *.o *.a *.out *.xml)
+	$(RM) *.o *.a *.out *.xml
+	$(RM) -r $(BIN)

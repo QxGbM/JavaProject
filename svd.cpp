@@ -59,7 +59,7 @@ int main (int argc, char* argv[]) {
           VT[j * M + k] = s * vi_T + c * vj_T;
         }
 
-        convergence = max(convergence, abs(s_ij) / sqrt(s_ii * s_jj));
+        convergence = max_(convergence, abs(s_ij) / sqrt(s_ii * s_jj));
 
       }
     }

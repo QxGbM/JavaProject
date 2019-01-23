@@ -1,9 +1,12 @@
+#ifndef DENSE_LU
+#define DENSE_LU
 
-#include <dense_lu.cuh>
+#include <stdio.h>
+#include <cuda.h>
 
-#ifndef BLOCK_SIZE
+#include <helper_functions.h>
+#include <cuda_helper_functions.cuh>
 #include <gpu_lu.cuh>
-#endif
 
 /* TODO: faster ld alignment: trim the last n bits for 2^n block size, using & to block size reverted bits. */
 
@@ -546,3 +549,5 @@ __host__ int dense_gemm_sync (Matrix *x_C, Matrix *A, Matrix *B, const double al
 
   return dense_gemm_sync (matrix_x, nx_x, ld_x, ny_x, matrix_a, nx_a, ld_a, ny_a, matrix_b, nx_b, ld_b, ny_b, alpha, beta);
 }
+
+#endif

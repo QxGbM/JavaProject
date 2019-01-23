@@ -1,9 +1,14 @@
 
-#include <cuda_helper_functions.cuh>
+#ifndef _CUDA_HELPER_CUH
+#define _CUDA_HELPER_CUH
 
-#ifndef BLOCK_SIZE
-#include <gpu_lu.cuh>
-#endif
+#include <stdio.h>
+#include <string.h>
+#include <cuda.h>
+
+#define BLOCK_SIZE 16 // Each block has 16^2 = 1024 threads, make sure the cuda device allows
+#define TIME_TABLE_SIZE 16
+#define CUDA_DEVICE 0
 
 __host__ cudaError_t matrix_copy_toDevice_sync (double *matrix, double **dev_matrix, const unsigned nx, const unsigned ld, const unsigned ny)
 {
@@ -169,3 +174,16 @@ __host__ cudaError_t device_sync_dump_timed_events ()
 
   return cudaSuccess;
 }
+
+/* bit-shifting offset handling */
+
+struct offset {
+
+  unsigned ld_bits;
+  unsigned ld_value;
+
+  offset(const unsigned ld)
+  { ld_bits = 0; ld_value = ld; } //TODO
+};
+
+#endif
