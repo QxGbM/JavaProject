@@ -58,11 +58,11 @@ gpu_lu: dense_lu_test.o
 
 pivot: pivot.o
 	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
-	./a.out
+	./$(BIN)/$@
 
 svd: svd.o
 	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
-	./a.out
+	./$(BIN)/$@
 
 clean:
 	$(RM) *.o *.a *.out *.xml

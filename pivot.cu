@@ -1,5 +1,7 @@
 #include <pivot.cuh>
 
+//template __global__ void partial_pivot_kernel2 <double, 32> (matrixEntriesT *matrix, const unsigned nx, const unsigned ld, const unsigned ny, unsigned *p);
+
 __host__ int main()
 {
   cudaSetDevice(0);
@@ -13,7 +15,8 @@ __host__ int main()
 
   dim3 block(BLOCK_SIZE, BLOCK_SIZE), grid(1);
   create_timing_event_to_stream ("pivot", 0);
-  partial_pivot_kernel <<<grid, block>>> (dev_matrix, nx, ld, ny, nullptr);
+  //partial_pivot_kernel <<<grid, block>>> (dev_matrix, nx, ld, ny, nullptr);
+  partial_pivot_kernel2 <<<grid, block>>> (dev_matrix, nx, ld, ny, nullptr);
   create_timing_event_to_stream ("pivot", 0);
   device_sync_dump_timed_events ();
   cudaDeviceReset();
