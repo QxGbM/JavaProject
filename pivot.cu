@@ -5,7 +5,7 @@
 __host__ int main()
 {
   cudaSetDevice(0);
-  const unsigned nx = 16, ld = 16, ny = 16;
+  const unsigned nx = 32, ld = 32, ny = 16;
   //double test[16] = {2, 1, 1, 0, 4, 3, 3, 1, 8, 7, 9, 5, 6, 7, 9, 8};
   double *matrix = randomMatrix(nx, ny, 0, 10);
   //double *matrix = &test[0];

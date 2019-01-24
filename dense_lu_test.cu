@@ -3,8 +3,8 @@
 
 int main(int argc, char **argv)
 {
-  const unsigned nx = 128;
-  const unsigned ny = 128;
+  const unsigned nx = 1024;
+  const unsigned ny = 1024;
 
   //test_dense_getrf_1x1 ();
   //test_dense_getrf_nx1 (ny);

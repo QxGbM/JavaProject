@@ -69,7 +69,6 @@ extern "C" void test_dense_getrf_nxn (const unsigned nx, const unsigned ny)
 
   Matrix a = testMatrix_M(nx, ny);
   dense_getrf_sync2(&a);
-  //printMatrix(a);
 
   Matrix result = multiplyLU(a);
 

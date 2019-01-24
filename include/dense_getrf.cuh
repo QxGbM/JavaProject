@@ -3,32 +3,54 @@
 
 #include <helper_functions.h>
 #include <cuda_helper_functions.cuh>
-#include <cub/cub.cuh>
+#include <cooperative_groups.h>
 
-__device__ void dense_getrf (double *matrix, const unsigned nx, const unsigned ld, const unsigned ny, const unsigned thread_id, const unsigned block_size)
+#include <pivot.cuh>
+
+using namespace cooperative_groups;
+
+template <class matrixEntriesT>
+__device__ void blockDenseScalar (thread_group g, const matrixEntriesT scale, matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
-  const unsigned n = min_(nx, ny);
-  for (unsigned i = 0; i < n; i++)
-  {
-    const double diag = matrix[i * ld + i];
-    const unsigned step_x = min_(nx - i, block_size / (ny - i)), step_y = min_(ny - i, block_size);
-    const unsigned thread_x = min_(step_x, thread_id / step_y + 1), thread_y = thread_id - (thread_x - 1) * step_y + 1;
+  for (unsigned int i = g.thread_rank(); i < nx * ny; i += g.size())
+  { 
+    const unsigned row = i / nx, col = i - row * nx;
+    matrix[row * ld + col] = (scale == 0) ? 0 : matrix[row * ld + col] * scale;
+  }
+}
 
-    #pragma unroll
-    for (unsigned row = i + thread_y; row < ny; row += step_y) 
+template <class matrixEntriesT>
+__device__ void blockDenseGemm (thread_group g, const matrixEntriesT alpha, const matrixEntriesT beta, matrixEntriesT *a, matrixEntriesT *b, matrixEntriesT *matrix, 
+  const unsigned int ld_a, const unsigned int ld_b, const unsigned int ld_m, const unsigned int m, const unsigned int n, const unsigned int k)
+{
+  /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
+  for (unsigned int i = g.thread_rank(); i < m * n; i += g.size())
+  { 
+    const unsigned row = i / n, col = i - row * n;
+    matrixEntriesT old = (beta == 0) ? 0 : beta * matrix[row * ld_m + col];
+    matrixEntriesT accum = 0;
+    for (unsigned int j = 0; j < k && alpha != 0; j++)
     {
-      double left_col = matrix[row * ld + i] / diag;
-      if (thread_x == 1) { matrix[row * ld + i] = left_col; }
-
-      #pragma unroll
-      for (unsigned col = i + thread_x; col < nx; col += step_x)
-      {
-        double top_row = matrix[i * ld + col];
-        matrix[row * ld + col] -= left_col * top_row;
-      }
+      accum += a[row * ld_a + j] * b[j * ld_b + col];
     }
+    accum *= alpha;
+    matrix[row * ld_m + col] = old + accum;
+  }
+}
 
-    __syncthreads();
+template <class matrixEntriesT>
+__device__ void blockDenseGetrfNoPivot (thread_group g, matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+{
+  const unsigned int thread_id = g.thread_rank(), block_size = g.size();
+  const unsigned n = min_(nx, ny);
+  for (unsigned int i = 0; i < n; i++)
+  {
+    blockDenseScalar (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
+    g.sync();
+
+    blockDenseGemm (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
+      ld, ld, ld, ny - (i + 1), nx - (i + 1), 1);
+    g.sync();
   }
 }
 
@@ -41,13 +63,12 @@ __global__ void dense_getrf_kernel2 (double *matrix, const unsigned nx, const un
 
   if (nx * ny > 6 * 1024) /* matrix is too big to load all in shared memory. */
   {
-    dense_getrf(matrix, nx, ld, ny, thread_id, block_size);
+    blockDenseGetrfNoPivot <double> (this_thread_block(), matrix, nx, ld, ny);
   }
   else /* matrix is small enough to load all in shared memory. */
   {
     extern __shared__ double shm_matrix[];
 
-    #pragma unroll
     for (unsigned i = thread_id; i < nx * ny; i += block_size)
     { 
       const unsigned row = i / nx, col = i - row * nx, index = row * ld + col;
@@ -55,9 +76,8 @@ __global__ void dense_getrf_kernel2 (double *matrix, const unsigned nx, const un
     }
     __syncthreads();
   
-    dense_getrf(&shm_matrix[0], nx, nx, ny, thread_id, block_size);
-  
-    #pragma unroll
+    blockDenseGetrfNoPivot <double> (this_thread_block(), &shm_matrix[0], nx, nx, ny);
+
     for (unsigned i = thread_id; i < nx * ny; i += block_size)
     { 
       const unsigned row = i / nx, col = i - row * nx, index = row * ld + col;
