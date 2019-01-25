@@ -29,22 +29,45 @@ __device__ void blockDenseGemm (thread_group g, const matrixEntriesT alpha, cons
     const unsigned row = i / n, col = i - row * n;
     matrixEntriesT old = (beta == 0) ? 0 : beta * matrix[row * ld_m + col];
     matrixEntriesT accum = 0;
-    for (unsigned int j = 0; j < k && alpha != 0; j++)
+    if (alpha != 0)
     {
-      accum += a[row * ld_a + j] * b[j * ld_b + col];
+      for (unsigned int j = 0; j < k; j++)
+      { accum += a[row * ld_a + j] * b[j * ld_b + col]; }
+      accum *= alpha;
     }
-    accum *= alpha;
     matrix[row * ld_m + col] = old + accum;
   }
 }
 
 template <class matrixEntriesT>
-__device__ void blockDenseGetrfNoPivot (thread_group g, matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+__device__ void blockDenseGetrfNoPivot (matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
-  const unsigned int thread_id = g.thread_rank(), block_size = g.size();
-  const unsigned n = min_(nx, ny);
+  thread_block g = this_thread_block();
+  const unsigned int n = min_(nx, ny);
   for (unsigned int i = 0; i < n; i++)
   {
+    blockDenseScalar (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
+    g.sync();
+
+    blockDenseGemm (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
+      ld, ld, ld, ny - (i + 1), nx - (i + 1), 1);
+    g.sync();
+  }
+}
+
+template <class matrixEntriesT, unsigned int tile_size>
+__device__ void blockDenseGetrfWithPivot (unsigned int *pivot, matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+{
+  thread_block g = this_thread_block();
+  for (unsigned int i = g.thread_rank(); i < ny; i += g.size()) { pivot[i] = i; }
+
+  const unsigned int n = min_(nx, ny);
+  for (unsigned int i = 0; i < n; i++)
+  {
+    unsigned int target = blockAllFindRowPivot (i, matrix, nx, ld, ny);
+    blockExchangeRow (g, i, target, pivot, matrix, nx, ld, ny);
+    g.sync();
+
     blockDenseScalar (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
     g.sync();
 
@@ -63,7 +86,7 @@ __global__ void dense_getrf_kernel2 (double *matrix, const unsigned nx, const un
 
   if (nx * ny > 6 * 1024) /* matrix is too big to load all in shared memory. */
   {
-    blockDenseGetrfNoPivot <double> (this_thread_block(), matrix, nx, ld, ny);
+    blockDenseGetrfNoPivot <double> (matrix, nx, ld, ny);
   }
   else /* matrix is small enough to load all in shared memory. */
   {
@@ -76,7 +99,7 @@ __global__ void dense_getrf_kernel2 (double *matrix, const unsigned nx, const un
     }
     __syncthreads();
   
-    blockDenseGetrfNoPivot <double> (this_thread_block(), &shm_matrix[0], nx, nx, ny);
+    blockDenseGetrfNoPivot <double> (&shm_matrix[0], nx, nx, ny);
 
     for (unsigned i = thread_id; i < nx * ny; i += block_size)
     { 
@@ -105,7 +128,7 @@ __host__ int dense_getrf_sync2 (Matrix *m)
   const unsigned shm_size = (nx * ny > 6 * 1024) ? 0 : nx * ny * sizeof(double);
   if (shm_size == 0) { printf("WARNING: Matrix size exceeded 48KB of shared memory size. \n-------- Using Global mem instead.\n\n"); }
 
-  matrix_copy_toDevice_sync (matrix, &dev_matrix, nx, ld, ny);
+  matrix_copy_toDevice_sync <double> (matrix, &dev_matrix, nx, ld, ny);
   create_timing_event_to_stream ("GETRF TOTAL", main_stream);
 
   dense_getrf_kernel2 <<<grid, block, shm_size, main_stream>>> (dev_matrix, nx, ld_aligned, ny);
@@ -116,7 +139,7 @@ __host__ int dense_getrf_sync2 (Matrix *m)
   device_sync_dump_timed_events ();
   printf("Cuda Execution: getrf finished.\n\n");
 
-  matrix_copy_toHost_sync (&dev_matrix, matrix, nx, ld, ny, true);
+  matrix_copy_toHost_sync <double> (&dev_matrix, matrix, nx, ld, ny, true);
   cudaDeviceReset();
   return 0;
 }

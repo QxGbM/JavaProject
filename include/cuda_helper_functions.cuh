@@ -10,7 +10,8 @@
 #define TIME_TABLE_SIZE 16
 #define CUDA_DEVICE 0
 
-__host__ cudaError_t matrix_copy_toDevice_sync (double *matrix, double **dev_matrix, const unsigned nx, const unsigned ld, const unsigned ny)
+template <class matrixEntriesT>
+__host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEntriesT **dev_matrix, const unsigned nx, const unsigned ld, const unsigned ny)
 {
   /* 
   * A synchronous copy of matrix to dev_matrix.
@@ -21,31 +22,18 @@ __host__ cudaError_t matrix_copy_toDevice_sync (double *matrix, double **dev_mat
   if (ld < nx) { printf("MEM COPY ABORT: Matrix x's horizontal offset is less than the number of entries.\n");  return cudaErrorInvalidConfiguration; }
 
   cudaError_t error = cudaSuccess;
-  const unsigned ld_aligned = ((ld + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  const unsigned ny_aligned = ((ny + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
   
   if (*dev_matrix == 0) 
   {
-    if (ld_aligned != ld || ny_aligned != ny) 
-    { 
-      printf("WARNING: Input matrix's dimensions [%d x %d offset %d x %d] are not aligned with block size.\n", ny, nx, ny, ld);
-      printf("-------- Automatically align it to: [%d x %d offset %d x %d].\n\n", ny, nx, ny_aligned, ld_aligned); 
-    }
-    error = cudaMalloc((void**)dev_matrix, ld_aligned * ny_aligned * sizeof(double));
+    error = cudaMalloc((void**)dev_matrix, nx * ny * sizeof(matrixEntriesT));
     if (error != cudaSuccess) { return error; }
 
-    printf("Allocated %d x %d matrix in cuda global memory.\n\n", ny_aligned, ld_aligned);
-  }
-  else if (ld_aligned != ld || ny_aligned != ny) 
-  {
-    printf("WARNING: Device Matrix might not have been auto-aligned with block size.\n");
-    printf("-------- Please confirm dev-matrix is allocated properly.\n");
-    printf("-------- Or, let this matrix-copy function allocate dev-matrix.\n\n");
+    printf("Allocated %d x %d matrix in cuda global memory.\n\n", ny, nx);
   }
 
-  for (unsigned i = 0; i < ny; i++)
+  for (unsigned int i = 0; i < ny; i++)
   {
-    error = cudaMemcpy(&(*dev_matrix)[i * ld_aligned], &matrix[i * ld], nx * sizeof(double), cudaMemcpyHostToDevice);
+    error = cudaMemcpy(&(*dev_matrix)[i * nx], &matrix[i * ld], nx * sizeof(matrixEntriesT), cudaMemcpyHostToDevice);
     if (error != cudaSuccess) { return error; }
   }
   
@@ -53,7 +41,8 @@ __host__ cudaError_t matrix_copy_toDevice_sync (double *matrix, double **dev_mat
   return cudaSuccess;
 }
 
-__host__ cudaError_t matrix_copy_toHost_sync (double **dev_matrix, double *matrix, const unsigned nx, const unsigned ld, const unsigned ny, const bool free_device)
+template <class matrixEntriesT>
+__host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matrixEntriesT *matrix, const unsigned nx, const unsigned ld, const unsigned ny, const bool free_device)
 {
   /* 
   * A synchronous copy of dev_matrix to matrix
@@ -62,12 +51,10 @@ __host__ cudaError_t matrix_copy_toHost_sync (double **dev_matrix, double *matri
   if (ld < nx) { printf("MEM COPY ABORT: Matrix x's horizontal offset is less than the number of entries.\n");  return cudaErrorInvalidConfiguration; }
 
   cudaError_t error = cudaSuccess;
-  const unsigned ld_aligned = ((ld + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  const unsigned ny_aligned = ((ny + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
 
-  for (unsigned i = 0; i < ny; i++)
+  for (unsigned int i = 0; i < ny; i++)
   {
-    error = cudaMemcpy(&matrix[i * ld], &(*dev_matrix)[i * ld_aligned], nx * sizeof(double), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(&matrix[i * ld], &(*dev_matrix)[i * nx], nx * sizeof(matrixEntriesT), cudaMemcpyDeviceToHost);
     if (error != cudaSuccess) { return error; }
   }
   
@@ -78,7 +65,7 @@ __host__ cudaError_t matrix_copy_toHost_sync (double **dev_matrix, double *matri
     error = cudaFree(dev_matrix);
     if (error != cudaSuccess) { return error; }
 
-    printf("Freed %d x %d matrix in cuda global memory.\n\n", ny_aligned, ld_aligned);
+    printf("Freed %d x %d matrix in cuda global memory.\n\n", ny, nx);
   }
 
   return cudaSuccess;

@@ -95,24 +95,64 @@ __device__ unsigned int blockAllFindRowPivot (const unsigned int row, matrixEntr
 }
 
 template <class matrixEntriesT>
-__device__ void blockExchangeRow (const unsigned int row, const unsigned int target, matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+__device__ void blockExchangeRow (thread_group g, const unsigned int row, const unsigned int target, unsigned int *pivot, matrixEntriesT *matrix, 
+  const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
   /* Using a block of threads to exchange all elements in row with target row. */
   if (row < ny && target < ny)
   {
-    thread_block g = this_thread_block();
     for (unsigned int i = g.thread_rank(); i < nx; i += g.size())
     {
-      matrixEntriesT t = matrix[row * ld + i];
-      matrix[row * ld + i] = matrix[target * ld + i];
-      matrix[target * ld + i] = t;
+      matrixEntriesT t1 = matrix[row * ld + i], t2 = matrix[target * ld + i];
+      matrix[row * ld + i] = t2; matrix[target * ld + i] = t1;
+    }
+    if (pivot != nullptr && g.thread_rank() == 0) { unsigned int p = pivot[row]; pivot[row] = pivot[target]; pivot[target] = p; }
+  }
+}
+
+template <class matrixEntriesT>
+__device__ void blockApplyPivot (thread_group g, unsigned int *pivot, const bool reverse, matrixEntriesT *matrix, 
+  const unsigned int nx, const unsigned int ld, const unsigned int ny) //TODO this currently only does recovery.
+{
+  /* Using a block of threads to apply pivot the pivot swaps to the matrix. */
+  for (unsigned int i = 0; i < ny; i++) 
+  {
+    bool smallest_row_in_cycle = true;
+    unsigned int swapping_with = pivot[i];
+    while (smallest_row_in_cycle && swapping_with != i)
+    {
+      swapping_with = pivot[swapping_with];
+      if (swapping_with < i) { smallest_row_in_cycle = false; }
+    }
+
+    if (smallest_row_in_cycle)
+    {
+      swapping_with = pivot[i];
+      while (swapping_with != i) 
+      { 
+        blockExchangeRow(g, i, swapping_with, nullptr, matrix, nx, ld, ny); 
+        g.sync();
+        swapping_with = pivot[swapping_with];
+      }
     }
   }
 }
 
-__global__ void partial_pivot_kernel2 (double *matrix, const unsigned nx, const unsigned ld, const unsigned ny, unsigned *p)
+__global__ void partial_pivot_kernel (unsigned int *pivot, double *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
-  blockAllFindRowPivot <double, 32> (4, matrix, nx, ld, ny);
+  thread_block g = this_thread_block();
+  for (unsigned int i = g.thread_rank(); i < ny; i += g.size()) { pivot[i] = i; }
+
+  const unsigned int n = min_(nx, ny);
+  for (unsigned int i = 0; i < n; i++)
+  {
+    unsigned int target = blockAllFindRowPivot <double, 32> (i, matrix, nx, ld, ny);
+
+    blockExchangeRow <double> (g, i, target, pivot, matrix, nx, ld, ny);
+    g.sync();
+  }
+
+  blockApplyPivot <double> (g, pivot, true, matrix, nx, ld, ny);
 }
 
 
