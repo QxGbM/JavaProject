@@ -4,7 +4,7 @@
 int main(int argc, char **argv)
 {
   const unsigned nx = 64;
-  const unsigned ny = 64;
+  const unsigned ny = 32;
 
   //test_dense_getrf_1x1 ();
   //test_dense_getrf_nx1 (ny);

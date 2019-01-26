@@ -1,5 +1,26 @@
 #include <pivot.cuh>
 
+#include <helper_functions.h>
+#include <cuda_helper_functions.cuh>
+
+__global__ void partial_pivot_kernel (unsigned int *pivot, double *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+{
+  thread_block g = this_thread_block();
+  for (unsigned int i = g.thread_rank(); i < ny; i += g.size()) { pivot[i] = i; }
+
+  const unsigned int n = min_(nx, ny);
+  for (unsigned int i = 0; i < n; i++)
+  {
+    unsigned int target = blockAllFindRowPivot <double, 32> (i, matrix, nx, ld, ny);
+
+    blockExchangeRow <double> (g, i, target, pivot, matrix, nx, ld, ny);
+  }
+
+  blockApplyPivot <double> (g, pivot, true, matrix, nx, ld, ny);
+  blockApplyPivot <double> (g, pivot, false, matrix, nx, ld, ny);
+  blockApplyPivot <double> (g, pivot, true, matrix, nx, ld, ny);
+}
+
 __host__ int main()
 {
   cudaSetDevice(0);

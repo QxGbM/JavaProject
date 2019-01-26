@@ -67,3 +67,6 @@ hs_err_pid*
 .classpath
 .project
 .vscode/*
+
+# bin
+bin/*
