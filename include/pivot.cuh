@@ -107,14 +107,15 @@ __device__ void blockExchangeRow (thread_group g, const unsigned int row, const 
       matrix[row * ld + i] = t2; matrix[target * ld + i] = t1;
     }
     if (pivot != nullptr && g.thread_rank() == 0) { unsigned int p = pivot[row]; pivot[row] = pivot[target]; pivot[target] = p; }
+    g.sync();
   }
 }
 
 template <class matrixEntriesT>
-__device__ void blockApplyPivot (thread_group g, unsigned int *pivot, const bool reverse, matrixEntriesT *matrix, 
-  const unsigned int nx, const unsigned int ld, const unsigned int ny) //TODO this currently only does recovery.
+__device__ void blockApplyPivot (thread_group g, unsigned int *pivot, const bool recover, matrixEntriesT *matrix, 
+  const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
-  /* Using a block of threads to apply pivot the pivot swaps to the matrix. */
+  /* Using a block of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
   for (unsigned int i = 0; i < ny; i++) 
   {
     bool smallest_row_in_cycle = true;
@@ -127,11 +128,12 @@ __device__ void blockApplyPivot (thread_group g, unsigned int *pivot, const bool
 
     if (smallest_row_in_cycle)
     {
+      unsigned int source_row = i;
       swapping_with = pivot[i];
       while (swapping_with != i) 
       { 
-        blockExchangeRow(g, i, swapping_with, nullptr, matrix, nx, ld, ny); 
-        g.sync();
+        blockExchangeRow(g, source_row, swapping_with, nullptr, matrix, nx, ld, ny); 
+        source_row = recover ? i : swapping_with;
         swapping_with = pivot[swapping_with];
       }
     }
@@ -149,9 +151,10 @@ __global__ void partial_pivot_kernel (unsigned int *pivot, double *matrix, const
     unsigned int target = blockAllFindRowPivot <double, 32> (i, matrix, nx, ld, ny);
 
     blockExchangeRow <double> (g, i, target, pivot, matrix, nx, ld, ny);
-    g.sync();
   }
 
+  blockApplyPivot <double> (g, pivot, true, matrix, nx, ld, ny);
+  blockApplyPivot <double> (g, pivot, false, matrix, nx, ld, ny);
   blockApplyPivot <double> (g, pivot, true, matrix, nx, ld, ny);
 }
 
