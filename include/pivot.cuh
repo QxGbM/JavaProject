@@ -121,8 +121,8 @@ __device__ void blockApplyPivot (thread_group g, unsigned int *pivot, const bool
     unsigned int swapping_with = pivot[i];
     while (smallest_row_in_cycle && swapping_with != i)
     {
-      swapping_with = pivot[swapping_with];
       if (swapping_with < i) { smallest_row_in_cycle = false; }
+      swapping_with = pivot[swapping_with];
     }
 
     if (smallest_row_in_cycle)
@@ -131,7 +131,7 @@ __device__ void blockApplyPivot (thread_group g, unsigned int *pivot, const bool
       swapping_with = pivot[i];
       while (swapping_with != i) 
       { 
-        blockExchangeRow(g, source_row, swapping_with, nullptr, matrix, nx, ld, ny); 
+        blockExchangeRow(g, source_row, swapping_with, nullptr, matrix, nx, ld, ny);
         source_row = recover ? i : swapping_with;
         swapping_with = pivot[swapping_with];
       }

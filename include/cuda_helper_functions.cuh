@@ -11,7 +11,8 @@
 #define CUDA_DEVICE 0
 
 template <class matrixEntriesT>
-__host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEntriesT **dev_matrix, const unsigned nx, const unsigned ld, const unsigned ny)
+__host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEntriesT **dev_matrix,
+  const unsigned int nx, const unsigned int ld, const unsigned int ny, const bool use_same_offset_on_device = false)
 {
   /* 
   * A synchronous copy of matrix to dev_matrix.
@@ -22,18 +23,19 @@ __host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEn
   if (ld < nx) { printf("MEM COPY ABORT: Matrix x's horizontal offset is less than the number of entries.\n");  return cudaErrorInvalidConfiguration; }
 
   cudaError_t error = cudaSuccess;
+  const unsigned int offset = use_same_offset_on_device ? ld : nx;
   
   if (*dev_matrix == 0) 
   {
-    error = cudaMalloc((void**)dev_matrix, nx * ny * sizeof(matrixEntriesT));
+    error = cudaMalloc((void**)dev_matrix, offset * ny * sizeof(matrixEntriesT));
     if (error != cudaSuccess) { return error; }
 
-    printf("Allocated %d x %d matrix in cuda global memory.\n\n", ny, nx);
+    printf("Allocated %d x %d matrix in cuda global memory.\n\n", ny, offset);
   }
 
   for (unsigned int i = 0; i < ny; i++)
   {
-    error = cudaMemcpy(&(*dev_matrix)[i * nx], &matrix[i * ld], nx * sizeof(matrixEntriesT), cudaMemcpyHostToDevice);
+    error = cudaMemcpy(&(*dev_matrix)[i * offset], &matrix[i * ld], nx * sizeof(matrixEntriesT), cudaMemcpyHostToDevice);
     if (error != cudaSuccess) { return error; }
   }
   
@@ -42,7 +44,8 @@ __host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEn
 }
 
 template <class matrixEntriesT>
-__host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matrixEntriesT *matrix, const unsigned nx, const unsigned ld, const unsigned ny, const bool free_device)
+__host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matrixEntriesT *matrix,
+  const unsigned int nx, const unsigned int ld, const unsigned int ny, const bool free_device = true, const bool use_same_offset_on_device = false)
 {
   /* 
   * A synchronous copy of dev_matrix to matrix
@@ -51,10 +54,11 @@ __host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matri
   if (ld < nx) { printf("MEM COPY ABORT: Matrix x's horizontal offset is less than the number of entries.\n");  return cudaErrorInvalidConfiguration; }
 
   cudaError_t error = cudaSuccess;
+  const unsigned int offset = use_same_offset_on_device ? ld : nx;
 
   for (unsigned int i = 0; i < ny; i++)
   {
-    error = cudaMemcpy(&matrix[i * ld], &(*dev_matrix)[i * nx], nx * sizeof(matrixEntriesT), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(&matrix[i * ld], &(*dev_matrix)[i * offset], nx * sizeof(matrixEntriesT), cudaMemcpyDeviceToHost);
     if (error != cudaSuccess) { return error; }
   }
   
@@ -62,10 +66,10 @@ __host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matri
 
   if (free_device)
   {
-    error = cudaFree(dev_matrix);
+    error = cudaFree(*dev_matrix);
     if (error != cudaSuccess) { return error; }
 
-    printf("Freed %d x %d matrix in cuda global memory.\n\n", ny, nx);
+    printf("Freed %d x %d matrix in cuda global memory.\n\n", ny, offset);
   }
 
   return cudaSuccess;
@@ -82,7 +86,7 @@ struct event_chain {
 struct event_chain **events = nullptr;
 unsigned event_counter = 0;
 
-__host__ cudaError_t create_timing_event_to_stream (const char* event_name, cudaStream_t stream)
+__host__ cudaError_t create_timing_event_to_stream (const char* event_name, cudaStream_t stream = 0)
 {
   cudaError_t error = cudaSuccess;
   if (events == nullptr) 
@@ -161,16 +165,5 @@ __host__ cudaError_t device_sync_dump_timed_events ()
 
   return cudaSuccess;
 }
-
-/* bit-shifting offset handling */
-
-struct offset {
-
-  unsigned ld_bits;
-  unsigned ld_value;
-
-  offset(const unsigned ld)
-  { ld_bits = 0; ld_value = ld; } //TODO
-};
 
 #endif

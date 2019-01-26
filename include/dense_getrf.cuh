@@ -44,9 +44,9 @@ __device__ void blockDenseGetrfNoPivot (matrixEntriesT *matrix, const unsigned i
   const unsigned int n = (nx < ny) ? nx : ny;
   for (unsigned int i = 0; i < n; i++)
   {
-    blockDenseScalar (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
+    blockDenseScalar <matrixEntriesT> (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
     
-    blockDenseGemm (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
+    blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
       ld, ld, ld, ny - (i + 1), nx - (i + 1), 1);
   }
 }
@@ -60,12 +60,12 @@ __device__ void blockDenseGetrfWithPivot (unsigned int *pivot, matrixEntriesT *m
   const unsigned int n = (nx < ny) ? nx : ny;
   for (unsigned int i = 0; i < n; i++)
   {
-    unsigned int target = blockAllFindRowPivot (i, matrix, nx, ld, ny);
-    blockExchangeRow (g, i, target, pivot, matrix, nx, ld, ny);
+    unsigned int target = blockAllFindRowPivot <matrixEntriesT, tile_size> (i, matrix, nx, ld, ny);
+    blockExchangeRow <matrixEntriesT> (g, i, target, pivot, matrix, nx, ld, ny);
 
-    blockDenseScalar (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
+    blockDenseScalar <matrixEntriesT> (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
 
-    blockDenseGemm (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
+    blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
       ld, ld, ld, ny - (i + 1), nx - (i + 1), 1);
   }
 }

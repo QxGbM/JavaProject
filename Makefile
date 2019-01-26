@@ -53,11 +53,11 @@ all:
 	make gpu_lu
 
 gpu_lu: dense_lu_test.o
-	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
+	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
 	./$(BIN)/$@
 
 pivot: pivot.o
-	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
+	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
 	./$(BIN)/$@
 
 svd: svd.o
