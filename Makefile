@@ -38,8 +38,8 @@ BIN	= ./bin
 INCLUDE	= ./include
 
 CFLAGS		+= -std=c++11 -ggdb3 -O3 -fopenmp -I$(INCLUDE) -Wall -Wfatal-errors
-NVCCFLAGS	+= -std=c++11 -I$(INCLUDE) -arch sm_60 -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
-LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lblas -llapacke -lcuda -lcudart 
+NVCCFLAGS	+= -std=c++11 -I$(INCLUDE) -arch=sm_60 -rdc=true -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
+LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lblas -llapacke -lcuda -lcudart -arch=sm_60 -L/usr/lib/x86_64-linux-gnu
 
 .cpp.o:
 	mkdir --parents $(BIN)
@@ -62,6 +62,10 @@ pivot: pivot.o
 
 svd: svd.o
 	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
+	./$(BIN)/$@
+
+test: test.o
+	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
 	./$(BIN)/$@
 
 clean:

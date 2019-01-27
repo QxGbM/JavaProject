@@ -45,7 +45,7 @@ __host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEn
 
 template <class matrixEntriesT>
 __host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matrixEntriesT *matrix,
-  const unsigned int nx, const unsigned int ld, const unsigned int ny, const bool free_device = true, const bool use_same_offset_on_device = false)
+  const unsigned int nx, const unsigned int ld, const unsigned int ny, const bool free_device = false, const bool use_same_offset_on_device = false)
 {
   /* 
   * A synchronous copy of dev_matrix to matrix

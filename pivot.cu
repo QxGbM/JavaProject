@@ -34,7 +34,7 @@ __host__ int main()
   create_timing_event_to_stream ("pivot", 0);
   device_sync_dump_timed_events ();
 
-  matrix_copy_toHost_sync <double> (&dev_matrix, matrix, nx, ld, ny, false);
+  matrix_copy_toHost_sync <double> (&dev_matrix, matrix, nx, ld, ny);
 
   double *result = multiplyLU(matrix, nx, nx, ny);
   printMatrix(matrix, nx, ld, ny);
