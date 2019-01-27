@@ -17,7 +17,8 @@ __global__ void recover_pivot_kernel (unsigned int *pivot, double *matrix, const
 __host__ int main()
 {
   cudaSetDevice(0);
-  const unsigned nx = 20, ld = 20, ny = 20;
+  const unsigned nx = 16, ld = 16, ny = 16;
+  srand(999);
   double *matrix = randomMatrix(nx, ny, 0, 10);
   unsigned *pivot = (unsigned*) malloc(ny * sizeof(unsigned));
   printMatrix(matrix, nx, ld, ny);
@@ -27,7 +28,7 @@ __host__ int main()
   matrix_copy_toDevice_sync <double> (matrix, &dev_matrix, nx, ld, ny);
   matrix_copy_toDevice_sync <unsigned> (pivot, &dev_pivot, ny, ny, 1);
 
-  dim3 block(256), grid(1);
+  dim3 block(128), grid(1);
   create_timing_event_to_stream ("pivot", 0);
   partial_pivot_kernel <<<grid, block>>> (dev_pivot, dev_matrix, nx, ld, ny);
   create_timing_event_to_stream ("pivot", 0);
@@ -36,7 +37,7 @@ __host__ int main()
   matrix_copy_toHost_sync <double> (&dev_matrix, matrix, nx, ld, ny, false);
 
   double *result = multiplyLU(matrix, nx, nx, ny);
-  printMatrix(result, nx, ld, ny);
+  printMatrix(matrix, nx, ld, ny);
   double *dev_result = 0;
 
   matrix_copy_toDevice_sync <double> (result, &dev_result, nx, ld, ny);

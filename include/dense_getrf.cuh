@@ -6,7 +6,8 @@
 using namespace cooperative_groups;
 
 template <class matrixEntriesT>
-__device__ void blockDenseScalar (thread_group g, const matrixEntriesT scale, matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+__device__ void blockDenseScalar (const thread_group g, const matrixEntriesT scale, matrixEntriesT *matrix, 
+  const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
   for (unsigned int i = g.thread_rank(); i < nx * ny; i += g.size())
   { 
@@ -17,8 +18,9 @@ __device__ void blockDenseScalar (thread_group g, const matrixEntriesT scale, ma
 }
 
 template <class matrixEntriesT>
-__device__ void blockDenseGemm (thread_group g, const matrixEntriesT alpha, const matrixEntriesT beta, matrixEntriesT *a, matrixEntriesT *b, matrixEntriesT *matrix, 
-  const unsigned int ld_a, const unsigned int ld_b, const unsigned int ld_m, const unsigned int m, const unsigned int n, const unsigned int k)
+__device__ void blockDenseGemm (const thread_group g, const matrixEntriesT alpha, const matrixEntriesT beta, const matrixEntriesT *a, 
+  const matrixEntriesT *b, matrixEntriesT *matrix, const unsigned int ld_a, const unsigned int ld_b, const unsigned int ld_m, 
+  const unsigned int m, const unsigned int n, const unsigned int k)
 {
   /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
   for (unsigned int i = g.thread_rank(); i < m * n; i += g.size())
@@ -60,7 +62,7 @@ __device__ void blockDenseGetrfWithPivot (unsigned int *pivot, matrixEntriesT *m
   const unsigned int n = (nx < ny) ? nx : ny;
   for (unsigned int i = 0; i < n; i++)
   {
-    unsigned int target = blockAllFindRowPivot <matrixEntriesT, tile_size> (i, matrix, nx, ld, ny);
+    const unsigned int target = blockAllFindRowPivot <matrixEntriesT, tile_size> (i, matrix, nx, ld, ny);
     blockExchangeRow <matrixEntriesT> (g, i, target, pivot, matrix, nx, ld, ny);
 
     blockDenseScalar <matrixEntriesT> (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
