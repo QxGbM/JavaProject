@@ -34,7 +34,7 @@ __host__ int main()
   cudaMemcpy(&dev_num, &num, sizeof(int), cudaMemcpyHostToDevice);
   args -> in = dev_num;
 
-  cudaLaunchCooperativeKernel((void*)kernel, numBlocksPerSm, numThreads, (void **) &args);
+  cudaLaunchCooperativeKernel(kernel, 1 * numBlocksPerSm, numThreads, (void **) &args);
   cudaDeviceSynchronize();
   return 0;
 }

@@ -6,9 +6,6 @@
 
 #include <helper_functions.h>
 #include <cuda_helper_functions.cuh>
-#include <gpu_lu.cuh>
-
-/* TODO: faster ld alignment: trim the last n bits for 2^n block size, using & to block size reverted bits. */
 
 __global__ void dense_getrf_kernel (double *matrix, const unsigned nx, const unsigned ld, const unsigned ny)
 {

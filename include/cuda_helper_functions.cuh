@@ -7,7 +7,6 @@
 #include <cuda.h>
 
 #define BLOCK_SIZE 16 // Each block has 16^2 = 1024 threads, make sure the cuda device allows
-#define TIME_TABLE_SIZE 16
 #define CUDA_DEVICE 0
 
 template <class matrixEntriesT>
@@ -18,8 +17,8 @@ __host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEn
   * A synchronous copy of matrix to dev_matrix.
   * Matrix can be stored in pageable memory.
   * This function also allocates dev_matrix if it is not allocated.
-  * NOTE: The device matrix need to be aligned with BLOCK_SIZE, which means ld and ny are multiples of BLOCK_SIZE
   */
+
   if (ld < nx) { printf("MEM COPY ABORT: Matrix x's horizontal offset is less than the number of entries.\n");  return cudaErrorInvalidConfiguration; }
 
   cudaError_t error = cudaSuccess;
@@ -75,95 +74,8 @@ __host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matri
   return cudaSuccess;
 }
 
-/* Timer Functions */
+template <class matrixEntriesT>
+__device__ void matrix_copy_inDevice (matrixEntriesT *target, matrixEntriesT *source, )
 
-struct event_chain {
-  cudaEvent_t event;
-  char* name;
-  struct event_chain *next;
-};
-
-struct event_chain **events = nullptr;
-unsigned event_counter = 0;
-
-__host__ cudaError_t create_timing_event_to_stream (const char* event_name, cudaStream_t stream = 0)
-{
-  cudaError_t error = cudaSuccess;
-  if (events == nullptr) 
-  { 
-    events = (struct event_chain**) malloc(TIME_TABLE_SIZE * sizeof(struct event_chain*));
-    for (unsigned i = 0; i < TIME_TABLE_SIZE; i++) { events[i] = nullptr; }
-  }
-
-  struct event_chain *p = nullptr;
-  for (unsigned i = 0; i < event_counter; i++)
-  {
-    if ((events[i] != nullptr) && (strcmp(event_name, events[i] -> name) == 0)) { p = events[i]; }
-  }
-
-  if (p == nullptr)
-  {
-    p = (struct event_chain*) malloc(sizeof(struct event_chain));
-    events[event_counter] = p;
-    event_counter++;
-  }
-  else 
-  {
-    while (p -> next != nullptr) { p = p -> next; }
-    p -> next = (struct event_chain*) malloc(sizeof(struct event_chain));
-    p = p -> next;
-  }
-
-  error = cudaEventCreate(&(p -> event));
-  p -> name = (char*) malloc(16 * sizeof(char));
-  strcpy(p -> name, event_name);
-  p -> next = nullptr;
-  error = cudaEventRecord(p -> event, stream);
-
-  return error;
-
-}
-
-__host__ cudaError_t device_sync_dump_timed_events ()
-{
-  cudaError_t error = cudaDeviceSynchronize();
-  if (error != cudaSuccess) { return error; }
-
-  printf("--------------------------------------------------------\n");
-  printf("All CUDA execution finished, start dumping timed events:\n");
-
-  for (unsigned i = 0; i < event_counter; i++)
-  {
-    struct event_chain *e1 = events[i], *e2;
-    char *name = (char*) malloc(16 * sizeof(char));
-    strcpy(name, e1 -> name);
-    float millis, total = 0.0;
-    while(e1 != nullptr && e1 -> next != nullptr)
-    {
-      e2 = e1 -> next;
-      cudaEventElapsedTime(&millis, e1 -> event, e2 -> event);
-      total += millis;
-      e1 = e2 -> next;
-    }
-    printf ("%s:  %f ms.\n", name, total);
-
-    e1 = events[i];
-    while(e1 != nullptr)
-    {
-      e2 = e1 -> next;
-      cudaEventDestroy(e1 -> event);
-      free(e1 -> name);
-      free(e1);
-      e1 = e2;
-    }
-    free(name);
-  }
-
-  event_counter = 0;
-  printf("All timed events dumped, table is cleared. \n");
-  printf("--------------------------------------------------------\n\n");
-
-  return cudaSuccess;
-}
 
 #endif

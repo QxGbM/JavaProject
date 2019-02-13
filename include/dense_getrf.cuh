@@ -40,6 +40,59 @@ __device__ void blockDenseGemm (const thread_group g, const matrixEntriesT alpha
 }
 
 template <class matrixEntriesT>
+__device__ void blockDenseTrsm (thread_group g, const bool side_left, const bool uplo_lower, const bool diag_unit, const matrixEntriesT *A, matrixEntriesT *B, 
+  const unsigned int m, const unsigned int n, const matrixEntriesT alpha, const unsigned int ld_a, const unsigned ld_b)
+{
+  if (side_left)
+  {
+    if (uplo_lower)
+    {
+      for (unsigned int i = 0; i < m; i++)
+      {
+        if (!diag_unit) { blockDenseScalar <matrixEntriesT> (g, 1.0 / A[i * ld_a + i], &B[i * ld_b], n, ld_b, 1); }
+        if (i != m - 1)
+        { blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &A[(i + 1) * ld_a + i], &B[i * ld_b], &B[(i + 1) * ld_b], 
+            ld_a, ld_b, ld_b, m - (i + 1), n, 1); }
+      }
+    }
+    else
+    {
+      for (unsigned int i = 0; i < m; i++)
+      {
+        if (!diag_unit) { blockDenseScalar <matrixEntriesT> (g, 1.0 / A[(m - (i + 1)) * ld_a + (m - (i + 1))], &B[(m - (i + 1)) * ld_b], n, ld_b, 1); }
+        if (i != m - 1)
+        { blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &A[i], &B[(m - (i + 1)) * ld_b], B, 
+            ld_a, ld_b, ld_b, m - (i + 1), n, 1); }
+      }
+    }
+  }
+  else
+  {
+    if (uplo_lower)
+    {
+      for (unsigned int i = 0; i < n; i++)
+      {
+        if (!diag_unit) { blockDenseScalar <matrixEntriesT> (g, 1.0 / A[(n - (i + 1)) * ld_a + (n - (i + 1))], &B[n - (i + 1)], 1, ld_b, m); }
+        if (i != n - 1)
+        { blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &B[(n - (i + 1))], &A[(n - (i + 1)) * ld_a], B, 
+            ld_a, ld_b, ld_b, m, n - (i + 1), 1); }
+      }
+    }
+    else
+    {
+      for (unsigned int i = 0; i < n; i++)
+      {
+        if (!diag_unit) { blockDenseScalar <matrixEntriesT> (g, 1.0 / A[i * ld_a + i], &B[i], 1, ld_b, m); }
+        if (i != n - 1)
+        { blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &B[i], &A[i * ld_a + (i + 1)], &B[i + 1], 
+            ld_a, ld_b, ld_b, m, n - (i + 1), 1); }
+      }
+    }
+  }
+}
+
+
+template <class matrixEntriesT>
 __device__ void blockDenseGetrfNoPivot (matrixEntriesT *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
 {
   const thread_block g = this_thread_block();
