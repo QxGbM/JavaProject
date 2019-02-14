@@ -2,12 +2,17 @@
 #ifndef _CUDA_HELPER_CUH
 #define _CUDA_HELPER_CUH
 
+#define BLOCK_SIZE 16 // Each block has 16^2 = 1024 threads, make sure the cuda device allows
+#define CUDA_DEVICE 0
+
+#include <cuda_timer.cuh>
+
 #include <stdio.h>
 #include <string.h>
 #include <cuda.h>
+#include <cooperative_groups.h>
 
-#define BLOCK_SIZE 16 // Each block has 16^2 = 1024 threads, make sure the cuda device allows
-#define CUDA_DEVICE 0
+using namespace cooperative_groups;
 
 template <class matrixEntriesT>
 __host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEntriesT **dev_matrix,
@@ -16,7 +21,8 @@ __host__ cudaError_t matrix_copy_toDevice_sync (matrixEntriesT *matrix, matrixEn
   /* 
   * A synchronous copy of matrix to dev_matrix.
   * Matrix can be stored in pageable memory.
-  * This function also allocates dev_matrix if it is not allocated.
+  * This function also allocates dev_matrix using namespace cooperative_groups;
+if it is not allocated.
   */
 
   if (ld < nx) { printf("MEM COPY ABORT: Matrix x's horizontal offset is less than the number of entries.\n");  return cudaErrorInvalidConfiguration; }
@@ -75,7 +81,30 @@ __host__ cudaError_t matrix_copy_toHost_sync (matrixEntriesT **dev_matrix, matri
 }
 
 template <class matrixEntriesT>
-__device__ void matrix_copy_inDevice (matrixEntriesT *target, matrixEntriesT *source, )
+__device__ void matrix_copy_inDevice (thread_group g, matrixEntriesT *target, const matrixEntriesT *source, 
+  const unsigned int nx, const unsigned int ny, const unsigned int ld_target, const unsigned int ld_source)
+{
+  for (unsigned int i = g.thread_rank(); i < nx * ny; i += g.size())
+  { 
+    const unsigned row = i / nx, col = i - row * nx;
+    target[row * ld_target + col] = source[row * ld_source + col];
+  }
+  g.sync();
+}
+
+template <class matrixEntriesT>
+__device__ void matrix_copy_inDevice (thread_group g, matrixEntriesT *target, const matrixEntriesT *source, 
+  const unsigned int nx, const unsigned int ny, const unsigned int ld)
+{
+  matrix_copy_inDevice (g, target, source, nx, ny, ld, ld);
+}
+
+template <class matrixEntriesT>
+__device__ void matrix_copy_inDevice (thread_group g, matrixEntriesT *target, const matrixEntriesT *source, 
+  const unsigned int nx, const unsigned int ny)
+{
+  matrix_copy_inDevice (g, target, source, nx, ny, nx, nx);
+}
 
 
 #endif
