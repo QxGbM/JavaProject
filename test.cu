@@ -3,6 +3,8 @@
 #include <cuda.h>
 #include <cooperative_groups.h>
 
+#include <dev_dense.cuh>
+
 using namespace cooperative_groups;
 
 struct dev_hierarchical {
@@ -37,7 +39,7 @@ struct dev_hierarchical {
     return 0;
   }
 
-  int set_element(struct dev_dense *matrix, int x, int y)
+  int set_element(struct dev_dense <double> *matrix, int x, int y)
   {
     elements[y * nx + x] = (void *) matrix;
     elements_type[y * nx + x] = 1;
@@ -91,7 +93,14 @@ __host__ int main()
 {
   //test_kernel();
 
-  struct dev_hierarchical a = dev_hierarchical(2, 2);
+  struct dev_dense <double> a = dev_dense <double> (3, 3);
+  a.loadRandomMatrix(-10, 10, 888);
+  struct dev_dense <double> b = dev_dense <double> (3, 3);
+  b.loadTestMatrix();
+  struct dev_dense <double> *c = b.restoreLU();
   a.print();
+  a.copyToDevice_Sync();
+  b.print();
+  c -> print();
   return 0;
 }
