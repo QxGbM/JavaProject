@@ -4,6 +4,7 @@
 #include <cooperative_groups.h>
 
 #include <dev_dense.cuh>
+#include <cuda_timer.cuh>
 
 using namespace cooperative_groups;
 
@@ -67,13 +68,13 @@ __global__ void kernel (int *in)
   }
 }
 
-struct arguments {
-  int *in;
-};
-
-
 __host__ void test_kernel()
 {
+  
+  struct arguments {
+    int *in;
+  };
+
   int numBlocksPerSm = 0, numThreads = 64;
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, kernel, numThreads, 0);
   printf("#threads: %d, #blocks: %d\n", numThreads, numBlocksPerSm);
@@ -85,15 +86,29 @@ __host__ void test_kernel()
   cudaMemcpy(&dev_num, &num, sizeof(int), cudaMemcpyHostToDevice);
   args -> in = dev_num;
 
+  struct timer myTimer = timer();
+  myTimer.newEvent("test");
+  myTimer.newEvent("test2");
   cudaLaunchCooperativeKernel((void *)kernel, 1 * numBlocksPerSm, numThreads, (void **) &args);
-  cudaDeviceSynchronize();
+  myTimer.newEvent("test2");
+
+  cudaLaunchCooperativeKernel((void *)kernel, 1 * numBlocksPerSm, numThreads, (void **) &args);
+
+  myTimer.newEvent("test2");
+  cudaLaunchCooperativeKernel((void *)kernel, 1 * numBlocksPerSm, numThreads, (void **) &args);
+  myTimer.newEvent("test2");
+
+  myTimer.newEvent("test");
+
+  myTimer.printStatus();
+  myTimer.dumpAllEvents_Sync();
 }
 
 __host__ int main()
 {
-  //test_kernel();
+  test_kernel();
 
-  struct dev_dense <double> a = dev_dense <double> (3, 3);
+  /*struct dev_dense <double> a = dev_dense <double> (3, 3);
   a.loadRandomMatrix(-10, 10, 888);
   struct dev_dense <double> b = dev_dense <double> (3, 3);
   b.loadTestMatrix();
@@ -101,6 +116,6 @@ __host__ int main()
   a.print();
   a.copyToDevice_Sync();
   b.print();
-  c -> print();
+  c -> print();*/
   return 0;
 }

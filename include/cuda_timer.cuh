@@ -1,99 +1,142 @@
+
 #ifndef CUDA_TIMER_CUH
 #define CUDA_TIMER_CUH
 
+#include <stdio.h>
+#include <malloc.h>
+#include <string.h>
 #include <cuda.h>
-#define TIME_TABLE_SIZE 16
-#define MAX_NAME_LENGTH 16
 
 /* Timer Functions */
 
 struct event_chain {
+  
   cudaEvent_t event;
-  char* name;
   struct event_chain *next;
+
+  __host__ event_chain (cudaStream_t stream = 0)
+  {
+    cudaEventCreate (&event);
+    cudaEventRecord (event, stream);
+    next = nullptr;
+  }
+
+  __host__ ~event_chain ()
+  {
+    cudaEventDestroy (event);
+    if (next != nullptr)
+    { next -> ~event_chain(); free (next); }
+  }
+
+  __host__ struct event_chain * getLastChainElement ()
+  {
+    struct event_chain *p = this;
+    while (p -> next != nullptr) { p = p -> next; }
+    return p;
+  }
+
+  __host__ int length ()
+  {
+    return (next == nullptr) ? 1 : 1 + next -> length();
+  }
+
 };
 
-struct event_chain **events = nullptr;
-int event_counter = 0;
+struct timer {
 
-__host__ cudaError_t create_timing_event_to_stream (const char* event_name, cudaStream_t stream = 0)
-{
-  cudaError_t error = cudaSuccess;
-  if (events == nullptr) 
-  { 
-    events = (struct event_chain**) malloc(TIME_TABLE_SIZE * sizeof(struct event_chain*));
-    for (unsigned i = 0; i < TIME_TABLE_SIZE; i++) { events[i] = nullptr; }
+  struct event_chain **events;
+  char **names;
+  int event_counter;
+  int table_size;
+
+  __host__ timer (int time_table_size = 16)
+  {
+    events = (struct event_chain**) malloc (time_table_size * sizeof(struct event_chain*));
+    names = (char **) malloc (time_table_size * sizeof(char *));
+    memset ((void *) events, 0, time_table_size * sizeof(struct event_chain*));
+    memset ((void *) names, 0, time_table_size * sizeof(char *));
+    event_counter = 0;
+    table_size = time_table_size;
   }
 
-  struct event_chain *p = nullptr;
-  for (int i = 0; i < event_counter; i++)
+  __host__ ~timer ()
   {
-    if ((events[i] != nullptr) && (strcmp(event_name, events[i] -> name) == 0)) { p = events[i]; }
+    for (int i = 0; i < event_counter; i++)
+    { events[i] -> ~event_chain(); free(events[i]); free(names[i]); }
+    free (events);
+    printf("-- Timer destructed. --\n\n");
   }
 
-  if (p == nullptr)
+  __host__ void newEvent (const char *event_name, cudaStream_t stream = 0)
   {
-    p = (struct event_chain*) malloc(sizeof(struct event_chain));
-    events[event_counter] = p;
-    event_counter++;
-  }
-  else 
-  {
-    while (p -> next != nullptr) { p = p -> next; }
-    p -> next = (struct event_chain*) malloc(sizeof(struct event_chain));
-    p = p -> next;
-  }
-
-  error = cudaEventCreate(&(p -> event));
-  p -> name = (char*) malloc(MAX_NAME_LENGTH * sizeof(char));
-  strcpy(p -> name, event_name);
-  p -> next = nullptr;
-  error = cudaEventRecord(p -> event, stream);
-
-  return error;
-
-}
-
-__host__ cudaError_t device_sync_dump_timed_events ()
-{
-  cudaError_t error = cudaDeviceSynchronize();
-  if (error != cudaSuccess) { return error; }
-
-  printf("--------------------------------------------------------\n");
-  printf("All CUDA execution finished, start dumping timed events:\n");
-
-  for (int i = 0; i < event_counter; i++)
-  {
-    struct event_chain *e1 = events[i], *e2;
-    char *name = (char*) malloc(16 * sizeof(char));
-    strcpy(name, e1 -> name);
-    float millis, total = 0.0;
-    while(e1 != nullptr && e1 -> next != nullptr)
+    struct event_chain *p = nullptr;
+    for (int i = 0; i < event_counter; i++)
     {
-      e2 = e1 -> next;
-      cudaEventElapsedTime(&millis, e1 -> event, e2 -> event);
-      total += millis;
-      e1 = e2 -> next;
+      if (strcmp(event_name, names[i]) == 0) { p = events[i]; }
     }
-    printf ("%s:  %f ms.\n", name, total);
 
-    e1 = events[i];
-    while(e1 != nullptr)
+    if (p == nullptr && event_counter < table_size)
     {
-      e2 = e1 -> next;
-      cudaEventDestroy(e1 -> event);
-      free(e1 -> name);
-      free(e1);
-      e1 = e2;
+      events[event_counter] = new event_chain(stream);
+      names[event_counter] = (char *) malloc (strlen(event_name) * sizeof(char));
+      strcpy(names[event_counter], event_name);
+      event_counter ++;
     }
-    free(name);
+    else if (event_counter < table_size)
+    { p -> getLastChainElement() -> next = new event_chain(stream); }
+    else
+    { printf("Table is full and Timer cannot add in another event: %s. \n\n", event_name); }
+
   }
 
-  event_counter = 0;
-  printf("All timed events dumped, table is cleared. \n");
-  printf("--------------------------------------------------------\n\n");
+  __host__ cudaError_t dumpAllEvents_Sync ()
+  {
+    cudaError_t error = cudaDeviceSynchronize();
+    if (error != cudaSuccess) { return error; }
 
-  return cudaSuccess;
-}
+    printf("-----------------------------------------------------\n");
+    printf("CUDA device synchronized, start dumping timed events:\n");
+
+    for (int i = 0; i < event_counter; i++)
+    {
+      struct event_chain *e1 = events[i], *e2;
+
+      float millis, total = 0.0;
+      while(e1 != nullptr && e1 -> next != nullptr)
+      {
+        e2 = e1 -> next;
+        cudaEventElapsedTime (&millis, e1 -> event, e2 -> event);
+        total += millis;
+        e1 = e2 -> next;
+      }
+      printf ("%s:  %f ms.\n", names[i], total);
+
+      events[i] -> ~event_chain();
+      free(events[i]);
+      free(names[i]);
+      events[i] = nullptr;
+      names[i] = nullptr;
+    }
+
+    event_counter = 0;
+    printf("All timed events dumped, table is cleared. \n");
+    printf("-----------------------------------------------------\n\n");
+
+    return cudaSuccess;
+  }
+
+  __host__ void printStatus ()
+  {
+    printf("-- Timer Status: --\nTotal Timed Events: %d.\n", event_counter);
+
+    for (int i = 0; i < event_counter; i++)
+    {
+      printf("Event: %s has %d marks.\n", names[i], events[i] -> length());
+    }
+
+    printf("-- Timer Status End. --\n\n");
+  }
+
+};
 
 #endif

@@ -1,15 +1,14 @@
 #include <pivot.cuh>
 #include <dense_getrf.cuh>
+#include <dev_dense.cuh>
+#include <cuda_timer.cuh>
 
-#include <helper_functions.h>
-#include <cuda_helper_functions.cuh>
-
-__global__ void partial_pivot_kernel (unsigned int *pivot, double *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+__global__ void partial_pivot_kernel (int *pivot, double *matrix, const int nx, const int ld, const int ny)
 {
   blockDenseGetrfWithPivot <double, 32> (pivot, matrix, nx, ld, ny);
 }
 
-__global__ void recover_pivot_kernel (unsigned int *pivot, double *matrix, const unsigned int nx, const unsigned int ld, const unsigned int ny)
+__global__ void recover_pivot_kernel (int *pivot, double *matrix, const int nx, const int ld, const int ny)
 {
   blockApplyPivot <double> (this_thread_block(), pivot, true, matrix, nx, ld, ny);
 }
@@ -17,46 +16,37 @@ __global__ void recover_pivot_kernel (unsigned int *pivot, double *matrix, const
 __host__ int main()
 {
   cudaSetDevice(0);
-  const unsigned nx = 16, ld = 16, ny = 16;
-  srand(999);
-  double *matrix = randomMatrix(nx, ny, 0, 10);
-  unsigned *pivot = (unsigned*) malloc(ny * sizeof(unsigned));
-  printMatrix(matrix, nx, ld, ny);
+  const int nx = 16, ld = 16, ny = 16;
 
-  double *dev_matrix = 0;
-  unsigned *dev_pivot = 0;
-  matrix_copy_toDevice_sync <double> (matrix, &dev_matrix, nx, ld, ny);
-  matrix_copy_toDevice_sync <unsigned> (pivot, &dev_pivot, ny, ny, 1);
+  struct dev_dense <double> *a = new dev_dense <double> (nx, ny, ld);
+  a -> loadRandomMatrix(-10, 10, 999);
+  a -> print();
+  a -> copyToDevice_Sync();
+
+  struct timer myTimer = timer();
 
   dim3 block(128), grid(1);
-  create_timing_event_to_stream ("pivot", 0);
-  partial_pivot_kernel <<<grid, block>>> (dev_pivot, dev_matrix, nx, ld, ny);
-  create_timing_event_to_stream ("pivot", 0);
-  device_sync_dump_timed_events ();
+  myTimer.newEvent("pivot");
+  partial_pivot_kernel <<<grid, block, 0, 0>>> (a -> dev_pivot, a -> dev_ptr, nx, ld, ny);
+  myTimer.newEvent("pivot");
+  cudaDeviceSynchronize();
 
-  matrix_copy_toHost_sync <double> (&dev_matrix, matrix, nx, ld, ny);
+  a -> copyToHost_Sync();
+  a -> print();
 
-  double *result = multiplyLU(matrix, nx, nx, ny);
-  printMatrix(matrix, nx, ld, ny);
-  double *dev_result = 0;
+  struct dev_dense <double> *b = a -> restoreLU();
+  b -> print();
+  b -> copyToDevice_Sync();
 
-  matrix_copy_toDevice_sync <double> (result, &dev_result, nx, ld, ny);
+  myTimer.newEvent("pivot recovery");
+  recover_pivot_kernel <<<grid, block, 0, 0>>> (a -> dev_pivot, b -> dev_ptr, nx, ld, ny);
+  myTimer.newEvent("pivot recovery");
 
-  create_timing_event_to_stream ("pivot recovery", 0);
-  recover_pivot_kernel <<<grid, block>>> (dev_pivot, dev_result, nx, ld, ny);
-  create_timing_event_to_stream ("pivot recovery", 0);
-  device_sync_dump_timed_events ();
+  myTimer.printStatus();
+  myTimer.dumpAllEvents_Sync();
 
-  matrix_copy_toHost_sync <double> (&dev_result, result, nx, ld, ny, true);
-  matrix_copy_toHost_sync <unsigned> (&dev_pivot, pivot, ny, ny, 1, true);
-
-  printMatrix(result, nx, ld, ny);
-  printf("\n");
-  for(unsigned x = 0; x < nx; x++)
-  {
-    printf("%d, ", pivot[x]);
-  }
-  printf("\n");
+  b -> copyToHost_Sync();
+  b -> print();
 
   cudaDeviceReset();
   return 0;

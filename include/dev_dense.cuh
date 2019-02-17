@@ -14,57 +14,89 @@ template <class matrixEntriesT> struct dev_dense {
   int ld;
 
   matrixEntriesT *elements;
+  int *pivot;
 
   int dev_ld;
 
   matrixEntriesT *dev_ptr;
+  int *dev_pivot;
 
   __host__ dev_dense (const int x, const int y, const int d = 0)
   {
     nx = x;
     ny = y;
     ld = (x > d) ? x : d;
+
     elements = (matrixEntriesT *) malloc (y * ld * sizeof(matrixEntriesT));
     memset ((void *) elements, 0, y * ld * sizeof(matrixEntriesT));
+    
+    pivot = (int *) malloc (y * sizeof(int));
+    resetPivot();
+
     dev_ld = 0;
     dev_ptr = nullptr;
+    dev_pivot = nullptr;
   }
 
   __host__ ~dev_dense ()
   {
     free(elements);
+    free(pivot);
     if (dev_ptr != nullptr)
-    {
-      cudaFree(dev_ptr);
-      printf("Freed %d x %d matrix in cuda global memory.\n\n", ny, dev_ld);
-    }
+    { cudaFree(dev_ptr); }
+    if (dev_pivot != nullptr)
+    { cudaFree(dev_pivot); }
+
+    printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
   }
 
-  __host__ cudaError_t copyToDevice_Sync (const bool keep_same_ld = false)
+  __host__ void resetPivot ()
+  {
+    for (int i = 0; i < ny; i++) { pivot[i] = i; }
+  }
+
+  __host__ cudaError_t copyToDevice_Sync (const bool copy_pivot = true, const bool keep_same_ld = false)
   {
     cudaError_t error = cudaSuccess;
     dev_ld = keep_same_ld ? ld : nx;
     
     if (dev_ptr == nullptr) 
     {
-      error = cudaMalloc((void**) &dev_ptr, dev_ld * ny * sizeof(matrixEntriesT));
+      error = cudaMalloc ((void**) &dev_ptr, dev_ld * ny * sizeof(matrixEntriesT));
       if (error != cudaSuccess)
       { return error; }
       else
-      { printf("Allocated %d x %d matrix in cuda global memory.\n\n", ny, dev_ld); }
+      { printf("-- Allocated %d x %d matrix in cuda device. --\n\n", ny, dev_ld); }
     }
   
     for (int i = 0; i < ny; i++)
     {
-      error = cudaMemcpy(&dev_ptr[i * dev_ld], &elements[i * ld], nx * sizeof(matrixEntriesT), cudaMemcpyHostToDevice);
+      error = cudaMemcpy (&dev_ptr[i * dev_ld], &elements[i * ld], nx * sizeof(matrixEntriesT), cudaMemcpyHostToDevice);
       if (error != cudaSuccess) { return error; }
+    }    
+    printf("-- Copied %d x %d entries from host to cuda device. --\n\n", ny, nx);
+
+    if (copy_pivot)
+    {
+      if (dev_pivot == nullptr)
+      {
+        error = cudaMalloc ((void **) &dev_pivot, ny * sizeof(int));
+        if (error != cudaSuccess)
+        { return error; }
+        else
+        {
+          error = cudaMemcpy (dev_pivot, pivot, ny * sizeof(int), cudaMemcpyHostToDevice);
+          if (error != cudaSuccess)
+          { return error; }
+          else
+          { printf("-- Allocated and copied row permutations for %d rows. --\n\n", ny); }
+        }
+      }
     }
-    
-    printf("Copied %d x %d entries from host to cuda global memory.\n\n", ny, nx);
     return cudaSuccess;
   }
 
-  __host__ cudaError_t copyToHost_Sync (const bool free_device = false)
+  __host__ cudaError_t copyToHost_Sync (const bool copy_pivot = true, const bool free_device = false)
   {
     cudaError_t error = cudaSuccess;
     for (int i = 0; i < ny; i++)
@@ -73,16 +105,27 @@ template <class matrixEntriesT> struct dev_dense {
       if (error != cudaSuccess) { return error; }
     }
     
-    printf("Copied %d x %d entries from cuda global memory to host.\n\n", ny, nx);
+    printf("-- Copied %d x %d entries from cuda device to host. --\n\n", ny, nx);
+
+    if (copy_pivot)
+    {
+      error = cudaMemcpy (pivot, dev_pivot, ny * sizeof(int), cudaMemcpyDeviceToHost);
+      if (error != cudaSuccess)
+      { return error; }
+      else
+      { printf("-- Copied %d row permutations from cuda device to host. --\n\n", ny); }
+    }
   
     if (free_device)
     {
       error = cudaFree(dev_ptr);
+      if (dev_pivot != nullptr) { error = cudaFree(dev_pivot); }
       if (error != cudaSuccess) { return error; }
       dev_ld = 0;
       dev_ptr = nullptr;
+      dev_pivot = nullptr;
   
-      printf("Freed %d x %d matrix in cuda global memory.\n\n", ny, dev_ld);
+      printf("-- Freed %d x %d matrix in cuda device. --\n\n", ny, dev_ld);
     }
   
     return cudaSuccess;
@@ -92,16 +135,23 @@ template <class matrixEntriesT> struct dev_dense {
 
   __host__ void print ()
   {
-    printf("| %d x %d | leading dimension: %d |\n", ny, nx, ld);
-    for(int y = 0; y < ny; y++)
+    printf("-- %d x %d | leading dimension: %d --\n", ny, nx, ld);
+    for (int y = 0; y < ny; y++)
     {
-      for(int x = 0; x < nx; x++)
+      for (int x = 0; x < nx; x++)
       {
-        printf("%5.3f, ", elements[y * ld + x]);
+        matrixEntriesT e = elements[y * ld + x];
+        if (e >= 0) { printf(" "); }
+        printf("%5.3f, ", e);
       }
       printf("\n");
     }
-    printf("\n");
+    printf("\n-- Pivot: --\n");
+    for (int y = 0; y < ny; y++)
+    {
+      printf("%d ", pivot[y]);
+    }
+    printf("\n\n");
   }
 
   __host__ void loadTestMatrix()
@@ -125,7 +175,7 @@ template <class matrixEntriesT> struct dev_dense {
     }
   }
 
-  __host__ void loadRandomMatrix(const double min, const double max, const unsigned int seed = 0)
+  __host__ void loadRandomMatrix(const double min, const double max, const int seed = 0)
   {
     srand(seed);
     for(int x = 0; x < nx; x++)
