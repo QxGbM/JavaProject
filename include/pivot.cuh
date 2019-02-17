@@ -1,5 +1,6 @@
-#ifndef PIVOT_CUH
-#define PIVOT_CUH
+
+#ifndef _PIVOT_CUH
+#define _PIVOT_CUH
 
 #include <cooperative_groups.h>
 

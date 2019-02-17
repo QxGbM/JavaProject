@@ -1,5 +1,6 @@
-#ifndef DENSE_GETRF_CUH
-#define DENSE_GETRF_CUH
+
+#ifndef _DENSE_GETRF_CUH
+#define _DENSE_GETRF_CUH
 
 #include <pivot.cuh>
 

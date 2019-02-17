@@ -1,5 +1,4 @@
 
-
 #include <dev_dense.cuh>
 #include <cuda_timer.cuh>
 #include <dense_getrf.cuh>
@@ -54,18 +53,14 @@ __host__ int dense_getrf_sync (double *matrix, const int nx, const int ld, const
   struct timer myTimer = timer();
   myTimer.newEvent("GETRF", main_stream);
 
-  //create_timing_event_to_stream ("GETRF TOTAL", main_stream);
-
   dense_getrf_kernel <<<grid, block, shm_size, main_stream>>> (matrix, nx, ld, ny);
 
-  //create_timing_event_to_stream ("GETRF TOTAL", main_stream);
   myTimer.newEvent("GETRF", main_stream);
   cudaStreamDestroy(main_stream);
 
   myTimer.printStatus();
   myTimer.dumpAllEvents_Sync();
 
-  //device_sync_dump_timed_events ();
   printf("Cuda Execution: getrf finished.\n\n");
 
   return 0;

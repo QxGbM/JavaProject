@@ -1,6 +1,6 @@
 
-#ifndef CUDA_TIMER_CUH
-#define CUDA_TIMER_CUH
+#ifndef _CUDA_TIMER_CUH
+#define _CUDA_TIMER_CUH
 
 #include <stdio.h>
 #include <malloc.h>
