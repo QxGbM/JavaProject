@@ -9,40 +9,40 @@
 
 /* Timer Functions */
 
-struct event_chain {
-  
-  cudaEvent_t event;
-  struct event_chain *next;
-
-  __host__ event_chain (cudaStream_t stream = 0)
-  {
-    cudaEventCreate (&event);
-    cudaEventRecord (event, stream);
-    next = nullptr;
-  }
-
-  __host__ ~event_chain ()
-  {
-    cudaEventDestroy (event);
-    if (next != nullptr)
-    { next -> ~event_chain(); free (next); }
-  }
-
-  __host__ struct event_chain * getLastChainElement ()
-  {
-    struct event_chain *p = this;
-    while (p -> next != nullptr) { p = p -> next; }
-    return p;
-  }
-
-  __host__ int length ()
-  {
-    return (next == nullptr) ? 1 : 1 + next -> length();
-  }
-
-};
-
 struct timer {
+
+  struct event_chain {
+  
+    cudaEvent_t event;
+    struct event_chain *next;
+  
+    __host__ event_chain (cudaStream_t stream = 0)
+    {
+      cudaEventCreate (&event);
+      cudaEventRecord (event, stream);
+      next = nullptr;
+    }
+  
+    __host__ ~event_chain ()
+    {
+      cudaEventDestroy (event);
+      if (next != nullptr)
+      { next -> ~event_chain(); free (next); }
+    }
+  
+    __host__ struct event_chain * getLastChainElement ()
+    {
+      struct event_chain *p = this;
+      while (p -> next != nullptr) { p = p -> next; }
+      return p;
+    }
+  
+    __host__ int length ()
+    {
+      return (next == nullptr) ? 1 : 1 + next -> length();
+    }
+  
+  };
 
   struct event_chain **events;
   char **names;

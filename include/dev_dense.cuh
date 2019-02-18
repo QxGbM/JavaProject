@@ -134,7 +134,7 @@ template <class matrixEntriesT> struct dev_dense {
 
   /* Host Functions */
 
-  __host__ void print ()
+  __host__ void print (const bool print_pivot = true)
   {
     printf("-- %d x %d | leading dimension: %d --\n", ny, nx, ld);
     for (int y = 0; y < ny; y++)
@@ -147,12 +147,18 @@ template <class matrixEntriesT> struct dev_dense {
       }
       printf("\n");
     }
-    printf("\n-- Pivot: --\n");
-    for (int y = 0; y < ny; y++)
+
+    if (print_pivot)
     {
-      printf("%d ", pivot[y]);
+      printf("\n-- Pivot: --\n");
+      for (int y = 0; y < ny; y++)
+      {
+        printf("%d ", pivot[y]);
+      }
+      printf("\n");
     }
-    printf("\n\n");
+    
+    printf("\n");
   }
 
   __host__ void loadTestMatrix()
@@ -178,7 +184,7 @@ template <class matrixEntriesT> struct dev_dense {
 
   __host__ void loadRandomMatrix(const double min, const double max, const int seed = 0)
   {
-    srand(seed);
+    if (seed > 0) { srand(seed); }
     for(int x = 0; x < nx; x++)
     {
       for(int y = 0; y < ny; y++)

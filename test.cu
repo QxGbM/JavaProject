@@ -60,10 +60,14 @@ __host__ void test_kernel()
 __host__ int main()
 {
   //test_kernel();
+  //printf("rabaaseeeeeeeeeefddddddddddded");
+
 
   struct dev_hierarchical <double> a = dev_hierarchical <double> (2, 2);
   a.loadTestMatrix();
   a.print();
+
+  //a -> ~dev_hierarchical();
 
   return 0;
 }
