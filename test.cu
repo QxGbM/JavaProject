@@ -6,6 +6,7 @@
 #include <dev_dense.cuh>
 #include <cuda_timer.cuh>
 #include <dev_hierarchical.cuh>
+#include <dag.cuh>
 
 using namespace cooperative_groups;
 
@@ -60,14 +61,19 @@ __host__ void test_kernel()
 __host__ int main()
 {
   //test_kernel();
-  //printf("rabaaseeeeeeeeeefddddddddddded");
-
 
   struct dev_hierarchical <double> a = dev_hierarchical <double> (2, 2);
   a.loadTestMatrix();
-  a.print();
+  //a.print();
 
-  //a -> ~dev_hierarchical();
+  int n[] = {0, 3}, l = 2;
+  struct multi_level_index i = multi_level_index(2, &n[0]);
+  struct multi_level_index i2 = multi_level_index(2, &n[0]);
+
+  printf("%d\n", i2.compare(&i));
+
+  struct h_matrix_element <double> *e = a.lookup(&l);
+  e -> print();
 
   return 0;
 }
