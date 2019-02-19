@@ -75,5 +75,8 @@ __host__ int main()
   struct h_matrix_element <double> *e = a.lookup(&l);
   e -> print();
 
+  struct ops_chain *c = get_ops_hgetrf(&a);
+  c -> print();
+
   return 0;
 }
