@@ -70,9 +70,9 @@ struct multi_level_index {
 
   __host__ int compare (const struct multi_level_index *in)
   {
-    if (in == nullptr) { return ns[0]; }
+    if (in == nullptr) { return -1; }
 
-    int n = (in -> levels > levels) ? levels : in -> levels;
+    int n = ((in -> levels) > levels) ? levels : (in -> levels);
     for (int i = 0; i < n; i++) 
     { if (ns[i] != (in -> ns)[i]) return -1; }
 

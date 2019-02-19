@@ -63,17 +63,36 @@ struct ops_chain {
     { next = chain; }
   }
 
-  __host__ int length ()
+  __host__ struct ops_chain * lookup (const int index)
   {
-    int l_child = (child == nullptr) ? 0 : child -> length();
-    int l_next = (next == nullptr) ? 0 : next -> length();
-    return 1 + l_child + l_next;
+    if (child == nullptr)
+    {
+      if (index == 0) { return this; }
+      if (next != nullptr) { return next -> lookup(index - 1); } 
+    }
+
+    if (child != nullptr)
+    {
+      int length = child -> length();
+      if (index < length) { return child -> lookup(index); }
+      if (next != nullptr) { return next -> lookup(index - length); }
+    }
+
+    return nullptr;
   }
 
-  __host__ void print (const bool indent = true)
+  __host__ int length ()
+  {
+    int l_child = (child == nullptr) ? 1 : child -> length();
+    int l_next = (next == nullptr) ? 0 : next -> length();
+    return l_child + l_next;
+  }
+
+  __host__ void print (const int op_id = 0, const bool indent = true, const bool recurse = true)
   {
     for (int i = 0; i < (dest -> levels) && indent; i++) { printf("  "); }
 
+    if (child == nullptr) { printf("%d: ", op_id); }
     switch(op_type)
     {
       case nop: printf("NOP "); break;
@@ -92,10 +111,12 @@ struct ops_chain {
     else { printf("_"); }
     printf("\n");
 
-    if (child != nullptr) { child -> print(); }
-    if (next != nullptr) { next -> print(); }
+    if (child != nullptr && recurse) { child -> print(op_id, indent, recurse); }
 
-    if (next == nullptr && dest -> levels == 1) { printf("\n"); }
+    int l_child = (child == nullptr) ? 1 : child -> length();
+    if (next != nullptr && recurse) { next -> print(op_id + l_child, indent, recurse); }
+
+    if ((next == nullptr && dest -> levels == 1) || !recurse) { printf("\n"); }
   }
 
 };
@@ -152,15 +173,130 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
   return ops;
 }
 
+enum dep_t {
+  no_dep,
+  flow_dep,
+  anti_dep,
+  flow_anti_dep,
+  output_dep,
+  flow_output_dep,
+  anti_output_dep,
+  flow_anti_output_dep,
+};
+
+__host__ dep_t add_dep (dep_t x, dep_t y) {
+  int a = (int) x, b = (int) y, r = 0;
+  for (int i = 4; i > 0; i = i / 2)
+  {
+    if (a >= i || b >= i) 
+    { 
+      r += i; 
+      a = (a >= i) ? a - i : a;
+      b = (b >= i) ? b - i : b; 
+    }
+  }
+  printf("%d\n", r);
+  return (dep_t) r; 
+}
+
+__host__ char * dep_str (dep_t x) {
+  int a = (int) x;
+  char *str = (char *) malloc (4 * sizeof(char));
+  if (a == 0) { sprintf(str, "  ND"); return str; }
+
+  if (a >= 4) { str[2] = 'O'; a -= 4; } else { str[2] = ' '; }
+  if (a >= 2) { str[1] = 'A'; a -= 2; } else { str[1] = ' '; }
+  if (a >= 1) { str[0] = 'F'; a -= 1; } else { str[0] = ' '; }
+  str[3] = 'D';
+
+  if (str[2] == ' ') 
+  { 
+    if (str[1] == 'A') { str[2] = 'A'; str[1] = str[0]; str[0] = ' '; }
+    else { str[2] = 'F'; str[0] = ' '; }
+  }
+  else if (str[1] == ' ' && str[0] == 'F')
+  { str[1] = 'F'; str[0] = ' '; }
+
+  return str;
+}
+
+
 struct dag {
 
   struct ops_chain *ops;
 
-  __host__ dag () {
-    ops = nullptr;
+  int length;
+  dep_t *dep;
+
+  __host__ dag (struct ops_chain * chain) {
+    ops = chain;
+    length = chain -> length();
+    dep = (dep_t *) malloc (length * length * sizeof(dep_t));
+    memset ((void *) dep, 0, length * length * sizeof(dep_t));
+    build_dep();
   }
 
+  __host__ ~dag ()
+  {
+    ops -> ~ops_chain();
+    free(ops);
+    free(dep);
+  }
 
+  __host__ void build_dep()
+  {
+    for (int i = 0; i < length; i++)
+    {
+      struct ops_chain *op_src = ops -> lookup(i);
+      struct multi_level_index *dest_src = op_src -> dest, *m1_src = op_src -> m1, *m2_src = op_src -> m2;
+
+      for (int j = i + 1; j < length; j++)
+      {
+        struct ops_chain *op = ops -> lookup(j);
+        struct multi_level_index *dest = op -> dest, *m1 = op -> m1, *m2 = op -> m2;
+
+        if (dest_src != nullptr) 
+        {
+          if (dest_src -> compare(m1) >= 0)
+          { dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); }
+          if (dest_src -> compare(m2) >= 0)
+          { dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); }
+          if (dest_src -> compare(dest) >= 0)
+          { dep[j * length + i] = add_dep(output_dep, dep[j * length + i]); }
+        }
+
+        if (dest != nullptr)
+        {
+          if (dest -> compare(m1_src) >= 0)
+          { dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); }
+          if (dest -> compare(m2_src) >= 0)
+          { dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); }
+        }
+      }
+    }
+  }
+
+  __host__ void print()
+  {
+    ops -> print();
+    for (int i = 0; i < length; i++)
+    {
+      printf("%d:\t", i);
+      for (int j = 0; j < length; j++)
+      {
+        if (j > i)
+        {
+          char *str = dep_str(dep[j * length + i]); 
+          printf("%s ", str);
+          free(str);
+        }
+        else
+        { printf("     "); }
+      }
+      printf("\n");
+    }
+    printf("\n");
+  }
   
 };
 

@@ -76,7 +76,12 @@ __host__ int main()
   e -> print();
 
   struct ops_chain *c = get_ops_hgetrf(&a);
-  c -> print();
+  //c -> print();
+
+  struct dag d = dag(c);
+  //struct ops_chain *my_c = c -> lookup(10);
+  //my_c -> print(0, true, false);
+  d.print();
 
   return 0;
 }
