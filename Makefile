@@ -61,7 +61,7 @@ pivot: pivot.o
 	./$(BIN)/$@
 
 svd: svd.o
-	$(CXX) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
+	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
 	./$(BIN)/$@
 
 test: test.o

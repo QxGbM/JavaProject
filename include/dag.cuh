@@ -6,15 +6,14 @@
 enum matrix_op_t {
   nop,
   getrf,
-  getrf_pivot,
-  apply_pivot,
-  trsm,
-  gemm,
+  gessm,
+  tstrf,
+  ssssm,
 };
 
 __host__ int calc_load (int op)
 {
-  int load_table[] = {1, 1, 1, 1, 1, 1};
+  int load_table[] = {1, 1, 1, 1, 1, 1, 1};
   return load_table[op];
 }
 
@@ -97,10 +96,9 @@ struct ops_chain {
     {
       case nop: printf("NOP "); break;
       case getrf: printf("GETRF "); break;
-      case getrf_pivot: printf("GETRFP "); break;
-      case apply_pivot: printf("PIVOT "); break;
-      case trsm: printf("TRSM "); break;
-      case gemm: printf("GEMM "); break;
+      case gessm: printf("GESSM "); break;
+      case tstrf: printf("TSTRF "); break;
+      case ssssm: printf("SSSSM "); break;
     }
 
     if (dest != nullptr) { dest -> print_short(); printf(", "); }
@@ -135,8 +133,8 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
     for (int j = i + 1; j < nx; j++)
     {
       e1 = (a -> elements)[i * nx + j];
-      p1 = new ops_chain(trsm, e1 -> index, e0 -> index);
-      // TODO: htrsm 
+      p1 = new ops_chain(gessm, e1 -> index, e0 -> index);
+      // TODO: hgessm
       //if (e1 -> element_type == hierarchical) 
       //{ p1 -> child = get_ops_htrsm ((struct dev_hierarchical <matrixEntriesT> *) (e1 -> element)); }
       p0 -> hookup(p1);
@@ -145,8 +143,8 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
     for (int j = i + 1; j < ny; j++)
     {
       e2 = (a -> elements)[j * nx + i];
-      p1 = new ops_chain(trsm, e2 -> index, e0 -> index);
-      // TODO: htrsm 
+      p1 = new ops_chain(tstrf, e2 -> index, e0 -> index);
+      // TODO: htstrf
       //if (e2 -> element_type == hierarchical) 
       //{ p1 -> child = get_ops_htrsm ((struct dev_hierarchical <matrixEntriesT> *) (e2 -> element)); }
       p0 -> hookup(p1);
@@ -159,7 +157,7 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
         e0 = (a -> elements)[j * nx + k];
         e1 = (a -> elements)[j * nx + i];
         e2 = (a -> elements)[i * nx + k];
-        p1 = new ops_chain(gemm, e0 -> index, e1 -> index, e2 -> index);
+        p1 = new ops_chain(ssssm, e0 -> index, e1 -> index, e2 -> index);
         // TODO: hgemm 
         //if (e2 -> element_type == hierarchical) 
         //{ p1 -> child = get_ops_hgemm ((struct dev_hierarchical <matrixEntriesT> *) (e0 -> element)); }
@@ -195,7 +193,6 @@ __host__ dep_t add_dep (dep_t x, dep_t y) {
       b = (b >= i) ? b - i : b; 
     }
   }
-  printf("%d\n", r);
   return (dep_t) r; 
 }
 

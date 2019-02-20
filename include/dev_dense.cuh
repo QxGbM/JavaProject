@@ -13,16 +13,16 @@ template <class matrixEntriesT> struct dev_dense {
   int nx;
   int ny;
   int ld;
-
-  matrixEntriesT *elements;
-  int *pivot;
-
   int dev_ld;
 
+  matrixEntriesT *elements;
   matrixEntriesT *dev_ptr;
+
+  bool pivoted;
+  int *pivot;
   int *dev_pivot;
 
-  __host__ dev_dense (const int x, const int y, const int d = 0)
+  __host__ dev_dense (const int x, const int y, const int d = 0, const bool alloc_pivot = true)
   {
     nx = x;
     ny = y;
@@ -31,8 +31,12 @@ template <class matrixEntriesT> struct dev_dense {
     elements = (matrixEntriesT *) malloc (y * ld * sizeof(matrixEntriesT));
     memset ((void *) elements, 0, y * ld * sizeof(matrixEntriesT));
     
-    pivot = (int *) malloc (y * sizeof(int));
-    resetPivot();
+    pivoted = alloc_pivot;
+    if (alloc_pivot)
+    {
+      pivot = (int *) malloc (y * sizeof(int));
+      for (int i = 0; i < ny; i++) { pivot[i] = i; }
+    }
 
     dev_ld = 0;
     dev_ptr = nullptr;
@@ -42,7 +46,8 @@ template <class matrixEntriesT> struct dev_dense {
   __host__ ~dev_dense ()
   {
     free(elements);
-    free(pivot);
+    if (pivoted)
+    { free(pivot); }
     if (dev_ptr != nullptr)
     { cudaFree(dev_ptr); }
     if (dev_pivot != nullptr)
@@ -51,12 +56,7 @@ template <class matrixEntriesT> struct dev_dense {
     printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
   }
 
-  __host__ void resetPivot ()
-  {
-    for (int i = 0; i < ny; i++) { pivot[i] = i; }
-  }
-
-  __host__ cudaError_t copyToDevice_Sync (const bool copy_pivot = true, const bool keep_same_ld = false)
+  __host__ cudaError_t copyToDevice_Sync (const bool keep_same_ld = false)
   {
     cudaError_t error = cudaSuccess;
     dev_ld = keep_same_ld ? ld : nx;
@@ -77,7 +77,7 @@ template <class matrixEntriesT> struct dev_dense {
     }    
     printf("-- Copied %d x %d entries from host to cuda device. --\n\n", ny, nx);
 
-    if (copy_pivot)
+    if (pivoted)
     {
       if (dev_pivot == nullptr)
       {
@@ -97,7 +97,7 @@ template <class matrixEntriesT> struct dev_dense {
     return cudaSuccess;
   }
 
-  __host__ cudaError_t copyToHost_Sync (const bool copy_pivot = true, const bool free_device = false)
+  __host__ cudaError_t copyToHost_Sync (const bool free_device = false)
   {
     cudaError_t error = cudaSuccess;
     for (int i = 0; i < ny; i++)
@@ -108,7 +108,7 @@ template <class matrixEntriesT> struct dev_dense {
     
     printf("-- Copied %d x %d entries from cuda device to host. --\n\n", ny, nx);
 
-    if (copy_pivot)
+    if (pivoted)
     {
       error = cudaMemcpy (pivot, dev_pivot, ny * sizeof(int), cudaMemcpyDeviceToHost);
       if (error != cudaSuccess)
@@ -134,7 +134,7 @@ template <class matrixEntriesT> struct dev_dense {
 
   /* Host Functions */
 
-  __host__ void print (const bool print_pivot = true)
+  __host__ void print ()
   {
     printf("-- %d x %d | leading dimension: %d --\n", ny, nx, ld);
     for (int y = 0; y < ny; y++)
@@ -148,7 +148,7 @@ template <class matrixEntriesT> struct dev_dense {
       printf("\n");
     }
 
-    if (print_pivot)
+    if (pivoted)
     {
       printf("\n-- Pivot: --\n");
       for (int y = 0; y < ny; y++)

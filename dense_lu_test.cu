@@ -82,7 +82,7 @@ void test_dense_getrf_nxn (const int nx, const int ny)
   struct dev_dense <double> *b = a -> restoreLU();
   a -> loadTestMatrix();
 
-  printf("Rel. L2 Error: %e\n", b -> L2Error(a));
+  printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
   printf("-------- n x n Dense GETRF test finished --------\n\n");
 
   a -> ~dev_dense();

@@ -21,7 +21,7 @@ __host__ int main()
 
   struct dev_dense <double> *a = new dev_dense <double> (nx, ny, ld);
   a -> loadRandomMatrix(-10, 10, 999);
-  a -> print();
+  //a -> print();
   a -> copyToDevice_Sync();
 
   struct timer myTimer = timer();
@@ -33,10 +33,10 @@ __host__ int main()
   cudaDeviceSynchronize();
 
   a -> copyToHost_Sync();
-  a -> print();
+  //a -> print();
 
   struct dev_dense <double> *b = a -> restoreLU();
-  b -> print();
+  //b -> print();
   b -> copyToDevice_Sync();
 
   myTimer.newEvent("pivot recovery");
@@ -47,7 +47,10 @@ __host__ int main()
   myTimer.dumpAllEvents_Sync();
 
   b -> copyToHost_Sync();
-  b -> print();
+  //b -> print();
+
+  a -> loadRandomMatrix(-10, 10, 999);
+  printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
 
   cudaDeviceReset();
   return 0;
