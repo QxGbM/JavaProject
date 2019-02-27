@@ -1,7 +1,6 @@
 .SUFFIXES: .cpp .cu
 
-USE_CUB		= TRUE
-
+#USE_CUB		= TRUE
 #USE_KBLAS 	= TRUE
 #USE_MKL	= TRUE
 
@@ -38,8 +37,9 @@ BIN	= ./bin
 INCLUDE	= ./include
 
 CFLAGS		+= -std=c++11 -ggdb3 -O3 -fopenmp -I$(INCLUDE) -Wall -Wfatal-errors
-NVCCFLAGS	+= -std=c++11 -I$(INCLUDE) -arch=sm_60 -rdc=true -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
-LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lblas -llapacke -lcuda -lcudart -arch=sm_60 -L/usr/lib/x86_64-linux-gnu
+
+NVCCFLAGS	+= -std=c++11 -I$(INCLUDE) -arch=sm_50 -rdc=true -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
+LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lcuda -lcudart -arch=sm_50 -L/usr/lib/x86_64-linux-gnu
 
 .cpp.o:
 	mkdir --parents $(BIN)

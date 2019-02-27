@@ -1,4 +1,6 @@
 
+
+#include <stdio.h>
 #include <pivot.cuh>
 #include <dense_getrf.cuh>
 #include <dev_dense.cuh>
@@ -6,12 +8,12 @@
 
 __global__ void partial_pivot_kernel (int *pivot, double *matrix, const int nx, const int ld, const int ny)
 {
-  blockDenseGetrfWithPivot <double, 32> (pivot, matrix, nx, ld, ny);
+  blockDenseGetrfWithPivot <double> (matrix, pivot, nx, ld, ny);
 }
 
 __global__ void recover_pivot_kernel (int *pivot, double *matrix, const int nx, const int ld, const int ny)
 {
-  blockApplyPivot <double> (this_thread_block(), pivot, true, matrix, nx, ld, ny);
+  blockApplyPivot <double> (matrix, pivot, nx, ld, ny, true);
 }
 
 __host__ int main()
@@ -21,19 +23,19 @@ __host__ int main()
 
   struct dev_dense <double> *a = new dev_dense <double> (nx, ny, ld);
   a -> loadRandomMatrix(-10, 10, 999);
-  //a -> print();
+  a -> print();
   a -> copyToDevice_Sync();
 
   struct timer myTimer = timer();
 
-  dim3 block(128), grid(1);
+  dim3 block(32), grid(1);
   myTimer.newEvent("pivot");
   partial_pivot_kernel <<<grid, block, 0, 0>>> (a -> dev_pivot, a -> dev_ptr, nx, ld, ny);
   myTimer.newEvent("pivot");
   cudaDeviceSynchronize();
 
   a -> copyToHost_Sync();
-  //a -> print();
+  a -> print();
 
   struct dev_dense <double> *b = a -> restoreLU();
   //b -> print();
