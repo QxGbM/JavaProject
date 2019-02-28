@@ -136,7 +136,7 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
       p1 = new ops_chain(gessm, e1 -> index, e0 -> index);
       // TODO: hgessm
       //if (e1 -> element_type == hierarchical) 
-      //{ p1 -> child = get_ops_htrsm ((struct dev_hierarchical <matrixEntriesT> *) (e1 -> element)); }
+      //{ p1 -> child = get_ops_hgessm ((struct dev_hierarchical <matrixEntriesT> *) (e1 -> element)); }
       p0 -> hookup(p1);
     }
 
@@ -146,7 +146,7 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
       p1 = new ops_chain(tstrf, e2 -> index, e0 -> index);
       // TODO: htstrf
       //if (e2 -> element_type == hierarchical) 
-      //{ p1 -> child = get_ops_htrsm ((struct dev_hierarchical <matrixEntriesT> *) (e2 -> element)); }
+      //{ p1 -> child = get_ops_htstrf ((struct dev_hierarchical <matrixEntriesT> *) (e2 -> element)); }
       p0 -> hookup(p1);
     }
 

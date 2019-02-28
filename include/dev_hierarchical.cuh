@@ -30,13 +30,10 @@ struct multi_level_index {
   {
     levels = (parent == nullptr) ? 1 : (1 + parent -> levels);
     ns = (int *) malloc (levels * sizeof(int));
-    if (parent == nullptr)
-    { ns[0] = n; }
-    else
-    { 
-      for(int i = 0; i < levels - 1; i++) { ns[i] = (parent -> ns)[i]; }
-      ns[levels - 1] = n;
-    }
+
+    for(int i = 0; i < levels - 1 && parent != nullptr; i++) 
+    { ns[i] = (parent -> ns)[i]; }
+    ns[levels - 1] = n;
   }
 
   __host__ ~multi_level_index ()

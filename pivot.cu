@@ -55,5 +55,11 @@ __host__ int main()
   printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
 
   cudaDeviceReset();
+
+  a -> ~dev_dense();
+  b -> ~dev_dense();
+  free(a);
+  free(b);
+  
   return 0;
 }

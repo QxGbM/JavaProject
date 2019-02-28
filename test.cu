@@ -63,22 +63,22 @@ __host__ int main()
   //test_kernel();
 
   struct dev_hierarchical <double> a = dev_hierarchical <double> (2, 2);
-  a.loadTestMatrix(1, 2);
+  a.loadTestMatrix(1, 2, 4);
   //a.print();
 
-  int n[] = {0, 3};
-  struct multi_level_index i = multi_level_index(2, &n[0]);
-  struct multi_level_index i2 = multi_level_index(2, &n[0]);
+  //int n[] = {0, 3};
+  //struct multi_level_index i = multi_level_index(2, &n[0]);
+  //struct multi_level_index i2 = multi_level_index(2, &n[0]);
 
   //printf("%d\n", i2.compare(&i));
 
   //struct h_matrix_element <double> *e = a.lookup(&l);
   //e -> print();
 
-  struct ops_chain *c = get_ops_hgetrf(&a);
+  //struct ops_chain *c = get_ops_hgetrf(&a);
   //c -> print();
 
-  struct dag d = dag(c);
+  struct dag d = dag(get_ops_hgetrf(&a));
   //struct ops_chain *my_c = c -> lookup(10);
   //my_c -> print(0, true, false);
   d.print();
