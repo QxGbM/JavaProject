@@ -69,7 +69,7 @@ __device__ int blockAllFindRowPivot (const matrixEntriesT *matrix, const int n, 
 }
 
 template <class matrixEntriesT>
-__device__ void blockExchangeRow_NElements (const int n, matrixEntriesT *row1, matrixEntriesT *row2, const thread_group g = this_thread_block())
+__device__ void blockSwapNSeqElements (matrixEntriesT *row1, matrixEntriesT *row2, const int n, const thread_group g = this_thread_block())
 {
   /* Using a group of threads to exchange all elements in row with target row. */
   for (int i = g.thread_rank(); i < n; i += g.size()) /* swapping n elements in two rows. */
@@ -89,6 +89,7 @@ __device__ void blockApplyPivot (matrixEntriesT *matrix, const int *pivot, const
   {
     bool smallest_row_in_cycle = true;
     int swapping_with = pivot[i];
+    
     while (smallest_row_in_cycle && swapping_with != i)
     {
       if (swapping_with < i) { smallest_row_in_cycle = false; }
@@ -101,12 +102,18 @@ __device__ void blockApplyPivot (matrixEntriesT *matrix, const int *pivot, const
       swapping_with = pivot[i];
       while (swapping_with != i) 
       { 
-        blockExchangeRow_NElements <matrixEntriesT> (nx, &matrix[source_row * ld], &matrix[swapping_with * ld]);
+        blockSwapNSeqElements <matrixEntriesT> (&matrix[source_row * ld], &matrix[swapping_with * ld], nx);
         source_row = recover ? i : swapping_with;
         swapping_with = pivot[swapping_with];
       }
     }
   }
+}
+
+__device__ void resetPivot (int *pivot, const int n, const thread_group g = this_thread_block())
+{
+  for (int i = g.thread_rank(); i < n; i += g.size()) 
+  { pivot[i] = i; }
 }
 
 

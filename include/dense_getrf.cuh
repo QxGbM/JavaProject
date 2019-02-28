@@ -72,7 +72,7 @@ template <class matrixEntriesT>
 __device__ void blockDenseGetrfWithPivot (matrixEntriesT *matrix, int *pivot, const int nx, const int ld, const int ny)
 {
   const thread_block g = this_thread_block();
-  for (int i = g.thread_rank(); i < ny; i += g.size()) { pivot[i] = i; }
+  resetPivot(pivot, ny);
 
   const int n = (nx < ny) ? nx : ny;
   for (int i = 0; i < n; i++)
@@ -81,7 +81,7 @@ __device__ void blockDenseGetrfWithPivot (matrixEntriesT *matrix, int *pivot, co
 
     if (target != i)
     {
-      blockExchangeRow_NElements <matrixEntriesT> (nx, &matrix[target * ld], &matrix[i * ld]);
+      blockSwapNSeqElements <matrixEntriesT> (&matrix[target * ld], &matrix[i * ld], nx);
       if (g.thread_rank() == 0) { int t = pivot[target]; pivot[target] = pivot[i]; pivot[i] = t; }
       g.sync();
     }

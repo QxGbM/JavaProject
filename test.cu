@@ -10,6 +10,7 @@
 
 using namespace cooperative_groups;
 
+#if 0
 __global__ void kernel (int *in)
 {
   grid_group grid = this_grid();
@@ -57,6 +58,8 @@ __host__ void test_kernel()
   myTimer.printStatus();
   myTimer.dumpAllEvents_Sync();
 }
+
+#endif
 
 __host__ int main()
 {
