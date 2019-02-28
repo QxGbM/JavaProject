@@ -1,12 +1,6 @@
 
-#include <stdio.h>
-#include <cuda.h>
-#include <cooperative_groups.h>
-
-#include <dev_dense.cuh>
 #include <cuda_timer.cuh>
-#include <dev_hierarchical.cuh>
-#include <dag.cuh>
+#include <kernel.cuh>
 
 using namespace cooperative_groups;
 
@@ -69,22 +63,19 @@ __host__ int main()
   a.loadTestMatrix(1, 2, 4);
   //a.print();
 
-  //int n[] = {0, 3};
-  //struct multi_level_index i = multi_level_index(2, &n[0]);
-  //struct multi_level_index i2 = multi_level_index(2, &n[0]);
-
-  //printf("%d\n", i2.compare(&i));
-
-  //struct h_matrix_element <double> *e = a.lookup(&l);
-  //e -> print();
-
-  //struct ops_chain *c = get_ops_hgetrf(&a);
-  //c -> print();
-
   struct dag d = dag(get_ops_hgetrf(&a));
-  //struct ops_chain *my_c = c -> lookup(10);
-  //my_c -> print(0, true, false);
+
   d.print();
+  d.copyToDevice_Sync();
+
+  struct timer myTimer = timer();
+  myTimer.newEvent("TEST");
+
+  kernel_dynamic <<<2, 256>>> (d.length, d.dev_dep, d.dev_progress, d.dev_status);
+
+  myTimer.newEvent("TEST");
+  myTimer.printStatus();
+  myTimer.dumpAllEvents_Sync();
 
   return 0;
 }

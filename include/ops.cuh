@@ -7,13 +7,14 @@
 enum matrix_op_t {
   nop,
   getrf,
-  gessm,
-  tstrf,
-  ssssm,
+  trsml,
+  trsmr,
+  gemm,
+  pivot,
 };
 
 __host__ int calc_load (int op) {
-  int load_table[] = {1, 1, 1, 1, 1, 1, 1};
+  int load_table[] = {0, 1, 1, 1, 1, 1};
   return load_table[op];
 }
 
@@ -31,8 +32,8 @@ struct ops_chain {
   struct ops_chain *next;
   struct ops_chain *child;
 
-  __host__ ops_chain (matrix_op_t opin = nop, int n_read_write_in = 0, struct multi_level_index **in0 = nullptr, 
-    int n_read_only_in = 0, struct multi_level_index **in1 = nullptr)
+  __host__ ops_chain (const matrix_op_t opin = nop, const int n_read_write_in = 0, struct multi_level_index **in0 = nullptr, 
+    const int n_read_only_in = 0, struct multi_level_index **in1 = nullptr)
   {
     op_type = opin;
 
@@ -107,12 +108,13 @@ struct ops_chain {
     {
       case nop: printf("NOP "); break;
       case getrf: printf("GETRF "); break;
-      case gessm: printf("GESSM "); break;
-      case tstrf: printf("TSTRF "); break;
-      case ssssm: printf("SSSSM "); break;
+      case trsml: printf("TRSML "); break;
+      case trsmr: printf("TRSMR "); break;
+      case gemm: printf("GEMM  "); break;
+      case pivot: printf("PIVOT "); break;
     }
 
-    printf("%dRW: ", n_read_write);
+    printf("%dW: ", n_read_write);
     for (int i = 0; i < n_read_write; i++)
     { m_read_write[i] -> print_short(); printf(" "); }
 
@@ -131,5 +133,39 @@ struct ops_chain {
   }
 
 };
+
+enum arg_t {
+  no_arg,
+  matrix_ptr,
+  pivot_ptr,
+  integer,
+};
+
+struct dev_op {
+  matrix_op_t op;
+
+  int n_args;
+  arg_t *arg_type;
+  void *args;
+
+  arg_t *dev_arg_type;
+  void *dev_args;
+
+  __host__ dev_op (struct ops_chain *op_head)
+  {
+    op = op_head -> op_type ;
+    switch(op)
+    {
+      case nop: n_args = 0; break;
+      case getrf: n_args = 5; break;
+      
+      default: n_args = 0;
+    }
+
+    arg_type = (arg_t *) malloc (n_args * sizeof(arg_t));
+
+  }
+};
+
 
 #endif
