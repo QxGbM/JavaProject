@@ -20,20 +20,29 @@ __host__ int calc_load (int op) {
 struct ops_chain {
 
   matrix_op_t op_type;
-  struct multi_level_index *dest;
-  struct multi_level_index *m1;
-  struct multi_level_index *m2;
+
+  int n_read_write;
+  struct multi_level_index **m_read_write;
+
+  int n_read_only;
+  struct multi_level_index **m_read_only;
 
   int load;
   struct ops_chain *next;
   struct ops_chain *child;
 
-  __host__ ops_chain (matrix_op_t opin = nop, struct multi_level_index *in0 = nullptr, struct multi_level_index *in1 = nullptr, struct multi_level_index *in2 = nullptr)
+  __host__ ops_chain (matrix_op_t opin = nop, int n_read_write_in = 0, struct multi_level_index **in0 = nullptr, 
+    int n_read_only_in = 0, struct multi_level_index **in1 = nullptr)
   {
     op_type = opin;
-    dest = (in0 == nullptr) ? nullptr : (in0 -> clone());
-    m1 = (in1 == nullptr) ? nullptr : (in1 -> clone());
-    m2 = (in2 == nullptr) ? nullptr : (in2 -> clone());
+
+    n_read_write = n_read_write_in;
+    m_read_write = (struct multi_level_index **) malloc (n_read_write * sizeof(struct multi_level_index *));
+    for(int i = 0; i < n_read_write; i++) { m_read_write[i] = in0[i]; }
+
+    n_read_only = n_read_only_in;
+    m_read_only = (struct multi_level_index **) malloc (n_read_only * sizeof(struct multi_level_index *));
+    for(int i = 0; i < n_read_only; i++) { m_read_only[i] = in1[i]; }
 
     load = calc_load ((int) opin);
     next = nullptr;
@@ -42,12 +51,14 @@ struct ops_chain {
 
   __host__ ~ops_chain ()
   {
-    if (dest != nullptr)
-    { dest -> ~multi_level_index(); free(dest); }
-    if (m1 != nullptr)
-    { m1 -> ~multi_level_index(); free(m1); }
-    if (m2 != nullptr)
-    { m2 -> ~multi_level_index(); free(m2); }
+    for (int i = 0; i < n_read_write; i++)
+    { m_read_write[i] -> ~multi_level_index(); free(m_read_write[i]); }
+    free(m_read_write);
+
+    for (int i = 0; i < n_read_only; i++)
+    { m_read_only[i] -> ~multi_level_index(); free(m_read_only[i]); }
+    free(m_read_only);
+
     if (next != nullptr)
     { next -> ~ops_chain(); free(next); }
     if (child != nullptr)
@@ -69,8 +80,7 @@ struct ops_chain {
       if (index == 0) { return this; }
       if (next != nullptr) { return next -> lookup(index - 1); } 
     }
-
-    if (child != nullptr)
+    else
     {
       int length = child -> length();
       if (index < length) { return child -> lookup(index); }
@@ -87,11 +97,12 @@ struct ops_chain {
     return l_child + l_next;
   }
 
-  __host__ void print (const int op_id = 0, const bool indent = true, const bool recurse = true)
+  __host__ void print (const int op_id = 0, const int indent = 0, const bool recurse = true)
   {
-    for (int i = 0; i < (dest -> levels) && indent; i++) { printf("  "); }
+    for (int i = 0; i < indent; i++) { printf("  "); }
 
     if (child == nullptr) { printf("%d: ", op_id); }
+
     switch(op_type)
     {
       case nop: printf("NOP "); break;
@@ -101,20 +112,22 @@ struct ops_chain {
       case ssssm: printf("SSSSM "); break;
     }
 
-    if (dest != nullptr) { dest -> print_short(); printf(", "); }
-    else { printf("_, "); }
-    if (m1 != nullptr) { m1 -> print_short(); printf(", "); }
-    else { printf("_, "); }
-    if (m2 != nullptr) { m2 -> print_short(); }
-    else { printf("_"); }
+    printf("%dRW: ", n_read_write);
+    for (int i = 0; i < n_read_write; i++)
+    { m_read_write[i] -> print_short(); printf(" "); }
+
+    printf("%dR: ", n_read_only);
+    for (int i = 0; i < n_read_only; i++)
+    { m_read_only[i] -> print_short(); printf(" "); }
+
     printf("\n");
 
-    if (child != nullptr && recurse) { child -> print(op_id, indent, recurse); }
+    if (child != nullptr && recurse) { child -> print(op_id, indent + 1, recurse); }
 
     int l_child = (child == nullptr) ? 1 : child -> length();
     if (next != nullptr && recurse) { next -> print(op_id + l_child, indent, recurse); }
 
-    if ((next == nullptr && dest -> levels == 1) || !recurse) { printf("\n"); }
+    if ((next == nullptr && indent == 0) || !recurse) { printf("\n"); }
   }
 
 };

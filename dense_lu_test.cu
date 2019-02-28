@@ -126,8 +126,8 @@ extern "C" void test_inverse (const  nx, const  ny)
 
 int main(int argc, char **argv)
 {
-  const int nx = 2048;
-  const int ny = 2048;
+  const int nx = 256;
+  const int ny = 256;
 
   test_dense_getrf_nxn (nx, ny);
 

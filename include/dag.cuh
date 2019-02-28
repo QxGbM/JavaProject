@@ -11,14 +11,14 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
   for (int i = 0; i < n; i++)
   {
     struct h_matrix_element <matrixEntriesT> *e0 = (a -> elements)[i * nx + i], *e1, *e2;
-    struct ops_chain *p0 = new ops_chain(getrf, e0 -> index), *p1;
+    struct ops_chain *p0 = new ops_chain(getrf, 1, &(e0 -> index)), *p1;
     if (e0 -> element_type == hierarchical) 
     { p0 -> child = get_ops_hgetrf ((struct dev_hierarchical <matrixEntriesT> *) (e0 -> element)); }
 
     for (int j = i + 1; j < nx; j++)
     {
       e1 = (a -> elements)[i * nx + j];
-      p1 = new ops_chain(gessm, e1 -> index, e0 -> index);
+      p1 = new ops_chain(gessm, 1, &(e1 -> index), 1, &(e0 -> index));
       // TODO: hgessm
       //if (e1 -> element_type == hierarchical) 
       //{ p1 -> child = get_ops_hgessm ((struct dev_hierarchical <matrixEntriesT> *) (e1 -> element)); }
@@ -28,7 +28,7 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
     for (int j = i + 1; j < ny; j++)
     {
       e2 = (a -> elements)[j * nx + i];
-      p1 = new ops_chain(tstrf, e2 -> index, e0 -> index);
+      p1 = new ops_chain(tstrf, 1, &(e2 -> index), 1, &(e0 -> index));
       // TODO: htstrf
       //if (e2 -> element_type == hierarchical) 
       //{ p1 -> child = get_ops_htstrf ((struct dev_hierarchical <matrixEntriesT> *) (e2 -> element)); }
@@ -42,7 +42,11 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
         e0 = (a -> elements)[j * nx + k];
         e1 = (a -> elements)[j * nx + i];
         e2 = (a -> elements)[i * nx + k];
-        p1 = new ops_chain(ssssm, e0 -> index, e1 -> index, e2 -> index);
+        //struct multi_level_index **in0 = (struct multi_level_index **) malloc(1 * sizeof(struct multi_level_index *)); 
+        struct multi_level_index **in1 = (struct multi_level_index **) malloc(2 * sizeof(struct multi_level_index *)); 
+        //in0[0] = e0 -> index;
+        in1[0] = e1 -> index; in1[1] = e2 -> index; 
+        p1 = new ops_chain(ssssm, 1, &(e0 -> index), 2, in1);
         // TODO: hgemm 
         //if (e2 -> element_type == hierarchical) 
         //{ p1 -> child = get_ops_hgemm ((struct dev_hierarchical <matrixEntriesT> *) (e0 -> element)); }
@@ -130,30 +134,44 @@ struct dag {
     for (int i = 0; i < length; i++)
     {
       struct ops_chain *op_src = ops -> lookup(i);
-      struct multi_level_index *dest_src = op_src -> dest, *m1_src = op_src -> m1, *m2_src = op_src -> m2;
+      const int src_n_read_write = op_src -> n_read_write, src_n_read_only = op_src -> n_read_only; 
 
       for (int j = i + 1; j < length; j++)
       {
         struct ops_chain *op = ops -> lookup(j);
-        struct multi_level_index *dest = op -> dest, *m1 = op -> m1, *m2 = op -> m2;
+        const int inst_n_read_write = op -> n_read_write, inst_n_read_only = op -> n_read_only;
 
-        if (dest_src != nullptr) 
+        for (int k = 0; k < src_n_read_write; k++)
         {
-          if (dest_src -> compare(m1) >= 0)
-          { dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); }
-          if (dest_src -> compare(m2) >= 0)
-          { dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); }
-          if (dest_src -> compare(dest) >= 0)
-          { dep[j * length + i] = add_dep(output_dep, dep[j * length + i]); }
+          struct multi_level_index *dest = (op_src -> m_read_write)[k];
+
+          for (int l = 0; l < inst_n_read_only; l++)
+          {
+            struct multi_level_index *in = (op -> m_read_only)[l];
+            if (dest -> compare(in) >= 0) 
+            { dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); break; }
+          }
+
+          for (int l = 0; l < inst_n_read_write; l++)
+          {
+            struct multi_level_index *in = (op -> m_read_write)[l];
+            if (dest -> compare(in) >= 0) 
+            { dep[j * length + i] = add_dep(output_dep, dep[j * length + i]); break; }
+          }
         }
 
-        if (dest != nullptr)
+        for (int k = 0; k < inst_n_read_write; k++)
         {
-          if (dest -> compare(m1_src) >= 0)
-          { dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); }
-          if (dest -> compare(m2_src) >= 0)
-          { dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); }
+          struct multi_level_index *dest = (op -> m_read_write)[k];
+
+          for (int l = 0; l < src_n_read_only; l++)
+          {
+            struct multi_level_index *in = (op_src -> m_read_only)[l];
+            if (dest -> compare(in) >= 0) 
+            { dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); break; }
+          }
         }
+
       }
     }
   }
