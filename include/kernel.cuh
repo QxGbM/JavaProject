@@ -1,9 +1,6 @@
 
-#ifndef _CUDA_HELPER_CUH
-#define _CUDA_HELPER_CUH
-
-#define BLOCK_SIZE 16 // Each block has 16^2 = 1024 threads, make sure the cuda device allows
-#define CUDA_DEVICE 0
+#ifndef _KERNEL_CUH
+#define _KERNEL_CUH
 
 #include <cuda.h>
 #include <cooperative_groups.h>
