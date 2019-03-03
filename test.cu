@@ -1,6 +1,6 @@
 
-#include <cuda_timer.cuh>
 #include <kernel.cuh>
+#include <cuda_timer.cuh>
 
 using namespace cooperative_groups;
 
@@ -76,6 +76,7 @@ __host__ int main()
   myTimer -> newEvent("TEST");
   myTimer -> printStatus();
   myTimer -> dumpAllEvents_Sync();
+  cudaDeviceSynchronize();
 
   delete a;
   delete d;

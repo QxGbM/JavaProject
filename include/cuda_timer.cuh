@@ -3,7 +3,6 @@
 #define _CUDA_TIMER_CUH
 
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
 #include <cuda.h>
 

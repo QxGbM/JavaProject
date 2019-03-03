@@ -1,6 +1,8 @@
 #ifndef _INDEX_CUH
 #define _INDEX_CUH
 
+#include <stdio.h>
+
 struct multi_level_index {
 
   int levels;
