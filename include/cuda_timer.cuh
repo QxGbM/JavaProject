@@ -27,14 +27,12 @@ struct timer {
     {
       cudaEventDestroy (event);
       if (next != nullptr)
-      { next -> ~event_chain(); free (next); }
+      { delete next; }
     }
   
     __host__ struct event_chain * getLastChainElement ()
     {
-      struct event_chain *p = this;
-      while (p -> next != nullptr) { p = p -> next; }
-      return p;
+      return (next == nullptr) ? this : next -> getLastChainElement();
     }
   
     __host__ int length ()
@@ -49,10 +47,10 @@ struct timer {
   int event_counter;
   int table_size;
 
-  __host__ timer (int time_table_size = 16)
+  __host__ timer (const int time_table_size = 16)
   {
-    events = (struct event_chain**) malloc (time_table_size * sizeof(struct event_chain*));
-    names = (char **) malloc (time_table_size * sizeof(char *));
+    events = new struct event_chain* [time_table_size];
+    names = new char* [time_table_size];
     memset ((void *) events, 0, time_table_size * sizeof(struct event_chain*));
     memset ((void *) names, 0, time_table_size * sizeof(char *));
     event_counter = 0;
@@ -62,30 +60,40 @@ struct timer {
   __host__ ~timer ()
   {
     for (int i = 0; i < event_counter; i++)
-    { events[i] -> ~event_chain(); free(events[i]); free(names[i]); }
-    free (events);
+    { delete events[i]; delete names[i]; }
+    delete[] events;
+    delete[] names;
     printf("-- Timer destructed. --\n\n");
+  }
+
+  __host__ struct event_chain * getEvent (const char *event_name)
+  {
+    for (int i = 0; i < event_counter; i++)
+    {
+      if (strcmp(event_name, names[i]) == 0) { return events[i]; }
+    }
+    return nullptr;
   }
 
   __host__ void newEvent (const char *event_name, cudaStream_t stream = 0)
   {
-    struct event_chain *p = nullptr;
-    for (int i = 0; i < event_counter; i++)
-    {
-      if (strcmp(event_name, names[i]) == 0) { p = events[i]; }
-    }
-
+    struct event_chain *p = getEvent(event_name);
+    
     if (p == nullptr && event_counter < table_size)
     {
       events[event_counter] = new event_chain(stream);
-      names[event_counter] = (char *) malloc (strlen(event_name) * sizeof(char));
+      names[event_counter] = new char[strlen(event_name)];
       strcpy(names[event_counter], event_name);
       event_counter ++;
     }
     else if (event_counter < table_size)
-    { p -> getLastChainElement() -> next = new event_chain(stream); }
+    { 
+      p -> getLastChainElement() -> next = new event_chain(stream); 
+    }
     else
-    { printf("Table is full and Timer cannot add in another event: %s. \n\n", event_name); }
+    { 
+      printf("Table is full and Timer cannot add in another event: %s. \n\n", event_name); 
+    }
 
   }
 
@@ -111,9 +119,8 @@ struct timer {
       }
       printf ("%s:  %f ms.\n", names[i], total);
 
-      events[i] -> ~event_chain();
-      free(events[i]);
-      free(names[i]);
+      delete events[i];
+      delete[] names[i];
       events[i] = nullptr;
       names[i] = nullptr;
     }

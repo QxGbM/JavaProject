@@ -6,46 +6,32 @@ struct multi_level_index {
   int levels;
   int *ns;
 
-  __host__ multi_level_index (const int l, const int *n = nullptr)
+  __host__ multi_level_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1)
   {
-    levels = (l > 0) ? l : 1;
-    ns = (int *) malloc (levels * sizeof(int));
-    memset(ns, 0, levels * sizeof(int));
-
-    for(int i = 0; i < levels && l > 0 && n != nullptr; i++) 
-    { ns[i] = n[i]; }
-  }
-
-  __host__ multi_level_index (const int n, const struct multi_level_index *parent = nullptr)
-  {
-    levels = (parent == nullptr) ? 1 : (1 + parent -> levels);
-    ns = (int *) malloc (levels * sizeof(int));
-
-    for(int i = 0; i < levels - 1 && parent != nullptr; i++) 
-    { ns[i] = (parent -> ns)[i]; }
-    ns[levels - 1] = n;
+    levels = ((levels_in > 0) ? levels_in : 0) + ((index_in >= 0) ? 1 : 0);
+    if (levels > 0)
+    {
+      ns = new int [levels];
+      for (int i = 0; i < levels - 1; i++) 
+      { ns[i] = (ns_in == nullptr) ? -1 : ns_in[i]; }
+      ns[levels - 1] = (index_in >= 0) ? index_in : ((ns_in == nullptr) ? -1 : ns_in[levels - 1]);
+    }
+    else
+    { ns = nullptr; }
   }
 
   __host__ ~multi_level_index ()
   {
-    free(ns);
+    if (ns != nullptr) { delete[] ns; }
   }
 
   __host__ void print ()
   {
     printf("-- ");
+    if (levels == 0) printf("root");
     for(int i = 0; i < levels; i++)
     { printf("level %d: %d", i, ns[i]); if (i != levels - 1) printf(", "); }
     printf(" --\n");
-  }
-
-  __host__ struct multi_level_index * clone()
-  {
-    struct multi_level_index *p = (struct multi_level_index *) malloc (sizeof(struct multi_level_index));
-    p -> levels = levels;
-    p -> ns = (int *) malloc (levels * sizeof(int));
-    for (int i = 0; i < levels; i++) { (p -> ns)[i] = ns[i]; }
-    return p;
   }
 
   __host__ void print_short ()

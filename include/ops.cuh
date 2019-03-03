@@ -13,9 +13,9 @@ enum matrix_op_t {
   pivot,
 };
 
-__host__ int calc_load (int op) {
+__host__ int calc_load (matrix_op_t op) {
   int load_table[] = {0, 1, 1, 1, 1, 1};
-  return load_table[op];
+  return load_table[(int) op];
 }
 
 struct ops_chain {
@@ -38,14 +38,14 @@ struct ops_chain {
     op_type = opin;
 
     n_read_write = n_read_write_in;
-    m_read_write = (struct multi_level_index **) malloc (n_read_write * sizeof(struct multi_level_index *));
+    m_read_write = new struct multi_level_index * [n_read_write_in];
     for(int i = 0; i < n_read_write; i++) { m_read_write[i] = in0[i]; }
 
     n_read_only = n_read_only_in;
-    m_read_only = (struct multi_level_index **) malloc (n_read_only * sizeof(struct multi_level_index *));
+    m_read_only = new struct multi_level_index * [n_read_only];
     for(int i = 0; i < n_read_only; i++) { m_read_only[i] = in1[i]; }
 
-    load = calc_load ((int) opin);
+    load = calc_load (opin);
     next = nullptr;
     child = nullptr;
   }
@@ -53,17 +53,15 @@ struct ops_chain {
   __host__ ~ops_chain ()
   {
     for (int i = 0; i < n_read_write; i++)
-    { m_read_write[i] -> ~multi_level_index(); free(m_read_write[i]); }
-    free(m_read_write);
+    { delete m_read_write[i]; }
+    delete[] m_read_write;
 
     for (int i = 0; i < n_read_only; i++)
-    { m_read_only[i] -> ~multi_level_index(); free(m_read_only[i]); }
-    free(m_read_only);
+    { delete m_read_only[i]; }
+    delete[] m_read_only;
 
-    if (next != nullptr)
-    { next -> ~ops_chain(); free(next); }
-    if (child != nullptr)
-    { child -> ~ops_chain(); free(child); }
+    if (next != nullptr) { delete next; }
+    if (child != nullptr) { delete child; }
   }
 
   __host__ void hookup (struct ops_chain *chain)
@@ -161,8 +159,6 @@ struct dev_op {
       
       default: n_args = 0;
     }
-
-    arg_type = (arg_t *) malloc (n_args * sizeof(arg_t));
 
   }
 };

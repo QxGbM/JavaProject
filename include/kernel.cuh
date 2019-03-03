@@ -8,17 +8,20 @@
 
 using namespace cooperative_groups;
 
-__device__ void wait (clock_t count)
+__device__ void wait (long long int count)
 {
-  clock_t start_clock = clock();
-  clock_t clock_offset = 0;
-  while (clock_offset < count)
+  long long int last = clock64();
+  long long int lapse = 0;
+  while (lapse < count)
   {
-    clock_offset = clock() - start_clock;
+    long long int stamp = clock64();
+    long long int interval = stamp - last;
+    lapse += (interval > 0) ? interval : 0;
+    last = stamp;
   }
 }
 
-__global__ void kernel_dynamic (int inst_length, const int *dep, int *progress, int *status, const clock_t interval = 100)
+__global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_counts, int *status, const long long int interval = 0)
 {
   const thread_block g = this_thread_block();
   
@@ -36,7 +39,7 @@ __global__ void kernel_dynamic (int inst_length, const int *dep, int *progress, 
       for(int i = commit + 1; i < inst_length; i++)
       {
         if (i == commit + 1 && status[i] == -1) { commit++; }
-        if (progress[i] == 0 && status[i] == 0)
+        if (dep_counts[i] == 0 && status[i] == 0)
         {
           int s = atomicAdd(&status[i], 1);
           if (s == 0) { inst = i; break; }
@@ -51,10 +54,8 @@ __global__ void kernel_dynamic (int inst_length, const int *dep, int *progress, 
     if (inst >= 0) 
     {
       long long int start = clock64();
-      unsigned long long int a = 0;
-      for (unsigned long long int i = 0; i < 10000000; i++)
-      { a += i; }
       wait(100000000);
+      g.sync();
       long long int end = clock64();
   
       if (g.thread_rank() == 0)
@@ -62,12 +63,12 @@ __global__ void kernel_dynamic (int inst_length, const int *dep, int *progress, 
         printf("block: %d, inst: %d, start: %lli, end: %lli\n", blockIdx.x, inst, start, end);
         status[inst] = -1;
         for (int i = inst + 1; i < inst_length; i++)
-        { if (dep[i * inst_length + inst] == 1) atomicSub(&progress[i], 1); } 
+        { if (dep[i * inst_length + inst]) atomicSub(&dep_counts[i], 1); } 
       }
     }
-    else
+    else if (g.thread_rank() == 0)
     {
-      wait(interval); 
+      wait(interval);
     }
   }
 

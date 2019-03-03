@@ -42,9 +42,10 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
         e0 = (a -> elements)[j * nx + k];
         e1 = (a -> elements)[j * nx + i];
         e2 = (a -> elements)[i * nx + k];
-        struct multi_level_index **in1 = (struct multi_level_index **) malloc(2 * sizeof(struct multi_level_index *)); 
+        struct multi_level_index **in1 = new struct multi_level_index * [2]; 
         in1[0] = e1 -> index; in1[1] = e2 -> index; 
         p1 = new ops_chain(gemm, 1, &(e0 -> index), 2, in1);
+        delete[] in1;
         // TODO: hgemm 
         //if (e2 -> element_type == hierarchical) 
         //{ p1 -> child = get_ops_hgemm ((struct dev_hierarchical <matrixEntriesT> *) (e0 -> element)); }
@@ -58,7 +59,8 @@ template <class matrixEntriesT> __host__ struct ops_chain * get_ops_hgetrf (cons
   return ops;
 }
 
-enum dep_t {
+enum dep_t 
+{
   no_dep,
   flow_dep,
   anti_dep,
@@ -69,7 +71,8 @@ enum dep_t {
   flow_anti_output_dep,
 };
 
-__host__ dep_t add_dep (dep_t x, dep_t y) {
+__host__ dep_t add_dep (dep_t x, dep_t y) 
+{
   int a = (int) x, b = (int) y, r = 0;
   for (int i = 4; i > 0; i = i / 2)
   {
@@ -83,23 +86,18 @@ __host__ dep_t add_dep (dep_t x, dep_t y) {
   return (dep_t) r; 
 }
 
-__host__ char * dep_str (dep_t x) {
-  int a = (int) x;
-  char *str = (char *) malloc (4 * sizeof(char));
-  if (a == 0) { sprintf(str, "  ND"); return str; }
+__host__ char * dep_str (dep_t x) 
+{
+  int a = (int) x, i = 3;
+  char *str = new char[i + 1];
 
-  if (a >= 4) { str[2] = 'O'; a -= 4; } else { str[2] = ' '; }
-  if (a >= 2) { str[1] = 'A'; a -= 2; } else { str[1] = ' '; }
-  if (a >= 1) { str[0] = 'F'; a -= 1; } else { str[0] = ' '; }
-  str[3] = 'D';
+  str[i] = 'D'; i--;
+  if (a == 0) { str[i] = 'N'; i--; }
+  if (a >= 4) { str[i] = 'O'; a -= 4; i--; }
+  if (a >= 2) { str[i] = 'A'; a -= 2; i--; }
+  if (a >= 1) { str[i] = 'F'; a -= 1; i--; }
 
-  if (str[2] == ' ') 
-  { 
-    if (str[1] == 'A') { str[2] = 'A'; str[1] = str[0]; str[0] = ' '; }
-    else { str[2] = 'F'; str[0] = ' '; }
-  }
-  else if (str[1] == ' ' && str[0] == 'F')
-  { str[1] = 'F'; str[0] = ' '; }
+  while (i >= 0) { str[i] = ' '; i--; }
 
   return str;
 }
@@ -107,13 +105,13 @@ __host__ char * dep_str (dep_t x) {
 struct dag {
 
   struct ops_chain *ops;
-
   int length;
-  dep_t *dep;
-  int *dev_dep;
 
-  int *progress;
-  int *dev_progress;
+  dep_t *dep;
+  bool *dev_dep;
+
+  int *dep_counts;
+  int *dev_dep_counts;
 
   int *status;
   int *dev_status;
@@ -122,41 +120,33 @@ struct dag {
     ops = chain;
     length = chain -> length();
 
-    dep = (dep_t *) malloc (length * length * sizeof(dep_t));
-    memset ((void *) dep, 0, length * length * sizeof(dep_t));
-
+    dep = new dep_t [length * length];
     build_dep();
 
-    progress = (int *) malloc (length * sizeof(int));
-    memset ((void *) progress, 0, length * sizeof(int));
-
+    dep_counts = new int [length];
+    status = new int [length];
     for (int i = 0; i < length; i++)
     {
-      for (int j = i + 1; j < length; j++)
-      {
-        if (dep[j * length + i] != no_dep) 
-        { progress[j]++; }
-      }
+      dep_counts[i] = 0;
+      status[i] = 0;
+      for (int j = 0; j < i; j++)
+      { dep_counts[i] += (dep[i * length + j] > no_dep) ? 1 : 0; }
     }
 
-    status = (int *) malloc (length * sizeof(int));
-    memset ((void *) status, 0, length * sizeof(int));
-
     dev_dep = nullptr;
-    dev_progress = nullptr;
+    dev_dep_counts = nullptr;
     dev_status = nullptr;
   }
 
   __host__ ~dag ()
   {
-    ops -> ~ops_chain();
-    free(ops);
-    free(dep);
-    free(progress);
-    free(status);
+    delete ops;
+    delete[] dep;
+    delete[] dep_counts;
+    delete[] status;
 
     if (dev_dep != nullptr) { cudaFree(dev_dep); }
-    if (dev_progress != nullptr) { cudaFree(dev_progress); }
+    if (dev_dep_counts != nullptr) { cudaFree(dev_dep_counts); }
     if (dev_status != nullptr) { cudaFree(dev_status); }
 
     printf("-- DAG destroyed. --\n\n");
@@ -166,18 +156,18 @@ struct dag {
   {
     cudaError_t error = cudaSuccess;
 
-    int *t = (int *) malloc (length * length * sizeof(int));
-    for(int i = 0; i < length * length; i++) { t[i] = (dep[i] == no_dep) ? 0 : 1; }
+    bool *t = new bool [length * length];
+    for(int i = 0; i < length * length; i++) { t[i] = dep[i] > no_dep; }
 
-    error = cudaMalloc ((void **) &dev_dep, length * length * sizeof(int));
-    error = cudaMemcpy (dev_dep, t, length * length * sizeof(int), cudaMemcpyHostToDevice);
+    error = cudaMalloc ((void **) &dev_dep, length * length * sizeof(bool));
+    error = cudaMemcpy (dev_dep, t, length * length * sizeof(bool), cudaMemcpyHostToDevice);
 
-    free(t);
+    delete[] t;
 
     if (error != cudaSuccess) { return error; }
 
-    error = cudaMalloc ((void **) &dev_progress, length * sizeof(int));
-    error = cudaMemcpy (dev_progress, progress, length * sizeof(int), cudaMemcpyHostToDevice);
+    error = cudaMalloc ((void **) &dev_dep_counts, length * sizeof(int));
+    error = cudaMemcpy (dev_dep_counts, dep_counts, length * sizeof(int), cudaMemcpyHostToDevice);
 
     if (error != cudaSuccess) { return error; }
 
@@ -202,6 +192,8 @@ struct dag {
       {
         struct ops_chain *op = ops -> lookup(j);
         const int inst_n_read_write = op -> n_read_write, inst_n_read_only = op -> n_read_only;
+
+        dep[j * length + i] = no_dep;
 
         for (int k = 0; k < src_n_read_write; k++)
         {
@@ -251,18 +243,18 @@ struct dag {
         {
           char *str = dep_str(dep[j * length + i]); 
           printf("%s ", str);
-          free(str);
+          delete[] str;
         }
         else
         { printf("     "); }
       }
       printf("\n");
     }
-    printf("Dependency Counts:\n");
 
+    printf("Dependency Counts:\n");
     for(int i = 0; i < length; i++)
     {
-      printf("%d: %d", i, progress[i]);
+      printf("%d: %d", i, dep_counts[i]);
       if (i != length - 1) { printf(" | "); }
     }
     printf("\n\n");

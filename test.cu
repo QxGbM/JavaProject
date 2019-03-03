@@ -59,23 +59,27 @@ __host__ int main()
 {
   //test_kernel();
 
-  struct dev_hierarchical <double> a = dev_hierarchical <double> (2, 2);
-  a.loadTestMatrix(1, 2, 4);
-  //a.print();
+  struct dev_hierarchical <double> *a = new dev_hierarchical <double> (2, 2);
+  a -> loadTestMatrix(1, 2, 4);
+  a -> print();
 
-  struct dag d = dag(get_ops_hgetrf(&a));
+  struct dag *d = new dag(get_ops_hgetrf(a));
 
-  d.print();
-  d.copyToDevice_Sync();
+  d -> print();
+  d -> copyToDevice_Sync();
 
-  struct timer myTimer = timer();
-  myTimer.newEvent("TEST");
+  struct timer *myTimer = new timer();
+  myTimer -> newEvent("TEST");
 
-  kernel_dynamic <<<2, 256>>> (d.length, d.dev_dep, d.dev_progress, d.dev_status);
+  kernel_dynamic <<<4, 256>>> (d -> length, d -> dev_dep, d -> dev_dep_counts, d -> dev_status);
 
-  myTimer.newEvent("TEST");
-  myTimer.printStatus();
-  myTimer.dumpAllEvents_Sync();
+  myTimer -> newEvent("TEST");
+  myTimer -> printStatus();
+  myTimer -> dumpAllEvents_Sync();
+
+  delete a;
+  delete d;
+  delete myTimer;
 
   return 0;
 }

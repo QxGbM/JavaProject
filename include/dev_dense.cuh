@@ -4,8 +4,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <malloc.h>
-#include <memory.h>
 #include <cuda.h>
 
 template <class matrixEntriesT> struct dev_dense {
@@ -28,15 +26,13 @@ template <class matrixEntriesT> struct dev_dense {
     ny = y;
     ld = (x > d) ? x : d;
 
-    elements = (matrixEntriesT *) malloc (y * ld * sizeof(matrixEntriesT));
-    memset ((void *) elements, 0, y * ld * sizeof(matrixEntriesT));
+    elements = new matrixEntriesT [y * ld];
     
     pivoted = alloc_pivot;
-    if (alloc_pivot)
-    {
-      pivot = (int *) malloc (y * sizeof(int));
-      for (int i = 0; i < ny; i++) { pivot[i] = i; }
-    }
+    pivot = (alloc_pivot) ? new int[y] : nullptr;
+    
+    for (int i = 0; i < ny * nx; i++) 
+    { elements[i] = 0; if (alloc_pivot && i < ny) pivot[i] = i; }
 
     dev_ld = 0;
     dev_ptr = nullptr;
@@ -45,13 +41,12 @@ template <class matrixEntriesT> struct dev_dense {
 
   __host__ ~dev_dense ()
   {
-    free(elements);
+    delete[] elements;
     if (pivoted)
-    { free(pivot); }
-    if (dev_ptr != nullptr)
-    { cudaFree(dev_ptr); }
-    if (dev_pivot != nullptr)
-    { cudaFree(dev_pivot); }
+    { delete[] pivot; }
+    
+    if (dev_ptr != nullptr) { cudaFree(dev_ptr); }
+    if (dev_pivot != nullptr) { cudaFree(dev_pivot); }
 
     printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
   }
