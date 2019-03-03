@@ -31,14 +31,14 @@ template <class matrixEntriesT> struct h_matrix_element {
     { index = new struct multi_level_index(index_in -> levels, index_in -> ns); }
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * get_element_dense ()
+  __host__ struct dev_dense <matrixEntriesT> * get_element_dense () const
   { return (element_type == dense) ? ((struct dev_dense <matrixEntriesT> *) element) : nullptr; }
 
   // TODO
-  //__host__ struct dev_low_rank * get_element_low_rank()
+  //__host__ struct dev_low_rank * get_element_low_rank() const
   //{ return nullptr; }
 
-  __host__ struct dev_hierarchical <matrixEntriesT> * get_element_hierarchical ()
+  __host__ struct dev_hierarchical <matrixEntriesT> * get_element_hierarchical () const
   { return (element_type == hierarchical) ? ((struct dev_hierarchical <matrixEntriesT> *) element) : nullptr; }
 
   __host__ ~h_matrix_element ()
@@ -54,7 +54,7 @@ template <class matrixEntriesT> struct h_matrix_element {
     delete index;
   }
 
-  __host__ void print()
+  __host__ void print() const
   {
     index -> print();
 
@@ -110,7 +110,7 @@ template <class matrixEntriesT> struct dev_hierarchical {
     elements[y * nx + x] = new h_matrix_element <matrixEntriesT> (matrix, type);
   }
 
-  __host__ void print ()
+  __host__ void print () const
   {
     for (int i = 0; i < ny * nx; i++)
     {
@@ -155,7 +155,7 @@ template <class matrixEntriesT> struct dev_hierarchical {
     delete i;
   }
 
-  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const int *n, const int levels)
+  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const int *n, const int levels) const
   {
     if (levels == 1)
     { return elements[n[0]]; }
@@ -166,7 +166,7 @@ template <class matrixEntriesT> struct dev_hierarchical {
     }
   }
 
-  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const struct multi_level_index *i)
+  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const struct multi_level_index *i) const
   {
     return lookup (i -> ns, i -> levels);
   }

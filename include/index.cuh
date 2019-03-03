@@ -27,7 +27,7 @@ struct multi_level_index {
     if (ns != nullptr) { delete[] ns; }
   }
 
-  __host__ void print ()
+  __host__ void print () const
   {
     printf("-- ");
     if (levels == 0) printf("root");
@@ -36,14 +36,14 @@ struct multi_level_index {
     printf(" --\n");
   }
 
-  __host__ void print_short ()
+  __host__ void print_short () const
   {
     printf("%d", levels);
     for(int i = 0; i < levels; i++)
     { printf("%d", ns[i]); }
   }
 
-  __host__ int compare (const struct multi_level_index *in)
+  __host__ int compare (const struct multi_level_index *in) const
   {
     if (in == nullptr) { return -1; }
 

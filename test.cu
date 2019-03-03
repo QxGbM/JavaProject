@@ -76,11 +76,13 @@ __host__ int main()
   myTimer -> newEvent("TEST");
   myTimer -> printStatus();
   myTimer -> dumpAllEvents_Sync();
-  cudaDeviceSynchronize();
+  //cudaDeviceSynchronize();
 
   delete a;
   delete d;
   delete myTimer;
+
+  cudaDeviceReset();
 
   return 0;
 }

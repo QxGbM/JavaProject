@@ -34,7 +34,7 @@ struct timer {
       return (next == nullptr) ? this : next -> getLastChainElement();
     }
   
-    __host__ int length ()
+    __host__ int length () const
     {
       return (next == nullptr) ? 1 : 1 + next -> length();
     }
@@ -65,7 +65,7 @@ struct timer {
     printf("-- Timer destructed. --\n\n");
   }
 
-  __host__ struct event_chain * getEvent (const char *event_name)
+  __host__ struct event_chain * getEvent (const char *event_name) const
   {
     for (int i = 0; i < event_counter; i++)
     {
@@ -131,7 +131,7 @@ struct timer {
     return cudaSuccess;
   }
 
-  __host__ void printStatus ()
+  __host__ void printStatus () const
   {
     printf("-- Timer Status: --\nTotal Timed Events: %d.\n", event_counter);
 

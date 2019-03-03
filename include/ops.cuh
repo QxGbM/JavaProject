@@ -4,7 +4,8 @@
 
 #include <index.cuh>
 
-enum matrix_op_t {
+enum matrix_op_t 
+{
   nop,
   getrf,
   trsml,
@@ -13,7 +14,8 @@ enum matrix_op_t {
   pivot,
 };
 
-__host__ int calc_load (matrix_op_t op) {
+__host__ int calc_load (matrix_op_t op) 
+{
   int load_table[] = {0, 1, 1, 1, 1, 1};
   return load_table[(int) op];
 }
@@ -72,7 +74,7 @@ struct ops_chain {
     { next = chain; }
   }
 
-  __host__ struct ops_chain * lookup (const int index)
+  __host__ const struct ops_chain * lookup (const int index) const
   {
     if (child == nullptr)
     {
@@ -89,14 +91,14 @@ struct ops_chain {
     return nullptr;
   }
 
-  __host__ int length ()
+  __host__ int length () const 
   {
     int l_child = (child == nullptr) ? 1 : child -> length();
     int l_next = (next == nullptr) ? 0 : next -> length();
     return l_child + l_next;
   }
 
-  __host__ void print (const int op_id = 0, const int indent = 0, const bool recurse = true)
+  __host__ void print (const int op_id = 0, const int indent = 0, const bool recurse = true) const
   {
     for (int i = 0; i < indent; i++) { printf("  "); }
 
