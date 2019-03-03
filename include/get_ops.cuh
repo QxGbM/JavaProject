@@ -8,13 +8,13 @@ template <class matrixEntriesT>
 __host__ struct ops_chain * get_ops_hgetrf (const struct dev_hierarchical <matrixEntriesT> *a)
 {
   struct ops_chain *ops = nullptr;
-  int nx = a -> nx, ny = a -> ny, n = (nx > ny) ? ny : nx;
+  const int nx = a -> nx, ny = a -> ny, n = (nx > ny) ? ny : nx;
   for (int i = 0; i < n; i++)
   {
-    struct h_matrix_element <matrixEntriesT> *e0 = (a -> elements)[i * nx + i], *e1, *e2;
+    const struct h_matrix_element <matrixEntriesT> *e0 = (a -> elements)[i * nx + i], *e1, *e2;
     struct ops_chain *p0 = new ops_chain(getrf, 1, &(e0 -> index)), *p1;
     if (e0 -> element_type == hierarchical) 
-    { p0 -> child = get_ops_hgetrf ((struct dev_hierarchical <matrixEntriesT> *) (e0 -> element)); }
+    { p0 -> child = get_ops_hgetrf (e0 -> get_element_hierarchical()); }
 
     for (int j = i + 1; j < nx; j++)
     {

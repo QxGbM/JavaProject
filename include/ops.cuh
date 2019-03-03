@@ -34,18 +34,18 @@ struct ops_chain {
   struct ops_chain *next;
   struct ops_chain *child;
 
-  __host__ ops_chain (const matrix_op_t opin = nop, const int n_read_write_in = 0, struct multi_level_index **in0 = nullptr, 
-    const int n_read_only_in = 0, struct multi_level_index **in1 = nullptr)
+  __host__ ops_chain (const matrix_op_t opin = nop, const int n_read_write_in = 0, struct multi_level_index *const *in0 = nullptr, 
+    const int n_read_only_in = 0, struct multi_level_index *const *in1 = nullptr)
   {
     op_type = opin;
 
     n_read_write = n_read_write_in;
     m_read_write = new struct multi_level_index * [n_read_write_in];
-    for(int i = 0; i < n_read_write; i++) { m_read_write[i] = in0[i]; }
+    for(int i = 0; i < n_read_write; i++) { m_read_write[i] = new struct multi_level_index(in0[i] -> levels, in0[i] -> ns); }
 
     n_read_only = n_read_only_in;
     m_read_only = new struct multi_level_index * [n_read_only];
-    for(int i = 0; i < n_read_only; i++) { m_read_only[i] = in1[i]; }
+    for(int i = 0; i < n_read_only; i++) { m_read_only[i] = new struct multi_level_index(in1[i] -> levels, in1[i] -> ns); }
 
     load = calc_load (opin);
     next = nullptr;
@@ -62,8 +62,8 @@ struct ops_chain {
     { delete m_read_only[i]; }
     delete[] m_read_only;
 
-    if (next != nullptr) { delete next; }
     if (child != nullptr) { delete child; }
+    if (next != nullptr) { delete next; }
   }
 
   __host__ void hookup (struct ops_chain *chain)

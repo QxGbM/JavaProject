@@ -63,7 +63,10 @@ __host__ int main()
   a -> loadTestMatrix(1, 2, 4);
   a -> print();
 
-  struct dag *d = new dag(get_ops_hgetrf(a));
+  struct ops_chain *ops = get_ops_hgetrf(a);
+  ops -> print();
+
+  struct dag *d = new dag(ops);
 
   d -> print();
   d -> copyToDevice_Sync();
@@ -79,6 +82,7 @@ __host__ int main()
   //cudaDeviceSynchronize();
 
   delete a;
+  delete ops;
   delete d;
   delete myTimer;
 

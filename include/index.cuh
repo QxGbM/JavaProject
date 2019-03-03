@@ -24,7 +24,7 @@ struct multi_level_index {
 
   __host__ ~multi_level_index ()
   {
-    if (ns != nullptr) { delete[] ns; }
+    delete[] ns;
   }
 
   __host__ void print () const
