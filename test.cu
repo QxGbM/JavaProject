@@ -1,4 +1,5 @@
 
+#include <dag.cuh>
 #include <kernel.cuh>
 #include <cuda_timer.cuh>
 

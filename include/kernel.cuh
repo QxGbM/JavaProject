@@ -2,7 +2,6 @@
 #ifndef _KERNEL_CUH
 #define _KERNEL_CUH
 
-#include <dag.cuh>
 #include <cuda.h>
 #include <cooperative_groups.h>
 
