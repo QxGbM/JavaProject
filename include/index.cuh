@@ -7,8 +7,9 @@ struct multi_level_index {
 
   int levels;
   int *ns;
+  int offset;
 
-  __host__ multi_level_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1)
+  __host__ multi_level_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1, const int offset_in = 0)
   {
     levels = ((levels_in > 0) ? levels_in : 0) + ((index_in >= 0) ? 1 : 0);
     if (levels > 0)
@@ -20,6 +21,7 @@ struct multi_level_index {
     }
     else
     { ns = nullptr; }
+    offset = offset_in;
   }
 
   __host__ ~multi_level_index ()
@@ -32,8 +34,8 @@ struct multi_level_index {
     printf("-- ");
     if (levels == 0) printf("root");
     for(int i = 0; i < levels; i++)
-    { printf("level %d: %d", i, ns[i]); if (i != levels - 1) printf(", "); }
-    printf(" --\n");
+    { printf("level %d: %d, ", i, ns[i]); }
+    printf("offset %d --\n", offset);
   }
 
   __host__ void print_short () const
@@ -41,6 +43,7 @@ struct multi_level_index {
     printf("%d", levels);
     for(int i = 0; i < levels; i++)
     { printf("%d", ns[i]); }
+    printf("(%d)", offset);
   }
 
   __host__ int compare (const struct multi_level_index *in) const
@@ -51,8 +54,9 @@ struct multi_level_index {
     for (int i = 0; i < n; i++) 
     { if (ns[i] != (in -> ns)[i]) return -1; }
 
+    // Questionable: different offset => no dependency?
     if (in -> levels == levels)
-    { return 0; }
+    { return (offset == in -> offset) ? 0 : -1; }
     else
     { return (levels > n) ? ns[n] : (in -> ns)[n]; }
   }

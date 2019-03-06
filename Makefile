@@ -1,49 +1,28 @@
-.SUFFIXES: .cpp .cu
+.SUFFIXES: .cu
 
-#USE_CUB		= TRUE
-#USE_KBLAS 	= TRUE
-#USE_MKL	= TRUE
+#USE_MKL = TRUE
 
-ifdef USE_CUB
+NVCC = /usr/local/cuda/bin/nvcc
 
-CUB_ROOT	= /home/qxm/cub
-NVCCFLAGS	+= -I$(CUB_ROOT)
+BIN	= ./bin
+INCLUDE	= ./include
 
-endif
+ARCH += -gencode=arch=compute_50,code=sm_50
+ARCH += -gencode=arch=compute_52,code=sm_52
+ARCH += -gencode=arch=compute_60,code=sm_60
+ARCH += -gencode=arch=compute_61,code=sm_61
+ARCH += -gencode=arch=compute_61,code=compute_61
+ARCH += -gencode=arch=compute_70,code=sm_70
+ARCH += -gencode=arch=compute_70,code=compute_70
 
-ifdef USE_KBLAS
-
-KBLAS_ROOT	= /home/qxm/kblas-gpu
-
-KBLAS_INCLUDE	= $(KBLAS_ROOT)/include
-KBLAS_TESTING	= $(KBLAS_ROOT)/testing
-NVCCFLAGS	+= -I$(KBLAS_INCLUDE) -I$(KBLAS_TESTING)
-
-KBLAS_LIB	= $(KBLAS_ROOT)/lib
-LDFLAGS		+= -L$(KBLAS_LIB) -lkblas-gpu -lcublas
-
-endif
+NVCCFLAGS += -std=c++11 -I$(INCLUDE) $(ARCH) -rdc=true -O2
+LDFLAGS  += -lm -lstdc++ -lcuda -lcudart -L/usr/lib/x86_64-linux-gnu $(ARCH)
 
 ifdef USE_MKL
 
 LDFLAGS += -lmkl_intel_lp64 -lmkl_sequential -lmkl_core
 
 endif
-
-CXX 		= g++
-NVCC 		= nvcc
-
-BIN	= ./bin
-INCLUDE	= ./include
-
-CFLAGS		+= -std=c++11 -ggdb3 -O3 -fopenmp -I$(INCLUDE) -Wall -Wfatal-errors
-
-NVCCFLAGS	+= -std=c++11 -I$(INCLUDE) -arch=sm_50 -rdc=true -Xcompiler "-ggdb3 -fopenmp -Wall -Wfatal-errors"
-LDFLAGS 	+= -lm -ldl -lstdc++ -lpthread -lcuda -lcudart -arch=sm_50 -L/usr/lib/x86_64-linux-gnu
-
-.cpp.o:
-	mkdir --parents $(BIN)
-	$(CXX) $(CFLAGS) -c $? -o $(BIN)/$@
 
 .cu.o:
 	mkdir --parents $(BIN)
@@ -69,5 +48,4 @@ test: test.o
 	./$(BIN)/$@
 
 clean:
-	$(RM) *.o *.a *.out *.xml
 	$(RM) -r $(BIN)
