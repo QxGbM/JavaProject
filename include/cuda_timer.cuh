@@ -6,8 +6,6 @@
 #include <string.h>
 #include <cuda.h>
 
-/* Timer Functions */
-
 struct timer {
 
   struct event_chain {

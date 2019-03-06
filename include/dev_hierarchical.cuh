@@ -2,7 +2,7 @@
 #ifndef _DEV_HIERARCHICAL_CUH
 #define _DEV_HIERARCHICAL_CUH
 
-#include <dev_dense.cuh>
+#include <dev_low_rank.cuh>
 #include <index.cuh>
 
 enum h_matrix_t {
@@ -34,9 +34,8 @@ template <class matrixEntriesT> struct h_matrix_element {
   __host__ struct dev_dense <matrixEntriesT> * get_element_dense () const
   { return (element_type == dense) ? ((struct dev_dense <matrixEntriesT> *) element) : nullptr; }
 
-  // TODO
-  //__host__ struct dev_low_rank * get_element_low_rank() const
-  //{ return nullptr; }
+  __host__ struct dev_low_rank <matrixEntriesT> * get_element_low_rank() const
+  { return (element_type == low_rank) ? ((struct dev_low_rank <matrixEntriesT> *) element) : nullptr; }
 
   __host__ struct dev_hierarchical <matrixEntriesT> * get_element_hierarchical () const
   { return (element_type == hierarchical) ? ((struct dev_hierarchical <matrixEntriesT> *) element) : nullptr; }
@@ -44,11 +43,11 @@ template <class matrixEntriesT> struct h_matrix_element {
   __host__ ~h_matrix_element ()
   { 
     struct dev_dense <matrixEntriesT> *d = get_element_dense();
-    // struct dev_low_rank *lr = get_element_low_rank();
+    struct dev_low_rank <matrixEntriesT> *lr = get_element_low_rank();
     struct dev_hierarchical <matrixEntriesT> *h = get_element_hierarchical();
 
     if (d != nullptr) { delete d; }
-    // else if (lr != nullptr) { lr -> print(); }
+    else if (lr != nullptr) { delete lr; }
     else if (h != nullptr) { delete h; } 
 
     delete index;
@@ -58,12 +57,12 @@ template <class matrixEntriesT> struct h_matrix_element {
   {
     index -> print();
 
-    struct dev_dense <matrixEntriesT> *d = get_element_dense();
-    // struct dev_low_rank *lr = get_element_low_rank();
-    struct dev_hierarchical <matrixEntriesT> *h = get_element_hierarchical();
+    const struct dev_dense <matrixEntriesT> *d = get_element_dense();
+    const struct dev_low_rank <matrixEntriesT> *lr = get_element_low_rank();
+    const struct dev_hierarchical <matrixEntriesT> *h = get_element_hierarchical();
 
     if (d != nullptr) { d -> print(); }
-    // else if (lr != nullptr) { lr -> print(); }
+    else if (lr != nullptr) { lr -> print(); }
     else if (h != nullptr) { h -> print(); } 
   }
 

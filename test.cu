@@ -75,7 +75,7 @@ __host__ int main()
   struct timer *myTimer = new timer();
   myTimer -> newEvent("TEST");
 
-  kernel_dynamic <<<4, 256>>> (d -> length, d -> dev_dep, d -> dev_dep_counts, d -> dev_status);
+  kernel_dynamic <<<2, 256>>> (d -> length, d -> dev_dep, d -> dev_dep_counts, d -> dev_status);
 
   myTimer -> newEvent("TEST");
   myTimer -> printStatus();

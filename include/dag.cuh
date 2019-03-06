@@ -167,7 +167,7 @@ struct dag {
     return cudaSuccess;
   }
 
-  __host__ void print()
+  __host__ void print() const
   {
     for (int i = 0; i < length; i++)
     {

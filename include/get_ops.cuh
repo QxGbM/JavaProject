@@ -5,7 +5,8 @@
 #include <dev_hierarchical.cuh>
 
 template <class matrixEntriesT> 
-__host__ struct ops_chain * get_ops_hgetrf (const struct dev_hierarchical <matrixEntriesT> *a)
+__host__ struct ops_chain * get_ops_hgetrf 
+  (const struct dev_hierarchical <matrixEntriesT> *a) 
 {
   struct ops_chain *ops = nullptr;
   const int nx = a -> nx, ny = a -> ny, n = (nx > ny) ? ny : nx;
@@ -20,9 +21,9 @@ __host__ struct ops_chain * get_ops_hgetrf (const struct dev_hierarchical <matri
     {
       e1 = (a -> elements)[i * nx + j];
       p1 = new ops_chain(trsml, 1, &(e1 -> index), 1, &(e0 -> index));
-      // TODO: hgessm
-      //if (e1 -> element_type == hierarchical) 
-      //{ p1 -> child = get_ops_hgessm ((struct dev_hierarchical <matrixEntriesT> *) (e1 -> element)); }
+
+      if (e0 -> element_type == hierarchical) 
+      { p1 -> child = get_ops_htrsml (e1, e0 -> get_element_hierarchical()); }
       p0 -> hookup(p1);
     }
 
@@ -30,9 +31,9 @@ __host__ struct ops_chain * get_ops_hgetrf (const struct dev_hierarchical <matri
     {
       e2 = (a -> elements)[j * nx + i];
       p1 = new ops_chain(trsmr, 1, &(e2 -> index), 1, &(e0 -> index));
-      // TODO: htstrf
-      //if (e2 -> element_type == hierarchical) 
-      //{ p1 -> child = get_ops_htstrf ((struct dev_hierarchical <matrixEntriesT> *) (e2 -> element)); }
+
+      if (e0 -> element_type == hierarchical) 
+      { p1 -> child = get_ops_htrsmr (e2, e0 -> get_element_hierarchical()); }
       p0 -> hookup(p1);
     }
 
@@ -47,9 +48,9 @@ __host__ struct ops_chain * get_ops_hgetrf (const struct dev_hierarchical <matri
         in1[0] = e1 -> index; in1[1] = e2 -> index; 
         p1 = new ops_chain(gemm, 1, &(e0 -> index), 2, in1);
         delete[] in1;
-        // TODO: hgemm 
-        //if (e2 -> element_type == hierarchical) 
-        //{ p1 -> child = get_ops_hgemm ((struct dev_hierarchical <matrixEntriesT> *) (e0 -> element)); }
+
+        if (e0 -> element_type == hierarchical) 
+        { p1 -> child = get_ops_hgemm (e0 -> get_element_hierarchical(), e1, e2); }
         p0 -> hookup(p1);
       }
     }
@@ -57,6 +58,50 @@ __host__ struct ops_chain * get_ops_hgetrf (const struct dev_hierarchical <matri
     if (ops == nullptr) { ops = p0; }
     else { ops -> hookup(p0); }
   }
+  return ops;
+}
+
+template <class matrixEntriesT> 
+__host__ struct ops_chain * get_ops_htrsml 
+  (const struct h_matrix_element <matrixEntriesT> *b, const struct dev_hierarchical <matrixEntriesT> *a)
+{
+  struct ops_chain *ops = nullptr;
+  const int nx = a -> nx, ny = a -> ny;
+  const struct dev_dense <matrixEntriesT> *d = b -> get_element_dense();
+  const struct dev_low_rank <matrixEntriesT> *lr = b -> get_element_low_rank();
+  const struct dev_hierarchical <matrixEntriesT> *h = b -> get_element_hierarchical();
+
+  if (d != nullptr) 
+  {
+    
+  }
+  else if (lr != nullptr) 
+  {
+    // TODO
+  }
+  else if (h != nullptr) 
+  {
+    // TODO
+  }
+
+  return ops;
+}
+
+template <class matrixEntriesT>
+__host__ struct ops_chain * get_ops_htrsmr 
+  (const struct h_matrix_element <matrixEntriesT> *b, const struct dev_hierarchical <matrixEntriesT> *a)
+{
+  struct ops_chain *ops = nullptr;
+  const int nx = a -> nx, ny = a -> ny;
+  return ops;
+}
+
+template <class matrixEntriesT> 
+__host__ struct ops_chain * get_ops_hgemm 
+  (const struct dev_hierarchical <matrixEntriesT> *a, const struct h_matrix_element <matrixEntriesT> *b, const struct h_matrix_element <matrixEntriesT> *c) 
+{
+  struct ops_chain *ops = nullptr;
+  const int nx = a -> nx, ny = a -> ny;
   return ops;
 }
 

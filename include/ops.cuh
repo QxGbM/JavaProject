@@ -4,8 +4,7 @@
 
 #include <index.cuh>
 
-enum matrix_op_t 
-{
+enum matrix_op_t {
   nop,
   getrf,
   trsml,
@@ -14,8 +13,7 @@ enum matrix_op_t
   pivot,
 };
 
-__host__ int calc_load (matrix_op_t op) 
-{
+__host__ int calc_load (matrix_op_t op) {
   int load_table[] = {0, 1, 1, 1, 1, 1};
   return load_table[(int) op];
 }
@@ -34,7 +32,8 @@ struct ops_chain {
   struct ops_chain *next;
   struct ops_chain *child;
 
-  __host__ ops_chain (const matrix_op_t opin = nop, const int n_read_write_in = 0, struct multi_level_index *const *in0 = nullptr, 
+  __host__ ops_chain (const matrix_op_t opin = nop, 
+    const int n_read_write_in = 0, struct multi_level_index *const *in0 = nullptr, 
     const int n_read_only_in = 0, struct multi_level_index *const *in1 = nullptr)
   {
     op_type = opin;
@@ -106,7 +105,7 @@ struct ops_chain {
 
     switch(op_type)
     {
-      case nop: printf("NOP "); break;
+      case nop: printf("NOP   "); break;
       case getrf: printf("GETRF "); break;
       case trsml: printf("TRSML "); break;
       case trsmr: printf("TRSMR "); break;
@@ -133,37 +132,5 @@ struct ops_chain {
   }
 
 };
-
-enum arg_t {
-  no_arg,
-  matrix_ptr,
-  pivot_ptr,
-  integer,
-};
-
-struct dev_op {
-  matrix_op_t op;
-
-  int n_args;
-  arg_t *arg_type;
-  void *args;
-
-  arg_t *dev_arg_type;
-  void *dev_args;
-
-  __host__ dev_op (struct ops_chain *op_head)
-  {
-    op = op_head -> op_type ;
-    switch(op)
-    {
-      case nop: n_args = 0; break;
-      case getrf: n_args = 5; break;
-      
-      default: n_args = 0;
-    }
-
-  }
-};
-
 
 #endif

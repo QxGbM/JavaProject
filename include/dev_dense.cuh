@@ -129,7 +129,7 @@ template <class matrixEntriesT> struct dev_dense {
 
   /* Host Functions */
 
-  __host__ void print ()
+  __host__ void print () const
   {
     printf("-- %d x %d | leading dimension: %d --\n", ny, nx, ld);
     for (int y = 0; y < ny; y++)
@@ -190,7 +190,7 @@ template <class matrixEntriesT> struct dev_dense {
     }
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * matrixMultiplication (const struct dev_dense <matrixEntriesT> *B)
+  __host__ struct dev_dense <matrixEntriesT> * matrixMultiplication (const struct dev_dense <matrixEntriesT> *B) const
   {
     struct dev_dense <matrixEntriesT> *C = new dev_dense <matrixEntriesT> (B -> nx, ny);
     for(int m = 0; m < ny; m++)
@@ -206,7 +206,7 @@ template <class matrixEntriesT> struct dev_dense {
     return C;
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * getLowerTriangular ()
+  __host__ struct dev_dense <matrixEntriesT> * getLowerTriangular () const
   {
     struct dev_dense <matrixEntriesT> *L = new dev_dense <matrixEntriesT> (ny, ny);
     for (int i = 0; i < ny; i++) 
@@ -222,7 +222,7 @@ template <class matrixEntriesT> struct dev_dense {
     return L;
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * getUpperTriangular ()
+  __host__ struct dev_dense <matrixEntriesT> * getUpperTriangular () const
   {
     struct dev_dense <matrixEntriesT> *U = new dev_dense <matrixEntriesT> (nx, ny);
     for (int i = 0; i < ny; i++) 
@@ -236,18 +236,16 @@ template <class matrixEntriesT> struct dev_dense {
     return U;
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * restoreLU ()
+  __host__ struct dev_dense <matrixEntriesT> * restoreLU () const
   {
     struct dev_dense <matrixEntriesT> *L = getLowerTriangular(), *U = getUpperTriangular();
     struct dev_dense <matrixEntriesT> *LU = L -> matrixMultiplication(U);
-    L -> ~dev_dense();
-    U -> ~dev_dense();
-    free(L);
-    free(U);
+    delete L;
+    delete U;
     return LU;
   }
 
-  __host__ double L2Error (const struct dev_dense <matrixEntriesT> *matrix)
+  __host__ double L2Error (const struct dev_dense <matrixEntriesT> *matrix) const
   {
     double norm = 0.0;
     for(int x = 0; x < nx; x++)
