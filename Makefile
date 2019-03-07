@@ -2,7 +2,7 @@
 
 #USE_MKL = TRUE
 
-NVCC = /usr/local/cuda/bin/nvcc -ccbin g++ -std=c++11 -m64
+NVCC = /usr/local/cuda-10.0/bin/nvcc -ccbin g++ -std=c++11 -m64
 
 BIN	= ./bin
 INCLUDE	= ./include
