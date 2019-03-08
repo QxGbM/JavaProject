@@ -127,6 +127,60 @@ template <class matrixEntriesT> struct dev_hierarchical {
     }
   }
 
+  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const int *n, const int levels) const
+  {
+    if (levels == 1)
+    { return elements[n[0]]; }
+    else
+    {
+      struct dev_hierarchical *h = elements[n[0]] -> get_element_hierarchical();
+      return (h == nullptr) ? nullptr : h -> lookup(&n[1], levels - 1);
+    }
+  }
+
+  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const struct multi_level_index *i) const
+  {
+    return lookup (i -> ns, i -> levels);
+  }
+
+  __host__ matrixEntriesT * lookup_element (const int *n, const int levels, const int offset) const
+  {
+    const struct h_matrix_element <matrixEntriesT> e = lookup(n, levels);
+    const struct dev_dense <matrixEntriesT> d = e -> get_element_dense();
+    const struct dev_low_rank <matrixEntriesT> lr = e -> get_element_low_rank();
+    const struct dev_hierarchical <matrixEntriesT> h = e -> get_element_hierarchical();
+    if (d != nullptr)
+    { return &(d -> elements)[offset]; }
+    else if (lr != nullptr)
+    { return nullptr; } // TODO
+    else
+    { return nullptr; }
+  }
+
+  __host__ matrixEntriesT * lookup_element_dev (const struct multi_level_index *i) const
+  {
+    return lookup_element_dev (i -> ns, i -> levels, i -> offset);
+  }
+
+  __host__ matrixEntriesT * lookup_element_dev (const int *n, const int levels, const int offset) const
+  {
+    const struct h_matrix_element <matrixEntriesT> e = lookup(n, levels);
+    const struct dev_dense <matrixEntriesT> d = e -> get_element_dense();
+    const struct dev_low_rank <matrixEntriesT> lr = e -> get_element_low_rank();
+    const struct dev_hierarchical <matrixEntriesT> h = e -> get_element_hierarchical();
+    if (d != nullptr)
+    { return &(d -> dev_ptr)[offset]; }
+    else if (lr != nullptr)
+    { return nullptr; } // TODO
+    else
+    { return nullptr; }
+  }
+
+  __host__ matrixEntriesT * lookup_element (const struct multi_level_index *i) const
+  {
+    return lookup_element (i -> ns, i -> levels, i -> offset);
+  }
+
   __host__ void loadTestMatrix (const int levels = 1, const int dim = 2, const int block_size = 4)
   {
     for (int y = 0; y < ny; y++)
@@ -152,22 +206,6 @@ template <class matrixEntriesT> struct dev_hierarchical {
     struct multi_level_index *i = new multi_level_index();
     update_index(i);
     delete i;
-  }
-
-  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const int *n, const int levels) const
-  {
-    if (levels == 1)
-    { return elements[n[0]]; }
-    else
-    {
-      struct dev_hierarchical *h = elements[n[0]] -> get_element_hierarchical();
-      return (h == nullptr) ? nullptr : h -> lookup(&n[1], levels - 1);
-    }
-  }
-
-  __host__ struct h_matrix_element <matrixEntriesT> * lookup (const struct multi_level_index *i) const
-  {
-    return lookup (i -> ns, i -> levels);
   }
 
 };
