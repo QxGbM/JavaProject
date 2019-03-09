@@ -2,10 +2,29 @@
 #ifndef _KERNEL_CUH
 #define _KERNEL_CUH
 
+#include <stdio.h>
 #include <cuda.h>
-#include <cooperative_groups.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+#include <intellisense.cuh>
 
-using namespace cooperative_groups;
+__device__ int thread_rank()
+{ return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
+
+__device__ int block_dim()
+{ return blockDim.z * blockDim.y * blockDim.x; }
+
+__device__ int block_rank()
+{ return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
+
+__device__ int grid_dim()
+{ return gridDim.z * gridDim.y * gridDim.x; }
+
+__device__ int warp_rank()
+{ return thread_rank() / warpSize; }
+
+__device__ int lane_rank()
+{ return thread_rank() - warpSize * warp_rank(); }
 
 __device__ void wait (long long int count)
 {
@@ -20,19 +39,17 @@ __device__ void wait (long long int count)
   }
 }
 
-__global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_counts, int *status, const long long int interval = 0)
+__global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_counts, int *status, const long long int interval = 1000)
 {
-  const thread_block g = this_thread_block();
-  
   __shared__ int inst;
   __shared__ int commit;
 
-  if (g.thread_rank() == 0)
+  if (thread_rank() == 0)
   { commit = -1; }
 
   while (true)
   {
-    if (g.thread_rank() == 0)
+    if (thread_rank() == 0)
     {
       inst = -1;
       for(int i = commit + 1; i < inst_length; i++)
@@ -45,7 +62,7 @@ __global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_count
         }
       }
     }
-    g.sync();
+	__syncthreads();
 
     if (commit == inst_length - 1) 
     { break; } 
@@ -54,18 +71,18 @@ __global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_count
     {
       long long int start = clock64();
       wait(100000000);
-      g.sync();
+	  __syncthreads();
       long long int end = clock64();
   
-      if (g.thread_rank() == 0)
+      if (thread_rank() == 0)
       {
-        printf("block: %d, inst: %d, start: %lli, end: %lli\n", blockIdx.x, inst, start, end);
+        printf("block: %d, inst: %d, start: %lli, end: %lli\n", block_rank(), inst, start, end);
         status[inst] = -1;
         for (int i = inst + 1; i < inst_length; i++)
         { if (dep[i * inst_length + inst]) atomicSub(&dep_counts[i], 1); } 
       }
     }
-    else if (g.thread_rank() == 0)
+    else if (thread_rank() == 0)
     {
       wait(interval);
     }

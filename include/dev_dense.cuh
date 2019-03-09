@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <cuda.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+#include <intellisense.cuh>
 
 template <class matrixEntriesT> struct dev_dense {
 

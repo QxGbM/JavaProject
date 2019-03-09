@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <cuda.h>
+#include <cuda_runtime.h>
 
 struct timer {
 

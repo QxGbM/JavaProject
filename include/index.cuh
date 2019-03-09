@@ -2,6 +2,7 @@
 #define _INDEX_CUH
 
 #include <stdio.h>
+#include <intellisense.cuh>
 
 struct multi_level_index {
 

@@ -4,27 +4,27 @@
 
 #include <pivot.cuh>
 
-using namespace cooperative_groups;
-
 template <class matrixEntriesT>
-__device__ void blockDenseScalar (const thread_group g, const matrixEntriesT scale, matrixEntriesT *matrix, 
-  const int nx, const int ld, const int ny)
+__device__ void blockDenseScalar (const matrixEntriesT scale, matrixEntriesT *matrix, const int nx, const int ld, const int ny)
 {
-  for (int i = g.thread_rank(); i < nx * ny; i += g.size())
+  const int thread_id = thread_rank();
+  const int block_size = block_dim();
+  for (int i = thread_id; i < nx * ny; i += block_size)
   { 
     const int row = i / nx, col = i - row * nx;
     matrix[row * ld + col] = (scale == 0) ? 0 : matrix[row * ld + col] * scale;
   }
-  g.sync();
+  __syncthreads();
 }
 
 template <class matrixEntriesT>
-__device__ void blockDenseGemm (const thread_group g, const matrixEntriesT alpha, const matrixEntriesT beta, const matrixEntriesT *a, 
-  const matrixEntriesT *b, matrixEntriesT *matrix, const int ld_a, const int ld_b, const int ld_m, 
-  const int m, const int n, const int k)
+__device__ void blockDenseGemm (const matrixEntriesT alpha, const matrixEntriesT beta, const matrixEntriesT *a, const matrixEntriesT *b, 
+	matrixEntriesT *matrix, const int ld_a, const int ld_b, const int ld_m, const int m, const int n, const int k)
 {
   /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
-  for (int i = g.thread_rank(); i < m * n; i += g.size())
+  const int thread_id = thread_rank();
+  const int block_size = block_dim();
+  for (int i = thread_id; i < m * n; i += block_size)
   { 
     const int row = i / n, col = i - row * n;
     const matrixEntriesT old = (beta == 0) ? 0 : beta * matrix[row * ld_m + col];
@@ -37,11 +37,11 @@ __device__ void blockDenseGemm (const thread_group g, const matrixEntriesT alpha
     }
     matrix[row * ld_m + col] = old + accum;
   }
-  g.sync();
+  __syncthreads();
 }
 
 template <class matrixEntriesT>
-__device__ void blockDenseGessm (thread_group g, const matrixEntriesT *A, const int *pivot, matrixEntriesT *B, 
+__device__ void blockDenseGessm (const matrixEntriesT *A, const int *pivot, matrixEntriesT *B, 
   const int m, const int n, const int ld_a, const int ld_b)
 {
   for (int i = 0; i < m; i++)
@@ -57,13 +57,12 @@ __device__ void blockDenseGessm (thread_group g, const matrixEntriesT *A, const 
 template <class matrixEntriesT>
 __device__ void blockDenseGetrfNoPivot (matrixEntriesT *matrix, const int nx, const int ld, const int ny)
 {
-  const thread_block g = this_thread_block();
   const int n = (nx < ny) ? nx : ny;
   for (int i = 0; i < n; i++)
   {
-    blockDenseScalar <matrixEntriesT> (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
+    blockDenseScalar <matrixEntriesT> (1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
     
-    blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
+    blockDenseGemm <matrixEntriesT> (-1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
       ld, ld, ld, ny - (i + 1), nx - (i + 1), 1);
   }
 }
@@ -71,7 +70,6 @@ __device__ void blockDenseGetrfNoPivot (matrixEntriesT *matrix, const int nx, co
 template <class matrixEntriesT>
 __device__ void blockDenseGetrfWithPivot (matrixEntriesT *matrix, int *pivot, const int nx, const int ld, const int ny)
 {
-  const thread_block g = this_thread_block();
   resetPivot(pivot, ny);
 
   const int n = (nx < ny) ? nx : ny;
@@ -82,13 +80,13 @@ __device__ void blockDenseGetrfWithPivot (matrixEntriesT *matrix, int *pivot, co
     if (target != i)
     {
       blockSwapNSeqElements <matrixEntriesT> (&matrix[target * ld], &matrix[i * ld], nx);
-      if (g.thread_rank() == 0) { int t = pivot[target]; pivot[target] = pivot[i]; pivot[i] = t; }
-      g.sync();
+      if (thread_rank() == 0) { int t = pivot[target]; pivot[target] = pivot[i]; pivot[i] = t; }
+	  __syncthreads();
     }
 
-    blockDenseScalar <matrixEntriesT> (g, 1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
+    blockDenseScalar <matrixEntriesT> (1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ld, ny - (i + 1));
 
-    blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
+    blockDenseGemm <matrixEntriesT> (-1.0, 1.0, &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], &matrix[(i + 1) * ld + (i + 1)], 
       ld, ld, ld, ny - (i + 1), nx - (i + 1), 1);
   }
 }
