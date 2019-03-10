@@ -39,8 +39,9 @@ __device__ void wait (long long int count)
   }
 }
 
-__global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_counts, int *status, const long long int interval = 1000)
+__global__ void kernel_dynamic (int inst_length, const bool *dep, int *dep_counts, int *status)
 {
+  const long long int interval = 1000;
   __shared__ int inst;
   __shared__ int commit;
 

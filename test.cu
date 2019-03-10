@@ -3,9 +3,9 @@
 #include <kernel.cuh>
 #include <cuda_timer.cuh>
 
+#if 0
 using namespace cooperative_groups;
 
-#if 0
 __global__ void kernel (int *in)
 {
   grid_group grid = this_grid();
@@ -58,32 +58,34 @@ __host__ void test_kernel()
 
 __host__ int main()
 {
-  //test_kernel();
+  struct dev_hierarchical <double> *a = new dev_hierarchical <double>(2, 2);
+  a->loadTestMatrix(2, 2, 4);
+  a->print();
 
-  struct dev_hierarchical <double> *a = new dev_hierarchical <double> (2, 2);
-  a -> loadTestMatrix(1, 2, 4);
-  a -> print();
-
-  struct ops_chain *ops = get_ops_hgetrf(a);
-  ops -> print();
+  struct multi_level_index *id = new multi_level_index();
+  struct ops_chain *ops = get_ops_h_getrf(a, id);
+  ops->print();
 
   struct dag *d = new dag(ops);
 
-  d -> print();
-  d -> copyToDevice_Sync();
+  d->print();
+  d->copyToDevice_Sync();
 
   struct timer *myTimer = new timer();
-  myTimer -> newEvent("TEST");
+  myTimer->newEvent("TEST");
 
-  kernel_dynamic <<<2, 256>>> (d -> length, d -> dev_dep, d -> dev_dep_counts, d -> dev_status);
+  void ** args = new void *[4]{ &d->length, &d->dev_dep, &d->dev_dep_counts, &d->dev_status };
+  cudaLaunchKernel((void *)kernel_dynamic, 4, 256, args);
+  delete[] args;
 
-  myTimer -> newEvent("TEST");
-  myTimer -> printStatus();
-  myTimer -> dumpAllEvents_Sync();
-  //cudaDeviceSynchronize();
+  myTimer->newEvent("TEST");
+  myTimer->printStatus();
+  myTimer->dumpAllEvents_Sync();
+  cudaDeviceSynchronize();
 
   delete a;
   delete ops;
+  delete id;
   delete d;
   delete myTimer;
 

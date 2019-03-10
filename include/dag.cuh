@@ -30,22 +30,6 @@ __host__ dep_t add_dep (dep_t x, dep_t y)
   return (dep_t) r; 
 }
 
-__host__ char * dep_str (dep_t x) 
-{
-  int a = (int) x, i = 3;
-  char *str = new char[i + 1];
-
-  str[i] = 'D'; i--;
-  if (a == 0) { str[i] = 'N'; i--; }
-  if (a >= 4) { str[i] = 'O'; a -= 4; i--; }
-  if (a >= 2) { str[i] = 'A'; a -= 2; i--; }
-  if (a >= 1) { str[i] = 'F'; a -= 1; i--; }
-
-  while (i >= 0) { str[i] = ' '; i--; }
-
-  return str;
-}
-
 struct dag {
 
   int length;
@@ -171,17 +155,13 @@ struct dag {
   {
     for (int i = 0; i < length; i++)
     {
-      printf("%d:\t", i);
+      printf("%d: ", i);
       for (int j = 0; j < length; j++)
       {
         if (j > i)
-        {
-          char *str = dep_str(dep[j * length + i]); 
-          printf("%s ", str);
-          delete[] str;
-        }
+        { printf("%d ", dep[j * length + i]); }
         else
-        { printf("     "); }
+        { printf("  "); }
       }
       printf("\n");
     }

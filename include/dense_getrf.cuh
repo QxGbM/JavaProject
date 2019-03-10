@@ -48,7 +48,7 @@ __device__ void blockDenseGessm (const matrixEntriesT *A, const int *pivot, matr
   {
     //if (!diag_unit) { blockDenseScalar <matrixEntriesT> (g, 1.0 / A[i * ld_a + i], &B[i * ld_b], n, ld_b, 1); }
     if (i != m - 1)
-    { blockDenseGemm <matrixEntriesT> (g, -1.0, 1.0, &A[(i + 1) * ld_a + i], &B[i * ld_b], &B[(i + 1) * ld_b], 
+    { blockDenseGemm <matrixEntriesT> (-1.0, 1.0, &A[(i + 1) * ld_a + i], &B[i * ld_b], &B[(i + 1) * ld_b], 
         ld_a, ld_b, ld_b, m - (i + 1), n, 1); }
   }
 }

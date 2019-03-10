@@ -18,17 +18,11 @@ template <class matrixEntriesT> struct h_matrix_element {
 
   void *element;
   h_matrix_t element_type;
-  struct multi_level_index *index;
   
-  __host__ h_matrix_element (void *element_in = nullptr, const h_matrix_t type_in = empty, const struct multi_level_index *index_in = nullptr)
+  __host__ h_matrix_element (void *element_in = nullptr, const h_matrix_t type_in = empty)
   {
     element = element_in;
     element_type = type_in;
-
-    if (index_in == nullptr) 
-    { index = new struct multi_level_index(); }
-    else
-    { index = new struct multi_level_index(index_in -> levels, index_in -> ns); }
   }
 
   __host__ struct dev_dense <matrixEntriesT> * get_element_dense () const
@@ -50,12 +44,35 @@ template <class matrixEntriesT> struct h_matrix_element {
     else if (lr != nullptr) { delete lr; }
     else if (h != nullptr) { delete h; } 
 
-    delete index;
+  }
+
+  __host__ int * getDim() const
+  {
+    int *dim = new int[2]{ 0, 0 };
+    const struct dev_dense <matrixEntriesT> *d = get_element_dense();
+    const struct dev_low_rank <matrixEntriesT> *lr = get_element_low_rank();
+    const struct dev_hierarchical <matrixEntriesT> *h = get_element_hierarchical();
+
+    if (d != nullptr) 
+    {
+      dim[0] = d -> nx;
+      dim[1] = d -> ny;
+    }
+    else if (lr != nullptr) 
+    {
+      // TODO
+    }
+    else if (h != nullptr) 
+    {
+      int *dim_h = h -> getDim();
+      dim[0] = dim_h[0];
+      dim[1] = dim_h[1];
+    }
+    return dim;
   }
 
   __host__ void print() const
   {
-    index -> print();
 
     const struct dev_dense <matrixEntriesT> *d = get_element_dense();
     const struct dev_low_rank <matrixEntriesT> *lr = get_element_low_rank();
@@ -64,18 +81,6 @@ template <class matrixEntriesT> struct h_matrix_element {
     if (d != nullptr) { d -> print(); }
     else if (lr != nullptr) { lr -> print(); }
     else if (h != nullptr) { h -> print(); } 
-  }
-
-  __host__ void update_index (const int i, const struct multi_level_index *parent = nullptr)
-  {
-    delete index;
-    bool orphan = (parent == nullptr);
-    int levels_in = orphan ? 0 : parent -> levels;
-    int *ns_in = orphan ? nullptr : parent -> ns;
-    index = new struct multi_level_index (levels_in, ns_in, i);
-
-    struct dev_hierarchical <matrixEntriesT> *h = get_element_hierarchical();
-    if (h != nullptr) { h -> update_index (index); }
   }
 
 };
@@ -118,13 +123,20 @@ template <class matrixEntriesT> struct dev_hierarchical {
     }
   }
 
-  __host__ void update_index (const struct multi_level_index *parent = nullptr)
+  __host__ int * getDim() const
   {
+    int *dim = new int[2]{ 0, 0 };
     for (int i = 0; i < ny * nx; i++)
     {
-      if (elements[i] != nullptr) 
-      { elements[i] -> update_index(i, parent); }
+      if (elements[i] != nullptr)
+      { 
+        int *dim_e = elements[i] -> getDim();
+        dim[0] += dim_e[0];
+        dim[1] += dim_e[1];
+        delete[] dim_e;
+      }
     }
+    return dim;
   }
 
   __host__ struct h_matrix_element <matrixEntriesT> * lookup (const int *n, const int levels) const
@@ -203,9 +215,7 @@ template <class matrixEntriesT> struct dev_hierarchical {
         }
       }
     }
-    struct multi_level_index *i = new multi_level_index();
-    update_index(i);
-    delete i;
+
   }
 
 };

@@ -33,18 +33,18 @@ struct ops_chain {
   struct ops_chain *child;
 
   __host__ ops_chain (const matrix_op_t opin = nop, 
-    const int n_read_write_in = 0, struct multi_level_index *const *in0 = nullptr, 
-    const int n_read_only_in = 0, struct multi_level_index *const *in1 = nullptr)
+    const int n_read_write_in = 0, const struct multi_level_index **in0 = nullptr, 
+    const int n_read_only_in = 0, const struct multi_level_index **in1 = nullptr)
   {
     op_type = opin;
 
     n_read_write = n_read_write_in;
     m_read_write = new struct multi_level_index * [n_read_write_in];
-    for(int i = 0; i < n_read_write; i++) { m_read_write[i] = new struct multi_level_index(in0[i] -> levels, in0[i] -> ns); }
+    for(int i = 0; i < n_read_write; i++) { m_read_write[i] = new struct multi_level_index(in0[i] -> levels, in0[i] -> ns, -1, in0[i] -> offset); }
 
     n_read_only = n_read_only_in;
     m_read_only = new struct multi_level_index * [n_read_only];
-    for(int i = 0; i < n_read_only; i++) { m_read_only[i] = new struct multi_level_index(in1[i] -> levels, in1[i] -> ns); }
+    for(int i = 0; i < n_read_only; i++) { m_read_only[i] = new struct multi_level_index(in1[i] -> levels, in1[i] -> ns, -1, in1[i] -> offset); }
 
     load = calc_load (opin);
     next = nullptr;
