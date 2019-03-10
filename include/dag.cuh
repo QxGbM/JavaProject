@@ -67,15 +67,23 @@ struct dag {
           for (int l = 0; l < inst_n_read_only; l++)
           {
             const struct multi_level_index *in = (op -> m_read_only)[l];
-            if (dest -> compare(in) >= 0) 
-            { dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); break; }
+            switch (dest -> compare(in)) 
+            {
+            case no_relation: case diff_offset_no_overlap: break;
+            case diff_offset_overlapped: case same_index: case contains: case contained:
+              dep[j * length + i] = add_dep(flow_dep, dep[j * length + i]); l = inst_n_read_only;
+            }
           }
 
           for (int l = 0; l < inst_n_read_write; l++)
           {
             const struct multi_level_index *in = (op -> m_read_write)[l];
-            if (dest -> compare(in) >= 0) 
-            { dep[j * length + i] = add_dep(output_dep, dep[j * length + i]); break; }
+            switch (dest -> compare(in))
+            {
+            case no_relation: case diff_offset_no_overlap: break;
+            case diff_offset_overlapped: case same_index: case contains: case contained:
+              dep[j * length + i] = add_dep(output_dep, dep[j * length + i]); l = inst_n_read_write;
+            }
           }
         }
 
@@ -86,8 +94,12 @@ struct dag {
           for (int l = 0; l < src_n_read_only; l++)
           {
             const struct multi_level_index *in = (op_src -> m_read_only)[l];
-            if (dest -> compare(in) >= 0) 
-            { dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); break; }
+            switch (dest -> compare(in))
+            {
+            case no_relation: case diff_offset_no_overlap: break;
+            case diff_offset_overlapped: case same_index: case contains: case contained:
+              dep[j * length + i] = add_dep(anti_dep, dep[j * length + i]); l = src_n_read_only;
+            }
           }
         }
 

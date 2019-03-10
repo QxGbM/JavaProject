@@ -46,9 +46,9 @@ template <class matrixEntriesT> struct h_matrix_element {
 
   }
 
-  __host__ int * getDim() const
+  __host__ int * getDim3 (const bool actual = true) const
   {
-    int *dim = new int[2]{ 0, 0 };
+    int *dim = new int[3]{ 0, 0, 0 };
     const struct dev_dense <matrixEntriesT> *d = get_element_dense();
     const struct dev_low_rank <matrixEntriesT> *lr = get_element_low_rank();
     const struct dev_hierarchical <matrixEntriesT> *h = get_element_hierarchical();
@@ -57,6 +57,7 @@ template <class matrixEntriesT> struct h_matrix_element {
     {
       dim[0] = d -> nx;
       dim[1] = d -> ny;
+      dim[2] = d -> ld;
     }
     else if (lr != nullptr) 
     {
@@ -64,9 +65,11 @@ template <class matrixEntriesT> struct h_matrix_element {
     }
     else if (h != nullptr) 
     {
-      int *dim_h = h -> getDim();
+      int *dim_h = h -> getDim3(actual);
       dim[0] = dim_h[0];
       dim[1] = dim_h[1];
+      dim[2] = dim_h[2];
+      delete[] dim_h;
     }
     return dim;
   }
@@ -123,18 +126,29 @@ template <class matrixEntriesT> struct dev_hierarchical {
     }
   }
 
-  __host__ int * getDim() const
+  __host__ int * getDim3 (const bool actual = true) const
   {
-    int *dim = new int[2]{ 0, 0 };
-    for (int i = 0; i < ny * nx; i++)
+    int *dim = new int[3]{ 0, 0, 0 };
+    if (actual)
     {
-      if (elements[i] != nullptr)
-      { 
-        int *dim_e = elements[i] -> getDim();
-        dim[0] += dim_e[0];
-        dim[1] += dim_e[1];
-        delete[] dim_e;
+      for (int i = 0; i < ny * nx; i++)
+      {
+        if (elements[i] != nullptr)
+        {
+          int *dim_e = elements[i] -> getDim3();
+          dim[0] += dim_e[0];
+          dim[1] += dim_e[1];
+          delete[] dim_e;
+        }
       }
+      dim[0] /= ny;
+      dim[1] /= nx;
+      dim[2] = dim[0];
+    }
+    else
+    {
+      dim[0] = dim[2] = nx;
+      dim[1] = ny;
     }
     return dim;
   }
@@ -153,44 +167,6 @@ template <class matrixEntriesT> struct dev_hierarchical {
   __host__ struct h_matrix_element <matrixEntriesT> * lookup (const struct multi_level_index *i) const
   {
     return lookup (i -> ns, i -> levels);
-  }
-
-  __host__ matrixEntriesT * lookup_element (const int *n, const int levels, const int offset) const
-  {
-    const struct h_matrix_element <matrixEntriesT> e = lookup(n, levels);
-    const struct dev_dense <matrixEntriesT> d = e -> get_element_dense();
-    const struct dev_low_rank <matrixEntriesT> lr = e -> get_element_low_rank();
-    const struct dev_hierarchical <matrixEntriesT> h = e -> get_element_hierarchical();
-    if (d != nullptr)
-    { return &(d -> elements)[offset]; }
-    else if (lr != nullptr)
-    { return nullptr; } // TODO
-    else
-    { return nullptr; }
-  }
-
-  __host__ matrixEntriesT * lookup_element_dev (const struct multi_level_index *i) const
-  {
-    return lookup_element_dev (i -> ns, i -> levels, i -> offset);
-  }
-
-  __host__ matrixEntriesT * lookup_element_dev (const int *n, const int levels, const int offset) const
-  {
-    const struct h_matrix_element <matrixEntriesT> e = lookup(n, levels);
-    const struct dev_dense <matrixEntriesT> d = e -> get_element_dense();
-    const struct dev_low_rank <matrixEntriesT> lr = e -> get_element_low_rank();
-    const struct dev_hierarchical <matrixEntriesT> h = e -> get_element_hierarchical();
-    if (d != nullptr)
-    { return &(d -> dev_ptr)[offset]; }
-    else if (lr != nullptr)
-    { return nullptr; } // TODO
-    else
-    { return nullptr; }
-  }
-
-  __host__ matrixEntriesT * lookup_element (const struct multi_level_index *i) const
-  {
-    return lookup_element (i -> ns, i -> levels, i -> offset);
   }
 
   __host__ void loadTestMatrix (const int levels = 1, const int dim = 2, const int block_size = 4)

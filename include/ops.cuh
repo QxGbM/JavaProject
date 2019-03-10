@@ -32,19 +32,19 @@ struct ops_chain {
   struct ops_chain *next;
   struct ops_chain *child;
 
-  __host__ ops_chain (const matrix_op_t opin = nop, 
-    const int n_read_write_in = 0, const struct multi_level_index **in0 = nullptr, 
+  __host__ ops_chain(const matrix_op_t opin = nop,
+    const int n_read_write_in = 0, const struct multi_level_index **in0 = nullptr,
     const int n_read_only_in = 0, const struct multi_level_index **in1 = nullptr)
   {
     op_type = opin;
 
     n_read_write = n_read_write_in;
     m_read_write = new struct multi_level_index * [n_read_write_in];
-    for(int i = 0; i < n_read_write; i++) { m_read_write[i] = new struct multi_level_index(in0[i] -> levels, in0[i] -> ns, -1, in0[i] -> offset); }
+    for (int i = 0; i < n_read_write; i++) { m_read_write[i] = new struct multi_level_index(in0[i] -> levels, in0[i] -> ns, -1, in0[i] -> offset, in0[i] -> dim); }
 
     n_read_only = n_read_only_in;
     m_read_only = new struct multi_level_index * [n_read_only];
-    for(int i = 0; i < n_read_only; i++) { m_read_only[i] = new struct multi_level_index(in1[i] -> levels, in1[i] -> ns, -1, in1[i] -> offset); }
+    for (int i = 0; i < n_read_only; i++) { m_read_only[i] = new struct multi_level_index(in1[i] -> levels, in1[i] -> ns, -1, in1[i] -> offset, in1[i] -> dim); }
 
     load = calc_load (opin);
     next = nullptr;
@@ -113,11 +113,11 @@ struct ops_chain {
       case pivot: printf("PIVOT "); break;
     }
 
-    printf("%dW: ", n_read_write);
+    printf("%dx W: ", n_read_write);
     for (int i = 0; i < n_read_write; i++)
     { m_read_write[i] -> print_short(); printf(" "); }
 
-    printf("%dR: ", n_read_only);
+    printf("%dx R: ", n_read_only);
     for (int i = 0; i < n_read_only; i++)
     { m_read_only[i] -> print_short(); printf(" "); }
 
