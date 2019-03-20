@@ -2,7 +2,8 @@
 
 #USE_MKL = TRUE
 
-NVCC = /usr/local/cuda-10.1/bin/nvcc -ccbin g++ -std=c++11 -m64
+NVCC = /usr/local/cuda-10.0/bin/nvcc 
+NVCC += -ccbin g++ -std=c++11 -m64
 
 HOME_DIR = ./
 
@@ -21,8 +22,12 @@ ARCH += -gencode arch=compute_70,code=sm_70
 ARCH += -gencode arch=compute_75,code=sm_75
 ARCH += -gencode arch=compute_75,code=compute_75
 
-NVCCFLAGS = -rdc=true -O3 -I$(INCLUDE_DIR) $(ARCH) 
-LDFLAGS  = -lstdc++ -lm -lcuda -lcudart -L/usr/lib/x86_64-linux-gnu $(ARCH)
+NVCCFLAGS = -rdc=true -O3 
+NVCCFLAGS += -I$(INCLUDE_DIR) 
+NVCCFLAGS += $(ARCH) 
+
+LDFLAGS = -lstdc++ -lm -lcuda -lcudart 
+LDFLAGS += -L/usr/lib/x86_64-linux-gnu $(ARCH)
 
 ifdef USE_MKL
 

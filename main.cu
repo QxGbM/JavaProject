@@ -49,7 +49,7 @@ __global__ void dense_getrf_kernel(double *matrix, const int nx, const int ny, c
 
 __host__ int test1 ()
 {
-  const int x = 32, y = 32;
+  const int x = 512, y = 512;
 
   cudaSetDevice(0);
 
@@ -105,7 +105,7 @@ __host__ int test2()
   cudaSetDevice(0);
   const int x = 512, y = 512;
 
-  dev_dense <double> *a = new dev_dense <double>(x, y);
+  dev_dense <double> *a = new dev_dense <double>(x, y, 1024);
   a -> loadRandomMatrix(-10, 10, 999);
 
   int *dim = a -> getDim3(), nx = dim[0], ny = dim[1], ld = dim[2];
@@ -147,9 +147,9 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  //test2();
+  test2();
   test1();
-  //test0();
+  test0();
 
   return 0;
 }

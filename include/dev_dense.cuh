@@ -29,13 +29,13 @@ public:
     ld = (x > d) ? x : d;
 
     cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
-    cudaMemset(&elements, 0, ld * ny * sizeof(T));
+    cudaMemset(elements, 0, ld * ny * sizeof(T));
     
     pivoted = alloc_pivot;
     if (pivoted)
     {
       cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal);
-      cudaMemset(&pivot, 0, ny * sizeof(int));
+      cudaMemset(pivot, 0, ny * sizeof(int));
     }
     else
     {
@@ -101,7 +101,6 @@ public:
       for(int y = 0; y < ny; y++)
       {
         const T d = (x > y) ? x - y : y - x;
-        printf("%d, %d\n", x, y);
         elements[y * ld + x] = 1.0 / (1.0 + d);
       }
     }
