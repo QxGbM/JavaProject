@@ -3,7 +3,9 @@
 
 #include <dev_dense.cuh>
 
-template <class matrixEntriesT> struct dev_low_rank {
+template <class matrixEntriesT> class dev_low_rank {
+
+public:
 
   __host__ dev_low_rank()
   { }

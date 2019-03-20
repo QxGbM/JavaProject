@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <intellisense.cuh>
 
-enum index_relation_t {
+enum index_relation_t 
+{
   no_relation,
   diff_offset_no_overlap,
   diff_offset_overlapped,
@@ -13,12 +14,16 @@ enum index_relation_t {
   contained,
 };
 
-struct multi_level_index {
+class multi_level_index 
+{
+private:
 
   int levels;
   int *ns;
   int offset;
   int *dim;
+
+public:
 
   __host__ multi_level_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr)
   {
@@ -63,7 +68,19 @@ struct multi_level_index {
     printf(" (%d) (%d,%d,%d)]", offset, dim[0], dim[1], dim[2]);
   }
 
-  __host__ index_relation_t compare (const struct multi_level_index *in) const
+  __host__ int getOffset() const
+  { return offset; }
+
+  __host__ int getNx() const
+  { return dim[0]; }
+
+  __host__ int getNy() const
+  { return dim[1]; }
+
+  __host__ int getLd() const
+  { return dim[2]; }
+
+  __host__ index_relation_t compare (const multi_level_index *in) const
   {
     if (in == nullptr) { return no_relation; }
 
@@ -76,21 +93,42 @@ struct multi_level_index {
       if (offset == in -> offset) return same_index;
       else
       {
-        const int ld = dim[2], offset0 = offset, nx0 = dim[0], ny0 = dim[1];
-        const int offset1 = in -> offset, nx1 = (in -> dim)[0], ny1 = (in -> dim)[1];
+        const int offset0 = offset, nx0 = dim[0], ny0 = dim[1], ld0 = (dim[2] == 0) ? nx0 : dim[2];
+        const int offset1 = in -> offset, nx1 = (in -> dim)[0], ny1 = (in -> dim)[1], ld1 = ((in -> dim)[2] == 0) ? nx1 : (in -> dim)[2];
 
-        const int row0 = (offset0 == 0) ? 0 : offset0 / ld, col0 = offset0 - row0 * ld;
-        const int row1 = (offset1 == 0) ? 0 : offset1 / ld, col1 = offset1 - row1 * ld;
-        const int row_diff = row1 - row0, col_diff = col1 - col0;
+        if (ld0 >= nx0 && ld1 >= nx1)
+        {
+          const int row0 = offset0 / ld0, col0 = offset0 - row0 * ld0;
+          const int row1 = offset1 / ld1, col1 = offset1 - row1 * ld1;
+          const int row_diff = row1 - row0, col_diff = col1 - col0;
 
-        const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
-        const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);
+          const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
+          const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);
 
-        return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
+          return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
+        }
+        else
+        {
+          // TODO: low rank
+          return no_relation;
+        }
+
       }
     }
     else
     { return (levels > n) ? contains : contained; }
+  }
+
+  __host__ multi_level_index * child (const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr) const
+  {
+    multi_level_index * i = new multi_level_index(levels, ns, index_in, offset_in, dim_in);
+    return i;
+  }
+
+  __host__ multi_level_index * clone() const
+  {
+    multi_level_index * i = new multi_level_index(levels, ns, -1, offset, dim);
+    return i;
   }
 
 };

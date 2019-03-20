@@ -4,8 +4,11 @@
 
 NVCC = /usr/local/cuda-10.0/bin/nvcc -ccbin g++ -std=c++11 -m64
 
-BIN	= ./bin
-INCLUDE	= ./include
+HOME_DIR = ./
+
+PSPL_DIR = $(HOME_DIR)Pastel-Palettes/
+BIN_DIR = $(HOME_DIR)bin/
+INCLUDE_DIR = $(PSPL_DIR)include/
 
 ARCH += -gencode arch=compute_30,code=sm_30
 ARCH += -gencode arch=compute_35,code=sm_35
@@ -18,7 +21,7 @@ ARCH += -gencode arch=compute_70,code=sm_70
 ARCH += -gencode arch=compute_75,code=sm_75
 ARCH += -gencode arch=compute_75,code=compute_75
 
-NVCCFLAGS = -rdc=true -O3 -I$(INCLUDE) $(ARCH) 
+NVCCFLAGS = -rdc=true -O3 -I$(INCLUDE_DIR) $(ARCH) 
 LDFLAGS  = -lstdc++ -lm -lcuda -lcudart -L/usr/lib/x86_64-linux-gnu $(ARCH)
 
 ifdef USE_MKL
@@ -28,28 +31,11 @@ LDFLAGS += -lmkl_intel_lp64 -lmkl_sequential -lmkl_core
 
 endif
 
-.cu.o:
-	mkdir --parents $(BIN)
-	$(NVCC) $(NVCCFLAGS) -c $? -o $(BIN)/$@
-
 all:
-	make gpu_lu
-
-gpu_lu: dense_lu_test.o
-	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
-	./$(BIN)/$@
-
-pivot: pivot.o
-	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
-	./$(BIN)/$@
-
-svd: svd.o
-	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
-	./$(BIN)/$@
-
-test: test.o
-	$(NVCC) $(BIN)/$? $(LDFLAGS) -o $(BIN)/$@
-	./$(BIN)/$@
+	mkdir --parents $(BIN_DIR)
+	$(NVCC) $(NVCCFLAGS) -c $(PSPL_DIR)main.cu -o $(BIN_DIR)main.o
+	$(NVCC) $(BIN_DIR)main.o $(LDFLAGS) -o $(BIN_DIR)main
+	./$(BIN_DIR)main
 
 clean:
-	$(RM) -r $(BIN)
+	rm -r $(BIN_DIR)

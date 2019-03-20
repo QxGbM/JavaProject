@@ -4,7 +4,8 @@
 
 #include <index.cuh>
 
-enum matrix_op_t {
+enum matrix_op_t 
+{
   nop,
   getrf,
   trsml,
@@ -13,67 +14,122 @@ enum matrix_op_t {
   pivot,
 };
 
-__host__ int calc_load (matrix_op_t op) {
-  int load_table[] = {0, 1, 1, 1, 1, 1};
-  return load_table[(int) op];
-}
+class ops_chain 
+{
+private:
 
-struct ops_chain {
+  class index_chain
+  {
+  private:
+    multi_level_index *index;
+    index_chain *next;
+
+  public:
+    __host__ index_chain (const multi_level_index * in) 
+    {
+      index = in -> clone();
+      next = nullptr;
+    }
+
+    __host__ ~index_chain()
+    {
+      delete index;
+      if (next != nullptr) { delete next; }
+    }
+
+    __host__ void hookup (const multi_level_index * in)
+    {
+      if (next == nullptr) { next = new index_chain(in); }
+      else { next -> hookup(in); }
+    }
+
+    __host__ int length() const
+    {
+      return 1 + ((next == nullptr) ? 0 : next -> length());
+    }
+
+    __host__ multi_level_index * lookup(const int i) const
+    {
+      if (i <= 0) { return index; }
+      else { return (next == nullptr) ? nullptr : next -> lookup(i - 1); }
+    }
+
+    __host__ void print() const
+    {
+      index -> print_short();
+      printf(" ");
+      if (next != nullptr) { next -> print(); }
+    }
+
+  };
 
   matrix_op_t op_type;
 
-  int n_read_write;
-  struct multi_level_index **m_read_write;
+  index_chain *wr;
+  index_chain *r;
 
-  int n_read_only;
-  struct multi_level_index **m_read_only;
+  ops_chain *next;
+  ops_chain *child;
 
-  int load;
-  struct ops_chain *next;
-  struct ops_chain *child;
+public:
 
-  __host__ ops_chain(const matrix_op_t opin = nop,
-    const int n_read_write_in = 0, const struct multi_level_index **in0 = nullptr,
-    const int n_read_only_in = 0, const struct multi_level_index **in1 = nullptr)
+  __host__ ops_chain (const matrix_op_t opin = nop)
   {
     op_type = opin;
 
-    n_read_write = n_read_write_in;
-    m_read_write = new struct multi_level_index * [n_read_write_in];
-    for (int i = 0; i < n_read_write; i++) { m_read_write[i] = new struct multi_level_index(in0[i] -> levels, in0[i] -> ns, -1, in0[i] -> offset, in0[i] -> dim); }
-
-    n_read_only = n_read_only_in;
-    m_read_only = new struct multi_level_index * [n_read_only];
-    for (int i = 0; i < n_read_only; i++) { m_read_only[i] = new struct multi_level_index(in1[i] -> levels, in1[i] -> ns, -1, in1[i] -> offset, in1[i] -> dim); }
-
-    load = calc_load (opin);
+    wr = nullptr;
+    r = nullptr;
     next = nullptr;
     child = nullptr;
   }
 
   __host__ ~ops_chain ()
   {
-    for (int i = 0; i < n_read_write; i++)
-    { delete m_read_write[i]; }
-    delete[] m_read_write;
-
-    for (int i = 0; i < n_read_only; i++)
-    { delete m_read_only[i]; }
-    delete[] m_read_only;
+    if (wr != nullptr) { delete wr; }
+    if (r != nullptr) { delete r; }
 
     if (child != nullptr) { delete child; }
     if (next != nullptr) { delete next; }
   }
 
-  __host__ void hookup (struct ops_chain *chain)
+  __host__ void addWR (const multi_level_index *in)
+  {
+    if (wr == nullptr) { wr = new index_chain(in); }
+    else { wr -> hookup(in); }
+  }
+
+  __host__ void addR (const multi_level_index *in)
+  {
+    if (r == nullptr) { r = new index_chain(in); }
+    else { r -> hookup(in); }
+  }
+
+  __host__ int getN_WR() const
+  { return (wr == nullptr) ? 0 : wr -> length(); }
+
+  __host__ int getN_R() const
+  { return (r == nullptr) ? 0 : r -> length(); }
+
+  __host__ multi_level_index * getI_WR (const int i) const
+  { return (wr == nullptr) ? nullptr : wr -> lookup(i); }
+
+  __host__ multi_level_index * getI_R (const int i) const
+  { return (r == nullptr) ? nullptr : r -> lookup(i); }
+
+  __host__ void hookup_next (ops_chain *chain)
   {
     if (next != nullptr)
-    { next -> hookup(chain); }
+    { next -> hookup_next (chain); }
     else
     { next = chain; }
   }
 
-  __host__ const struct ops_chain * lookup (const int index) const
+  __host__ void hookup_child (ops_chain *chain)
+  {
+    child = chain;
+  }
+
+  __host__ const ops_chain * lookup (const int index) const
   {
     if (child == nullptr)
     {
@@ -97,7 +153,7 @@ struct ops_chain {
     return l_child + l_next;
   }
 
-  __host__ void print (const int op_id = 0, const int indent = 0, const bool recurse = true) const
+  __host__ void print (const int op_id = 0, const int indent = 0) const
   {
     for (int i = 0; i < indent; i++) { printf("  "); }
 
@@ -113,22 +169,21 @@ struct ops_chain {
       case pivot: printf("PIVOT "); break;
     }
 
-    printf("%dx W: ", n_read_write);
-    for (int i = 0; i < n_read_write; i++)
-    { m_read_write[i] -> print_short(); printf(" "); }
+    printf("%dx W: ", getN_WR());
+    if (wr != nullptr) wr -> print();
 
-    printf("%dx R: ", n_read_only);
-    for (int i = 0; i < n_read_only; i++)
-    { m_read_only[i] -> print_short(); printf(" "); }
+    printf("%dx R: ", getN_R());
+    if (r != nullptr) r -> print();
 
     printf("\n");
 
-    if (child != nullptr && recurse) { child -> print(op_id, indent + 1, recurse); }
+    if (child != nullptr) { child -> print(op_id, indent + 1); }
 
-    int l_child = (child == nullptr) ? 1 : child -> length();
-    if (next != nullptr && recurse) { next -> print(op_id + l_child, indent, recurse); }
-
-    if ((next == nullptr && indent == 0) || !recurse) { printf("\n"); }
+    if (next != nullptr) 
+    {
+      const int l_this = (child == nullptr) ? 1 : child -> length();
+      next -> print(op_id + l_this, indent); 
+    }
   }
 
 };

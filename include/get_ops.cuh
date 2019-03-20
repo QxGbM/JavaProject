@@ -5,106 +5,93 @@
 #include <dev_hierarchical.cuh>
 
 template <class T> 
-__host__ struct ops_chain * get_ops_h_getrf (const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id) 
+__host__ ops_chain * get_ops_h_getrf (const dev_hierarchical <T> *a, const multi_level_index *a_id) 
 {
-  struct ops_chain *ops = nullptr;
-  const int nx = a -> nx, ny = a -> ny, n = (nx > ny) ? ny : nx;
+  ops_chain *ops = nullptr;
+  const int *a_dim = a -> getDim3(false);
+  const int nx = a_dim[0], ny = a_dim[1], n = (nx > ny) ? ny : nx;
+  delete[] a_dim;
   for (int i = 0; i < n; i++)
   {
-    const struct h_matrix_element <T> *e0 = (a -> elements)[i * nx + i];
-    const int *e0_dim = e0 -> getDim3(true);
-    const struct multi_level_index *e0_id = new multi_level_index (a_id -> levels, a_id -> ns, i * nx + i, 0, e0_dim);
+    const h_matrix_element <T> *e0 = a -> lookup(i * nx + i);
+    const multi_level_index *e0_id = a -> child_index(i * nx + i, a_id);
+    ops_chain *p0 = new ops_chain(getrf);
+    p0 -> addWR(e0_id);
 
-    const struct multi_level_index **l0 = new const struct multi_level_index *[1]{ e0_id };
-    struct ops_chain *p0 = new ops_chain(getrf, 1, l0);
-
-    if (e0 -> element_type == hierarchical) 
-    { p0 -> child = get_ops_h_getrf (e0 -> get_element_hierarchical(), e0_id); }
+    if (e0 -> getType() == hierarchical) 
+    { p0 -> hookup_child (get_ops_h_getrf (e0 -> get_element_hierarchical(), e0_id)); }
 
     for (int j = i + 1; j < nx; j++)
     {
-      const struct h_matrix_element <T> *e1 = (a -> elements)[i * nx + j];
-      const int *e1_dim = e1 -> getDim3(true);
-      const struct multi_level_index *e1_id = new multi_level_index(a_id -> levels, a_id -> ns, i * nx + j, 0, e1_dim);
-      const struct multi_level_index **l1 = new const struct multi_level_index *[1]{ e1_id };
+      const h_matrix_element <T> *e1 = a -> lookup(i * nx + j);
+      const multi_level_index *e1_id = a -> child_index(i * nx + j, a_id);
+      ops_chain *p1 = new ops_chain(trsml);
+      p1 -> addWR(e1_id);
+      p1 -> addR(e0_id);
 
-      struct ops_chain *p1 = new ops_chain(trsml, 1, l1, 1, l0);
-
-      if (e0 -> element_type == hierarchical) 
-      { p1 -> child = get_ops_h_trsml (e1, e1_id, e0 -> get_element_hierarchical(), e0_id); }
+      if (e0 -> getType() == hierarchical)
+      { p1 -> hookup_child (get_ops_h_trsml (e1, e1_id, e0 -> get_element_hierarchical(), e0_id)); }
 
       delete e1_id;
-      delete[] l1;
-      p0 -> hookup(p1);
+      p0 -> hookup_next(p1);
     }
 
     for (int j = i + 1; j < ny; j++)
     {
-      const struct h_matrix_element <T> *e1 = (a -> elements)[j * nx + i];
-      const int *e1_dim = e1 -> getDim3(true);
-      const struct multi_level_index *e1_id = new multi_level_index(a_id -> levels, a_id -> ns, j * nx + i, 0, e1_dim);
-      const struct multi_level_index **l1 = new const struct multi_level_index *[1]{ e1_id };
+      const h_matrix_element <T> *e1 = a -> lookup(j * nx + i);
+      const multi_level_index *e1_id = a -> child_index(j * nx + i, a_id);
+      ops_chain *p1 = new ops_chain(trsmr);
+      p1 -> addWR(e1_id);
+      p1 -> addR(e0_id);
 
-      struct ops_chain *p1 = new ops_chain(trsmr, 1, l1, 1, l0);
-
-      if (e0 -> element_type == hierarchical) 
-      { p1 -> child = get_ops_h_trsmr (e1, e1_id, e0 -> get_element_hierarchical(), e0_id); }
+      if (e0 -> getType() == hierarchical)
+      { p1 -> hookup_child (get_ops_h_trsmr (e1, e1_id, e0 -> get_element_hierarchical(), e0_id)); }
 
       delete e1_id;
-      delete[] l1;
-      p0 -> hookup(p1);
+      p0 -> hookup_next(p1);
     }
 
     delete e0_id;
-    delete[] l0;
 
     for (int j = i + 1; j < ny; j++)
     {
       for (int k = i + 1; k < nx; k++)
       {
-        const struct h_matrix_element <T> *e1 = (a -> elements)[j * nx + k];
-        const struct h_matrix_element <T> *e2 = (a -> elements)[j * nx + i];
-        const struct h_matrix_element <T> *e3 = (a -> elements)[i * nx + k];
+        const h_matrix_element <T> *e1 = a -> lookup(j * nx + k);
+        const h_matrix_element <T> *e2 = a -> lookup(j * nx + i);
+        const h_matrix_element <T> *e3 = a -> lookup(i * nx + k);
 
-        const int *e1_dim = e1 -> getDim3(true);
-        const int *e2_dim = e2 -> getDim3(true);
-        const int *e3_dim = e3 -> getDim3(true);
+        const multi_level_index *e1_id = a -> child_index(j * nx + k, a_id);
+        const multi_level_index *e2_id = a -> child_index(j * nx + i, a_id);
+        const multi_level_index *e3_id = a -> child_index(i * nx + k, a_id);
+        ops_chain *p1 = new ops_chain(gemm);
+        p1 -> addWR(e1_id);
+        p1 -> addR(e2_id);
+        p1 -> addR(e3_id);
 
-        const struct multi_level_index *e1_id = new multi_level_index(a_id -> levels, a_id -> ns, j * nx + k, 0, e1_dim);
-        const struct multi_level_index *e2_id = new multi_level_index(a_id -> levels, a_id -> ns, j * nx + i, 0, e2_dim);
-        const struct multi_level_index *e3_id = new multi_level_index(a_id -> levels, a_id -> ns, i * nx + k, 0, e3_dim);
-
-        const struct multi_level_index **l1 = new const struct multi_level_index *[2]{ e2_id, e3_id };
-        const struct multi_level_index **l2 = new const struct multi_level_index *[1]{ e1_id };
-
-        struct ops_chain *p1 = new ops_chain(gemm, 1, l2, 2, l1);
-
-        if (e1 -> element_type == hierarchical) 
-        { p1 -> child = get_ops_h_gemm (e1 -> get_element_hierarchical(), e1_id, e2, e2_id, e3, e3_id); }
+        if (e1 -> getType() == hierarchical)
+        { p1 -> hookup_child (get_ops_h_gemm (e1 -> get_element_hierarchical(), e1_id, e2, e2_id, e3, e3_id)); }
 
         delete e1_id;
         delete e2_id;
         delete e3_id;
-        delete[] l1;
-        delete[] l2;
-        p0 -> hookup(p1);
+        p0 -> hookup_next(p1);
       }
     }
 
     if (ops == nullptr) { ops = p0; }
-    else { ops -> hookup(p0); }
+    else { ops -> hookup_next(p0); }
     
   }
   return ops;
 }
 
 template <class T> 
-__host__ struct ops_chain * get_ops_h_trsml (const struct h_matrix_element <T> *b, const struct multi_level_index *b_id, 
-  const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id)
+__host__ ops_chain * get_ops_h_trsml (const h_matrix_element <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
 {
-  const struct dev_dense <T> *d = b -> get_element_dense();
-  const struct dev_low_rank <T> *lr = b -> get_element_low_rank();
-  const struct dev_hierarchical <T> *h = b -> get_element_hierarchical();
+  const dev_dense <T> *d = b -> get_element_dense();
+  const dev_low_rank <T> *lr = b -> get_element_low_rank();
+  const dev_hierarchical <T> *h = b -> get_element_hierarchical();
 
   if (d != nullptr) 
   {
@@ -116,59 +103,56 @@ __host__ struct ops_chain * get_ops_h_trsml (const struct h_matrix_element <T> *
   }
   else if (h != nullptr) 
   {
-    // TODO
+    return get_ops_h_h_trsml (h, b_id, a, a_id);
   }
   return nullptr;
 }
 
 template <class T>
-__host__ struct ops_chain * get_ops_h_d_trsml(const struct dev_dense <T> *b, const struct multi_level_index *b_id,
-  const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id)
+__host__ ops_chain * get_ops_h_d_trsml(const dev_dense <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
 {
-  struct ops_chain *ops = nullptr;
-  const int nx_a = a -> nx, ny_a = a -> ny, n = (nx_a > ny_a) ? ny_a : nx_a;
-  const int nx_b = (b_id -> dim)[0], ny_b = (b_id -> dim)[1], ld = (b_id -> dim)[2];
-  int offset = b_id -> offset;
+  ops_chain *ops = nullptr;
+  const int *a_dim = a -> getDim3(false);
+  const int nx_a = a_dim[0], ny_a = a_dim[1], n = (nx_a > ny_a) ? ny_a : nx_a;
+  const int nx_b = b_id -> getNx(), ld = b_id -> getLd();
+  int offset = b_id -> getOffset();
+  delete[] a_dim;
 
   for (int i = 0; i < n; i++)
   {
-    const struct h_matrix_element <T> *e0 = (a -> elements)[i * nx_a + i];
+    const h_matrix_element <T> *e0 = a -> lookup(i * nx_a + i);
     const int *e0_dim = e0 -> getDim3(true);
-    const struct multi_level_index *e0_id = new multi_level_index (a_id -> levels, a_id -> ns, i * nx_a + i, 0, e0_dim);
+    const multi_level_index *e0_id = a_id -> child(i * nx_a + i, 0, e0_dim);
     const int *b0_dim = new int[3]{ nx_b, e0_dim[1], ld };
-    const struct multi_level_index *b0_id = new multi_level_index (b_id -> levels, b_id -> ns, -1, offset, b0_dim);
+    const multi_level_index *b0_id = b_id -> child(-1, offset, b0_dim);
 
-    const struct multi_level_index **l0 = new const struct multi_level_index *[1]{ b0_id };
-    const struct multi_level_index **l1 = new const struct multi_level_index *[1]{ e0_id };
-    struct ops_chain *p0 = new ops_chain(trsml, 1, l0, 1, l1);
-    delete[] l0;
-    delete[] l1;
+    ops_chain *p0 = new ops_chain(trsml);
+    p0 -> addWR(b0_id);
+    p0 -> addR(e0_id);
 
-    if (e0 -> element_type == hierarchical)
-    { p0 -> child = get_ops_h_d_trsml (b, b0_id, e0 -> get_element_hierarchical(), e0_id); }
+    if (e0 -> getType() == hierarchical)
+    { p0 -> hookup_child (get_ops_h_d_trsml (b, b0_id, e0 -> get_element_hierarchical(), e0_id)); }
 
     const int next_offset = (offset += ld * e0_dim[1]);
 
     delete[] e0_dim;
     delete e0_id;
 
-
     for (int j = i + 1; j < ny_a; j++)
     {
-      const struct h_matrix_element <T> *e1 = (a -> elements)[j * nx_a + i];
+      const h_matrix_element <T> *e1 = a -> lookup(j * nx_a + i);
       const int *e1_dim = e1 -> getDim3(true);
-      const struct multi_level_index *e1_id = new multi_level_index(a_id -> levels, a_id -> ns, j * nx_a + i, 0, e1_dim);
+      const multi_level_index *e1_id = a_id -> child(j * nx_a + i, 0, e1_dim);
       const int *b1_dim = new int[3]{ b0_dim[0], e1_dim[1], ld };
-      const struct multi_level_index *b1_id = new multi_level_index(b_id -> levels, b_id -> ns, -1, offset, b1_dim);
+      const multi_level_index *b1_id = b_id -> child(-1, offset, b1_dim);
 
-      const struct multi_level_index **l0 = new const struct multi_level_index *[1]{ b1_id };
-      const struct multi_level_index **l1 = new const struct multi_level_index *[2]{ e1_id, b0_id };
-      struct ops_chain *p1 = new ops_chain(gemm, 1, l0, 2, l1);
-      delete[] l0;
-      delete[] l1;
+      ops_chain *p1 = new ops_chain(gemm);
+      p1 -> addWR(b1_id);
+      p1 -> addR(e1_id);
+      p1 -> addR(b0_id);
 
-      if (e1 -> element_type == hierarchical)
-      { p1 -> child = get_ops_d_h_d_gemm (b, b1_id, e1 -> get_element_hierarchical(), e1_id, b, b0_id); }
+      if (e1 -> getType() == hierarchical)
+      { p1 -> hookup_child (get_ops_d_h_d_gemm (b, b1_id, e1 -> get_element_hierarchical(), e1_id, b, b0_id)); }
 
       offset += e1_dim[1];
       delete[] e1_dim;
@@ -176,8 +160,7 @@ __host__ struct ops_chain * get_ops_h_d_trsml(const struct dev_dense <T> *b, con
       delete[] b1_dim;
       delete b1_id;
 
-
-      p0->hookup(p1);
+      p0 -> hookup_next(p1);
     }
 
     delete[] b0_dim;
@@ -186,60 +169,213 @@ __host__ struct ops_chain * get_ops_h_d_trsml(const struct dev_dense <T> *b, con
     offset = next_offset;
 
     if (ops == nullptr) { ops = p0; }
-    else { ops -> hookup(p0); }
+    else { ops -> hookup_next(p0); }
   }
   return ops;
 }
 
 template <class T>
-__host__ struct ops_chain * get_ops_h_lr_trsml(const struct dev_low_rank <T> *b, const struct multi_level_index *b_id,
-  const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id)
+__host__ ops_chain * get_ops_h_lr_trsml (const dev_low_rank <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
 {
   //TODO
   return nullptr;
 }
 
 template <class T>
-__host__ struct ops_chain * get_ops_h_h_trsml(const struct dev_hierarchical <T> *b, const struct multi_level_index *b_id,
-  const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id)
+__host__ ops_chain * get_ops_h_h_trsml (const dev_hierarchical <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
 {
-  if (a -> nx != b -> nx || a -> ny != b -> ny)
-  { return nullptr; }
-  else
-  {
-    struct ops_chain *ops = nullptr;
-    const int nx = a -> nx, ny = a -> ny, n = (nx > ny) ? ny : nx;
-    for (int i = 0; i < n; i++)
-    {
-    }
-    return ops;
-  }
+  ops_chain *ops = nullptr;
+  return ops;
 }
 
 
 template <class T>
-__host__ struct ops_chain * get_ops_h_trsmr (const struct h_matrix_element <T> *b, const struct multi_level_index *b_id,
-  const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id)
+__host__ ops_chain * get_ops_h_trsmr (const h_matrix_element <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
 {
-  struct ops_chain *ops = nullptr;
+  const dev_dense <T> *d = b -> get_element_dense();
+  const dev_low_rank <T> *lr = b -> get_element_low_rank();
+  const dev_hierarchical <T> *h = b -> get_element_hierarchical();
+
+  if (d != nullptr)
+  {
+    return get_ops_h_d_trsmr(d, b_id, a, a_id);
+  }
+  else if (lr != nullptr)
+  {
+    return get_ops_h_lr_trsmr(lr, b_id, a, a_id);
+  }
+  else if (h != nullptr)
+  {
+    // TODO
+  }
+  return nullptr;
+}
+
+template <class T>
+__host__ ops_chain * get_ops_h_d_trsmr(const dev_dense <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
+{
+  ops_chain *ops = nullptr;
+  const int *a_dim = a -> getDim3(false);
+  const int nx_a = a_dim[0], ny_a = a_dim[1], n = (nx_a > ny_a) ? ny_a : nx_a;
+  const int ny_b = b_id -> getNy(), ld = b_id -> getLd();
+  int offset = b_id -> getOffset();
+  delete[] a_dim;
+
+  for (int i = 0; i < n; i++)
+  {
+    const h_matrix_element <T> *e0 = a -> lookup(i * nx_a + i);
+    const int *e0_dim = e0 -> getDim3(true);
+    const multi_level_index *e0_id = a_id -> child(i * nx_a + i, 0, e0_dim);
+    const int *b0_dim = new int[3]{ e0_dim[0], ny_b, ld };
+    const multi_level_index *b0_id = b_id -> child(-1, offset, b0_dim);
+
+    ops_chain *p0 = new ops_chain(trsmr);
+    p0 -> addWR(b0_id);
+    p0 -> addR(e0_id);
+
+    if (e0->getType() == hierarchical)
+    {
+      p0->hookup_child(get_ops_h_d_trsmr(b, b0_id, e0->get_element_hierarchical(), e0_id));
+    }
+
+    const int next_offset = (offset += e0_dim[0]);
+
+    delete[] e0_dim;
+    delete e0_id;
+
+    for (int j = i + 1; j < nx_a; j++)
+    {
+      const h_matrix_element <T> *e1 = a -> lookup(i * nx_a + j);
+      const int *e1_dim = e1 -> getDim3(true);
+      const multi_level_index *e1_id = a_id -> child(i * nx_a + j, 0, e1_dim);
+      const int *b1_dim = new int[3]{ e1_dim[0], b0_dim[1], ld };
+      const multi_level_index *b1_id = b_id -> child(-1, offset, b1_dim);
+
+      ops_chain *p1 = new ops_chain(gemm);
+      p1 -> addWR(b1_id);
+      p1 -> addR(b0_id);
+      p1 -> addR(e1_id);
+
+      if (e1 -> getType() == hierarchical)
+      {
+        p1 -> hookup_child(get_ops_d_d_h_gemm(b, b1_id, b, b0_id, e1->get_element_hierarchical(), e1_id));
+      }
+
+      offset += e1_dim[0];
+      delete[] e1_dim;
+      delete e1_id;
+      delete[] b1_dim;
+      delete b1_id;
+
+      p0 -> hookup_next(p1);
+    }
+
+    delete[] b0_dim;
+    delete b0_id;
+
+    offset = next_offset;
+
+    if (ops == nullptr) { ops = p0; }
+    else { ops -> hookup_next(p0); }
+  }
   return ops;
+}
+
+template <class T>
+__host__ ops_chain * get_ops_h_lr_trsmr(const dev_low_rank <T> *b, const multi_level_index *b_id, const dev_hierarchical <T> *a, const multi_level_index *a_id)
+{
+  //TODO
+  return nullptr;
 }
 
 template <class T> 
-__host__ struct ops_chain * get_ops_h_gemm (const struct dev_hierarchical <T> *a, const struct multi_level_index *a_id, 
-  const struct h_matrix_element <T> *b, const struct multi_level_index *b_id, 
-  const struct h_matrix_element <T> *c, const struct multi_level_index *c_id)
+__host__ ops_chain * get_ops_h_gemm (const dev_hierarchical <T> *a, const multi_level_index *a_id, 
+  const h_matrix_element <T> *b, const  multi_level_index *b_id, 
+  const h_matrix_element <T> *c, const  multi_level_index *c_id)
 {
-  struct ops_chain *ops = nullptr;
+  const dev_dense <T> *d0 = b -> get_element_dense();
+  const dev_low_rank <T> *lr0 = b -> get_element_low_rank();
+  const dev_hierarchical <T> *h0 = b -> get_element_hierarchical();
+
+  const dev_dense <T> *d1 = b->get_element_dense();
+  const dev_low_rank <T> *lr1 = b->get_element_low_rank();
+  const dev_hierarchical <T> *h1 = b->get_element_hierarchical();
+
+  if (d0 != nullptr || d1 != nullptr)
+  {
+    return get_ops_h_d_d_gemm(a, a_id, d0, b_id, d1, c_id);
+  }
+
+  return nullptr;
+}
+
+template <class T>
+__host__ ops_chain * get_ops_h_d_d_gemm(const dev_hierarchical <T> *a, const multi_level_index *a_id,
+  const dev_dense <T> *b, const multi_level_index *b_id,
+  const dev_dense <T> *c, const multi_level_index *c_id)
+{
+  ops_chain *ops = nullptr;
+  const int *a_dim = a -> getDim3(false);
+  const int nx_a = a_dim[0], ny_a = a_dim[1], ld_b = b_id -> getLd(), ld_c = c_id -> getLd();
+  const int ny_b = b_id -> getNy(), nx_c = c_id -> getNx(), k = (ny_b > nx_c) ? nx_c : ny_b;
+  int offset_b = b_id -> getOffset();
+  for (int i = 0; i < ny_a; i++)
+  {
+    int offset_c = c_id -> getOffset(), next_offset_b;
+    for (int j = 0; j < nx_a; j++)
+    {
+      const h_matrix_element <T> *e = a -> lookup(i * nx_a + j);
+      const int *e_dim = e -> getDim3(true);
+      const int m = e_dim[1], n = e_dim[0];
+      const multi_level_index *e_id = a_id -> child(i * nx_a + j, 0, e_dim);
+
+      const int *b0_dim = new int[3]{ k, m, ld_b };
+      const int *c0_dim = new int[3]{ n, k, ld_c };
+      const multi_level_index *b0_id = b_id -> child(-1, offset_b, b0_dim);
+      const multi_level_index *c0_id = c_id -> child(-1, offset_c, c0_dim);
+      next_offset_b = offset_b + m * ld_b;
+      offset_c += n;
+
+      ops_chain *p = new ops_chain(gemm);
+      p -> addWR(e_id);
+      p -> addR(b0_id);
+      p -> addR(c0_id);
+
+      if (e -> getType() == hierarchical)
+      {
+        p -> hookup_child( get_ops_h_d_d_gemm (e -> get_element_hierarchical(), e_id, b, b0_id, c, c0_id));
+      }
+
+      delete[] e_dim;
+      delete[] b0_dim;
+      delete[] c0_dim;
+      delete e_id;
+      delete b0_id;
+      delete c0_id;
+
+      if (ops == nullptr) { ops = p; }
+      else { ops -> hookup_next(p); }
+    }
+    offset_b = next_offset_b;
+  }
   return ops;
 }
 
 template <class T>
-__host__ struct ops_chain * get_ops_d_h_d_gemm (const struct dev_dense <T> *a, const struct multi_level_index *a_id,
-  const struct dev_hierarchical <T> *b, const struct multi_level_index *b_id,
-  const struct dev_dense <T> *c, const struct multi_level_index *c_id)
+__host__ ops_chain * get_ops_d_h_d_gemm (const dev_dense <T> *a, const multi_level_index *a_id,
+  const dev_hierarchical <T> *b, const multi_level_index *b_id,
+  const dev_dense <T> *c, const multi_level_index *c_id)
 {
-  struct ops_chain *ops = nullptr;
+  ops_chain *ops = nullptr;
+  return ops;
+}
+
+template <class T>
+__host__ ops_chain * get_ops_d_d_h_gemm(const dev_dense <T> *a, const multi_level_index *a_id,
+  const dev_dense <T> *b, const multi_level_index *b_id,
+  const dev_hierarchical <T> *c, const multi_level_index *c_id)
+{
+  ops_chain *ops = nullptr;
   return ops;
 }
 

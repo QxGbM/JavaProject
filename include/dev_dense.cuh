@@ -9,139 +9,74 @@
 #include <device_launch_parameters.h>
 #include <intellisense.cuh>
 
-template <class matrixEntriesT> struct dev_dense {
-
+template <class T> class dev_dense 
+{
+private:
   int nx;
   int ny;
   int ld;
-  int dev_ld;
 
-  matrixEntriesT *elements;
-  matrixEntriesT *dev_ptr;
+  T * elements;
 
   bool pivoted;
-  int *pivot;
-  int *dev_pivot;
+  int * pivot;
 
+public:
   __host__ dev_dense (const int x, const int y, const int d = 0, const bool alloc_pivot = true)
   {
     nx = x;
     ny = y;
     ld = (x > d) ? x : d;
 
-    elements = new matrixEntriesT [y * ld];
+    cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
+    cudaMemset(&elements, 0, ld * ny * sizeof(T));
     
     pivoted = alloc_pivot;
-    pivot = (alloc_pivot) ? new int[y] : nullptr;
-    
-    for (int i = 0; i < ny * nx; i++) 
-    { elements[i] = 0; if (alloc_pivot && i < ny) pivot[i] = i; }
+    if (pivoted)
+    {
+      cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal);
+      cudaMemset(&pivot, 0, ny * sizeof(int));
+    }
+    else
+    {
+      pivot = nullptr;
+    }
 
-    dev_ld = 0;
-    dev_ptr = nullptr;
-    dev_pivot = nullptr;
   }
 
   __host__ ~dev_dense ()
   {
-    delete[] elements;
-    if (pivoted)
-    { delete[] pivot; }
-    
-    if (dev_ptr != nullptr) { cudaFree(dev_ptr); }
-    if (dev_pivot != nullptr) { cudaFree(dev_pivot); }
+    cudaFree(elements);
+    cudaFree(pivot);
 
     printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
   }
 
-  __host__ cudaError_t copyToDevice_Sync (const bool keep_same_ld = false)
+  __host__ int * getDim3 () const
   {
-    cudaError_t error = cudaSuccess;
-    dev_ld = keep_same_ld ? ld : nx;
-    
-    if (dev_ptr == nullptr) 
-    {
-      error = cudaMalloc ((void**) &dev_ptr, dev_ld * ny * sizeof(matrixEntriesT));
-      if (error != cudaSuccess)
-      { return error; }
-      else
-      { printf("-- Allocated %d x %d matrix in cuda device. --\n\n", ny, dev_ld); }
-    }
-  
-    for (int i = 0; i < ny; i++)
-    {
-      error = cudaMemcpy (&dev_ptr[i * dev_ld], &elements[i * ld], nx * sizeof(matrixEntriesT), cudaMemcpyHostToDevice);
-      if (error != cudaSuccess) { return error; }
-    }    
-    printf("-- Copied %d x %d entries from host to cuda device. --\n\n", ny, nx);
-
-    if (pivoted)
-    {
-      if (dev_pivot == nullptr)
-      {
-        error = cudaMalloc ((void **) &dev_pivot, ny * sizeof(int));
-        if (error != cudaSuccess)
-        { return error; }
-        else
-        {
-          error = cudaMemcpy (dev_pivot, pivot, ny * sizeof(int), cudaMemcpyHostToDevice);
-          if (error != cudaSuccess)
-          { return error; }
-          else
-          { printf("-- Allocated and copied row permutations for %d rows. --\n\n", ny); }
-        }
-      }
-    }
-    return cudaSuccess;
+    return new int[3]{ nx, ny, ld };
   }
 
-  __host__ cudaError_t copyToHost_Sync (const bool free_device = false)
+  __host__ T * getElements () const
   {
-    cudaError_t error = cudaSuccess;
-    for (int i = 0; i < ny; i++)
-    {
-      error = cudaMemcpy(&elements[i * ld], &dev_ptr[i * dev_ld], nx * sizeof(matrixEntriesT), cudaMemcpyDeviceToHost);
-      if (error != cudaSuccess) { return error; }
-    }
-    
-    printf("-- Copied %d x %d entries from cuda device to host. --\n\n", ny, nx);
-
-    if (pivoted)
-    {
-      error = cudaMemcpy (pivot, dev_pivot, ny * sizeof(int), cudaMemcpyDeviceToHost);
-      if (error != cudaSuccess)
-      { return error; }
-      else
-      { printf("-- Copied %d row permutations from cuda device to host. --\n\n", ny); }
-    }
-  
-    if (free_device)
-    {
-      error = cudaFree(dev_ptr);
-      if (dev_pivot != nullptr) { error = cudaFree(dev_pivot); }
-      if (error != cudaSuccess) { return error; }
-      dev_ld = 0;
-      dev_ptr = nullptr;
-      dev_pivot = nullptr;
-  
-      printf("-- Freed %d x %d matrix in cuda device. --\n\n", ny, dev_ld);
-    }
-  
-    return cudaSuccess;
+    return elements;
   }
 
-  /* Host Functions */
+  __host__ int * getPivot () const
+  {
+    return pivot;
+  }
 
   __host__ void print () const
   {
-    printf("-- %d x %d | leading dimension: %d --\n", ny, nx, ld);
+    printf("-- %d x %d | ld: %d --\n", ny, nx, ld);
     for (int y = 0; y < ny; y++)
     {
       for (int x = 0; x < nx; x++)
       {
-        matrixEntriesT e = elements[y * ld + x];
+        T e = elements[y * ld + x];
         if (e >= 0) { printf(" "); }
-        printf("%5.3f, ", e);
+        printf("%3.4f, ", e);
       }
       printf("\n");
     }
@@ -165,7 +100,7 @@ template <class matrixEntriesT> struct dev_dense {
     {
       for(int y = 0; y < ny; y++)
       {
-        matrixEntriesT d = (x > y) ? x - y : y - x;
+        const T d = (x > y) ? x - y : y - x;
         elements[y * ld + x] = 1.0 / (1.0 + d);
       }
     }
@@ -187,15 +122,15 @@ template <class matrixEntriesT> struct dev_dense {
     {
       for(int y = 0; y < ny; y++)
       {
-        matrixEntriesT d = (matrixEntriesT) rand() / RAND_MAX;
-        elements[y * nx + x] = min + d * (max - min);
+        const T d = (T) rand() / RAND_MAX;
+        elements[y * ld + x] = min + d * (max - min);
       }
     }
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * matrixMultiplication (const struct dev_dense <matrixEntriesT> *B) const
+  __host__ dev_dense <T> * matrixMultiplication (const dev_dense <T> *B) const
   {
-    struct dev_dense <matrixEntriesT> *C = new dev_dense <matrixEntriesT> (B -> nx, ny);
+    dev_dense <T> *C = new dev_dense <T> (B -> nx, ny);
     for(int m = 0; m < ny; m++)
     {
       for(int n = 0; n < B -> nx; n++)
@@ -209,46 +144,43 @@ template <class matrixEntriesT> struct dev_dense {
     return C;
   }
 
-  __host__ struct dev_dense <matrixEntriesT> * getLowerTriangular () const
+  __host__ dev_dense <T> * restoreLU () const
   {
-    struct dev_dense <matrixEntriesT> *L = new dev_dense <matrixEntriesT> (ny, ny);
-    for (int i = 0; i < ny; i++) 
+    dev_dense <T> *L = new dev_dense <T>(ny, ny);
+    for (int i = 0; i < ny; i++)
     {
       for (int j = 0; j < ny; j++)
       {
         if (i > j && j < nx)
-        { (L -> elements)[i * ny + j] = elements[i * ld + j]; }
+        {
+          (L -> elements)[i * ny + j] = elements[i * ld + j];
+        }
         else if (i == j)
-        { (L -> elements)[i * ny + j] = 1; }
+        {
+          (L -> elements)[i * ny + j] = 1;
+        }
       }
     }
-    return L;
-  }
 
-  __host__ struct dev_dense <matrixEntriesT> * getUpperTriangular () const
-  {
-    struct dev_dense <matrixEntriesT> *U = new dev_dense <matrixEntriesT> (nx, ny);
-    for (int i = 0; i < ny; i++) 
+    dev_dense <T> *U = new dev_dense <T>(nx, ny);
+    for (int i = 0; i < ny; i++)
     {
-      for (int j = 0; j < nx; j++) 
+      for (int j = 0; j < nx; j++)
       {
-        if (i <= j) 
-        { (U -> elements)[i * nx + j] = elements[i * ld + j]; }
+        if (i <= j)
+        {
+          (U -> elements)[i * nx + j] = elements[i * ld + j];
+        }
       }
     }
-    return U;
-  }
-
-  __host__ struct dev_dense <matrixEntriesT> * restoreLU () const
-  {
-    struct dev_dense <matrixEntriesT> *L = getLowerTriangular(), *U = getUpperTriangular();
-    struct dev_dense <matrixEntriesT> *LU = L -> matrixMultiplication(U);
+    
+    dev_dense <T> *LU = L -> matrixMultiplication(U);
     delete L;
     delete U;
     return LU;
   }
 
-  __host__ double L2Error (const struct dev_dense <matrixEntriesT> *matrix) const
+  __host__ double L2Error (const dev_dense <T> *matrix) const
   {
     double norm = 0.0;
     for(int x = 0; x < nx; x++)
@@ -257,7 +189,7 @@ template <class matrixEntriesT> struct dev_dense {
       {
         double t = 0.0;
         if (matrix != nullptr) 
-        { t = (double) (elements[y * ld + x] - (matrix -> elements)[y * ld + x]); }
+        { t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]); }
         else 
         { t = (double) elements[y * ld + x]; }
         norm += t * t;

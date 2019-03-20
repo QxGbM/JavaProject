@@ -81,24 +81,28 @@ __device__ void blockSwapNSeqElements (matrixEntriesT *row1, matrixEntriesT *row
 }
 
 template <class matrixEntriesT>
-__device__ void blockApplyPivot (matrixEntriesT *matrix, const int *pivot, const int nx, const int ld, const int ny, const bool recover = false)
+__device__ void blockApplyPivot (matrixEntriesT *matrix, const int *pivot, const int nx, const int ny, const int ld, const bool recover = false)
 {
   /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
   for (int i = 0; i < ny; i++) 
   {
-    bool smallest_row_in_cycle = true;
-    int swapping_with = pivot[i];
-    
-    while (smallest_row_in_cycle && swapping_with != i)
+    __shared__ bool smallest_row_in_cycle;
+    if (thread_rank() == 0)
     {
-      if (swapping_with < i) { smallest_row_in_cycle = false; }
-      swapping_with = pivot[swapping_with];
-    }
+      smallest_row_in_cycle = true;
+      int swapping_with = pivot[i];
 
+      while (smallest_row_in_cycle && swapping_with != i)
+      {
+        if (swapping_with < i) { smallest_row_in_cycle = false; }
+        swapping_with = pivot[swapping_with];
+      }
+    }
+    __syncthreads();
+    
     if (smallest_row_in_cycle)
     {
-      int source_row = i;
-      swapping_with = pivot[i];
+      int source_row = i, swapping_with = pivot[i];
       while (swapping_with != i) 
       { 
         blockSwapNSeqElements <matrixEntriesT> (&matrix[source_row * ld], &matrix[swapping_with * ld], nx);
