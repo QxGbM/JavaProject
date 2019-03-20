@@ -89,7 +89,7 @@
   <ItemGroup>
     <ClInclude Include="include\timer.cuh" />
     <ClInclude Include="include\dag.cuh" />
-    <ClInclude Include="include\dense_getrf.cuh" />
+    <ClInclude Include="include\dev_dense_funcs.cuh" />
     <ClInclude Include="include\dev_dense.cuh" />
     <ClInclude Include="include\dev_hierarchical.cuh" />
     <ClInclude Include="include\dev_low_rank.cuh" />

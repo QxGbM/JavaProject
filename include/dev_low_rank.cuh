@@ -3,7 +3,7 @@
 
 #include <dev_dense.cuh>
 
-template <class matrixEntriesT> class dev_low_rank {
+template <class T> class dev_low_rank {
 
 public:
 
