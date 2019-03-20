@@ -49,11 +49,9 @@ __global__ void dense_getrf_kernel(double *matrix, const int nx, const int ny, c
 
 __host__ int test1 ()
 {
-  const int x = 512, y = 512;
+  const int x = 32, y = 32;
 
-  printf("-------- Testing %d x %d Dense GETRF: --------\n\n", y, x);
   cudaSetDevice(0);
-  printf("Running on cuda device: 0\n\n");
 
   dev_dense <double> *a = new dev_dense <double> (x, y, 1024);
   a->loadTestMatrix();
@@ -149,9 +147,9 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  test2();
+  //test2();
   test1();
-  test0();
+  //test0();
 
   return 0;
 }

@@ -101,6 +101,7 @@ public:
       for(int y = 0; y < ny; y++)
       {
         const T d = (x > y) ? x - y : y - x;
+        printf("%d, %d\n", x, y);
         elements[y * ld + x] = 1.0 / (1.0 + d);
       }
     }

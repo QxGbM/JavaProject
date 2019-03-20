@@ -2,11 +2,11 @@
 
 #USE_MKL = TRUE
 
-NVCC = /usr/local/cuda-10.0/bin/nvcc -ccbin g++ -std=c++11 -m64
+NVCC = /usr/local/cuda-10.1/bin/nvcc -ccbin g++ -std=c++11 -m64
 
 HOME_DIR = ./
 
-PSPL_DIR = $(HOME_DIR)Pastel-Palettes/
+PSPL_DIR = $(HOME_DIR)
 BIN_DIR = $(HOME_DIR)bin/
 INCLUDE_DIR = $(PSPL_DIR)include/
 
