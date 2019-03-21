@@ -25,17 +25,22 @@ public:
 
     cudaMallocManaged(&insts, inst_length_in * sizeof(int *), cudaMemAttachGlobal);
     cudaMallocManaged(&dep, inst_length_in * inst_length_in * sizeof(bool), cudaMemAttachGlobal);
+    cudaMemset(insts, 0, inst_length_in * sizeof(int *));
+    cudaMemset(dep, 0, inst_length_in * inst_length_in * sizeof(bool));
 
     ptrs_size = ptrs_size_in;
     cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
+    cudaMemset(ptrs, 0, ptrs_size_in * sizeof(T *));
 
     commit = -1;
     cudaMallocManaged(&dep_counts, inst_length_in * sizeof(int), cudaMemAttachGlobal);
     cudaMallocManaged(&status, inst_length_in * sizeof(int), cudaMemAttachGlobal);
+    cudaMemset(dep_counts, 0, inst_length_in * sizeof(int));
+    cudaMemset(status, 0, inst_length_in * sizeof(int));
 
   }
 
-  __host__ ~inst_handler()
+  __host__ ~inst_handler ()
   {
     cudaFree(insts);
     cudaFree(dep);
@@ -56,6 +61,56 @@ public:
     cudaFree(ptrs);
     ptrs = ptrs_new;
     ptrs_size = size;
+  }
+
+  __host__ int load_ptr (T * ptr)
+  {
+    int i = 0;
+    while (i < ptrs_size)
+    {
+      if (ptrs[i] == ptr) 
+      { return i; }
+      else if (ptrs[i] == nullptr) 
+      { ptrs[i] = ptr; return i; }
+      else
+      { i++; }
+    }
+    change_ptrs_size (ptrs_size * 2);
+    ptrs[i] = ptr; return i;
+  }
+
+  __host__ void set_getrf_inst (const int i, T * dev_matrix, const int nx, const int ny, const int ld)
+  {
+    if (insts[i] != nullptr) { cudaFree(insts[i]); }
+
+    int *inst;
+    cudaMallocManaged(&inst, 5 * sizeof(int), cudaMemAttachGlobal);
+    inst[0] = (int) getrf;
+    inst[1] = load_ptr(dev_matrix);
+    inst[2] = nx;
+    inst[3] = ny;
+    inst[4] = ld;
+
+    insts[i] = inst;
+  }
+
+  __host__ void print() const
+  {
+    for (int i = 0; i < inst_length; i++)
+    {
+      if (insts[i] != nullptr)
+      {
+        matrix_op_t type = (matrix_op_t) insts[i][0];
+        printf("%d: ", i);
+        switch (type)
+        {
+        case nop: printf("NOP\n"); break;
+        case getrf: printf("GETRF %d nx = %d, ny = %d, ld = %d.", insts[i][1], insts[i][2], insts[i][3], insts[i][4]); break;
+        default: break;
+        }
+        printf("\n");
+      }
+    }
   }
 
   __device__ int inst_fetch ()
@@ -82,22 +137,53 @@ public:
     return inst_shm;
   }
 
-  __device__ void inst_execute (int inst)
+  __device__ void inst_execute (int inst_num)
   {
-    if (inst >= 0)
+    if (inst_num >= 0)
     {
-      printf("%d: %d", thread_rank(), inst);
-    }
-    else
-    {
+      int *inst = insts[inst_num];
+      printf("%d %d %d %d\n", inst[0], inst[2], inst[3], inst[4]);
+      __syncthreads();
 
     }
+  }
+
+  __device__ void inst_commit (int inst_num)
+  {
+    if (thread_rank() == 0 && inst_num >= 0)
+    {
+      status[inst_num] = -1;
+      for (int i = inst_num + 1; i < inst_length; i++)
+      {
+        if (dep[i * inst_length + inst_num]) 
+        { atomicSub(&dep_counts[i], 1); }
+      }
+    }
+  }
+
+  __device__ void inst_wait (long long int count)
+  {
+    if (thread_rank() == 0)
+    {
+      long long int last = clock64();
+      long long int lapse = 0;
+      while (lapse < count)
+      {
+        long long int stamp = clock64();
+        long long int interval = stamp - last;
+        lapse += (interval > 0) ? interval : 0;
+        last = stamp;
+      }
+    }
+    __syncthreads();
   }
 
   __device__ void func()
   {
     int i = inst_fetch();
     printf("%d: %d, %d\n", thread_rank(), i, commit);
+    inst_execute(i);
+    inst_commit(i);
   }
 };
 

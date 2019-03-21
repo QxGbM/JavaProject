@@ -156,6 +156,12 @@ __host__ int test3()
   cudaSetDevice(0);
   inst_handler <double> ih = inst_handler <double> (4);
   ih.change_ptrs_size(32);
+  double *a = new double[16];
+  double *b = new double[16];
+  ih.set_getrf_inst(0, a, 4, 4, 4);
+  ih.set_getrf_inst(1, b, 5, 6, 7);
+  ih.set_getrf_inst(2, a, 8, 9, 10);
+  ih.print();
   test_kernel <<<1, 32>>> (ih);
   cudaDeviceReset();
   return 0;
@@ -164,9 +170,9 @@ __host__ int test3()
 int main(int argc, char **argv)
 {
   test3();
-  test2();
-  test1();
-  test0();
+  //test2();
+  //test1();
+  //test0();
 
   return 0;
 }
