@@ -6,25 +6,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include <intellisense.cuh>
-
-__device__ int thread_rank()
-{ return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
-
-__device__ int block_dim()
-{ return blockDim.z * blockDim.y * blockDim.x; }
-
-__device__ int block_rank()
-{ return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
-
-__device__ int grid_dim()
-{ return gridDim.z * gridDim.y * gridDim.x; }
-
-__device__ int warp_rank()
-{ return thread_rank() / warpSize; }
-
-__device__ int lane_rank()
-{ return thread_rank() - warpSize * warp_rank(); }
+#include <definitions.cuh>
 
 __device__ void wait (long long int count)
 {

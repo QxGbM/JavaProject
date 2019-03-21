@@ -87,6 +87,7 @@
     <CudaCompile Include="main.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\inst_handler.cuh" />
     <ClInclude Include="include\timer.cuh" />
     <ClInclude Include="include\dag.cuh" />
     <ClInclude Include="include\dev_dense_funcs.cuh" />
@@ -95,7 +96,7 @@
     <ClInclude Include="include\dev_low_rank.cuh" />
     <ClInclude Include="include\get_ops.cuh" />
     <ClInclude Include="include\index.cuh" />
-    <ClInclude Include="include\intellisense.cuh" />
+    <ClInclude Include="include\definitions.cuh" />
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\ops.cuh" />
     <ClInclude Include="include\pivot.cuh" />

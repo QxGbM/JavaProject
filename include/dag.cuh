@@ -3,18 +3,6 @@
 
 #include <get_ops.cuh>
 
-enum dep_t 
-{
-  no_dep,
-  flow_dep,
-  anti_dep,
-  flow_anti_dep,
-  output_dep,
-  flow_output_dep,
-  anti_output_dep,
-  flow_anti_output_dep,
-};
-
 class dag 
 {
 private:

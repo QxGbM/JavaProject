@@ -2,7 +2,7 @@
 #define _INDEX_CUH
 
 #include <stdio.h>
-#include <intellisense.cuh>
+#include <definitions.cuh>
 
 enum index_relation_t 
 {

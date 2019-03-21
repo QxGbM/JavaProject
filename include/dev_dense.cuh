@@ -7,7 +7,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include <intellisense.cuh>
+#include <definitions.cuh>
 
 template <class T> class dev_dense 
 {

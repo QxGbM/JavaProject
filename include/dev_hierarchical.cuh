@@ -5,16 +5,6 @@
 #include <dev_low_rank.cuh>
 #include <index.cuh>
 
-enum h_matrix_t 
-{
-  empty,
-  dense,
-  low_rank,
-  hierarchical,
-};
-
-template <class T> class dev_hierarchical;
-
 template <class T> class h_matrix_element 
 {
 private:

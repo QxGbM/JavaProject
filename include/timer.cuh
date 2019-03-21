@@ -6,12 +6,7 @@
 #include <string.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-
-enum mark_t 
-{
-  start,
-  end,
-};
+#include <definitions.cuh>
 
 class timer 
 {

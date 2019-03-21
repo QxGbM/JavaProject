@@ -3,16 +3,7 @@
 #define _OPS_CUH
 
 #include <index.cuh>
-
-enum matrix_op_t 
-{
-  nop,
-  getrf,
-  trsml,
-  trsmr,
-  gemm,
-  pivot,
-};
+#include <definitions.cuh>
 
 class ops_chain 
 {
