@@ -2,11 +2,7 @@
 #ifndef _KERNEL_CUH
 #define _KERNEL_CUH
 
-#include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include <definitions.cuh>
+#include <pspl.cuh>
 
 __device__ void wait (long long int count)
 {

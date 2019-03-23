@@ -2,11 +2,7 @@
 #ifndef _CUDA_TIMER_CUH
 #define _CUDA_TIMER_CUH
 
-#include <stdio.h>
-#include <string.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <definitions.cuh>
+#include <pspl.cuh>
 
 class timer 
 {

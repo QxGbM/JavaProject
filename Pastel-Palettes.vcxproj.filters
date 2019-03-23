@@ -13,7 +13,7 @@
     <ClInclude Include="include\timer.cuh" />
     <ClInclude Include="include\dev_dense_funcs.cuh" />
     <ClInclude Include="include\inst_handler.cuh" />
-    <ClInclude Include="include\definitions.cuh" />
+    <ClInclude Include="include\pspl.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />

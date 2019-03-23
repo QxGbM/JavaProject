@@ -2,12 +2,7 @@
 #ifndef _DEV_DENSE_CUH
 #define _DEV_DENSE_CUH
 
-#include <stdio.h>
-#include <math.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include <definitions.cuh>
+#include <pspl.cuh>
 
 template <class T> class dev_dense 
 {

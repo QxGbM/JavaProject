@@ -1,7 +1,7 @@
 #ifndef _DEV_LOW_RANK_CUH
 #define _DEV_LOW_RANK_CUH
 
-#include <dev_dense.cuh>
+#include <pspl.cuh>
 
 template <class T> class dev_low_rank 
 {

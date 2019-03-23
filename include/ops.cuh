@@ -2,8 +2,7 @@
 #ifndef _OPS_CUH
 #define _OPS_CUH
 
-#include <index.cuh>
-#include <definitions.cuh>
+#include <pspl.cuh>
 
 class ops_chain 
 {

@@ -1,7 +1,7 @@
 #ifndef _DAG_CUH
 #define _DAG_CUH
 
-#include <get_ops.cuh>
+#include <pspl.cuh>
 
 class dag 
 {

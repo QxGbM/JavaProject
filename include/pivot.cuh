@@ -2,7 +2,7 @@
 #ifndef _PIVOT_CUH
 #define _PIVOT_CUH
 
-#include <kernel.cuh>
+#include <pspl.cuh>
 
 template <class T>
 __device__ int blockAllFindRowPivot (const T *matrix, const int n, const int ld)

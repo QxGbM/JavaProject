@@ -1,8 +1,7 @@
 #ifndef _INST_HANDLER_CUH
 #define _INST_HANDLER_CUH
 
-#include <definitions.cuh>
-#include <kernel.cuh>
+#include <pspl.cuh>
 
 template <class T> class inst_handler
 {
@@ -14,7 +13,7 @@ private:
   int ptrs_size;
   T ** ptrs;
 
-  int commit;
+  int inst_ready;
   int * dep_counts;
   int * status;
 
@@ -32,7 +31,7 @@ public:
     cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
     cudaMemset(ptrs, 0, ptrs_size_in * sizeof(T *));
 
-    commit = -1;
+    inst_ready = 0;
     cudaMallocManaged(&dep_counts, inst_length_in * sizeof(int), cudaMemAttachGlobal);
     cudaMallocManaged(&status, inst_length_in * sizeof(int), cudaMemAttachGlobal);
     cudaMemset(dep_counts, 0, inst_length_in * sizeof(int));
@@ -116,24 +115,24 @@ public:
   __device__ int inst_fetch ()
   {
     __shared__ int inst_shm;
-    __shared__ int commit_shm;
+    __shared__ int inst_ready_shm;
     if (thread_rank() == 0)
     {
       inst_shm = -1;
-      for (int i = commit + 1; i < inst_length; i++)
+      for (int i = inst_ready; i < inst_length; i++)
       {
-        if (i == commit + 1 && status[i] == -1) 
-        { commit++; }
+        if (i == inst_ready && status[i] == -1) 
+        { inst_ready ++; }
         if (dep_counts[i] == 0 && status[i] == 0)
         {
           int s = atomicAdd(&status[i], 1);
           if (s == 0) { inst_shm = i; break; }
         }
       }
-      commit_shm = commit;
+      inst_ready_shm = inst_ready;
     }
     __syncthreads();
-    commit = commit_shm;
+    inst_ready = inst_ready_shm;
     return inst_shm;
   }
 
@@ -142,7 +141,7 @@ public:
     if (inst_num >= 0)
     {
       int *inst = insts[inst_num];
-      printf("%d %d %d %d\n", inst[0], inst[2], inst[3], inst[4]);
+      if (thread_rank() == 0) printf("%d %d %d %d\n", inst[0], inst[2], inst[3], inst[4]);
       __syncthreads();
 
     }
@@ -178,12 +177,15 @@ public:
     __syncthreads();
   }
 
-  __device__ void func()
+  __device__ void run()
   {
-    int i = inst_fetch();
-    printf("%d: %d, %d\n", thread_rank(), i, commit);
-    inst_execute(i);
-    inst_commit(i);
+    while (inst_ready < inst_length)
+    {
+      int i = inst_fetch();
+      inst_execute(i);
+      inst_commit(i);
+      inst_wait(1000);
+    }
   }
 };
 

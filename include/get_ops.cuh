@@ -1,8 +1,7 @@
 #ifndef _GET_OPS_CUH
 #define _GET_OPS_CUH
 
-#include <ops.cuh>
-#include <dev_hierarchical.cuh>
+#include <pspl.cuh>
 
 template <class T> 
 __host__ ops_chain * get_ops_h_getrf (const dev_hierarchical <T> *a, const multi_level_index *a_id) 

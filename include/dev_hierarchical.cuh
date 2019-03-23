@@ -2,8 +2,7 @@
 #ifndef _DEV_HIERARCHICAL_CUH
 #define _DEV_HIERARCHICAL_CUH
 
-#include <dev_low_rank.cuh>
-#include <index.cuh>
+#include <pspl.cuh>
 
 template <class T> class h_matrix_element 
 {

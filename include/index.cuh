@@ -1,8 +1,7 @@
 #ifndef _INDEX_CUH
 #define _INDEX_CUH
 
-#include <stdio.h>
-#include <definitions.cuh>
+#include <pspl.cuh>
 
 enum index_relation_t 
 {

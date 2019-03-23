@@ -1,10 +1,5 @@
 
-#include <dag.cuh>
-#include <kernel.cuh>
-#include <timer.cuh>
-#include <dev_dense_funcs.cuh>
-#include <pivot.cuh>
-#include <inst_handler.cuh>
+#include <pspl.cuh>
 
 __host__ int test0()
 {
@@ -148,13 +143,13 @@ __host__ int test2()
 
 __global__ void test_kernel(inst_handler <double> ih)
 {
-  ih.func();
+  ih.run();
 }
 
 __host__ int test3()
 {
   cudaSetDevice(0);
-  inst_handler <double> ih = inst_handler <double> (4);
+  inst_handler <double> ih = inst_handler <double> (3);
   ih.change_ptrs_size(32);
   double *a = new double[16];
   double *b = new double[16];

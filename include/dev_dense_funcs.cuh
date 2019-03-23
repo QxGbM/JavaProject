@@ -2,7 +2,7 @@
 #ifndef _DEV_DENSE_FUNCS_CUH
 #define _DEV_DENSE_FUNCS_CUH
 
-#include <pivot.cuh>
+#include <pspl.cuh>
 
 template <class T>
 __device__ void blockDenseScalar (const T scale, T *matrix, const int nx, const int ny, const int ld)

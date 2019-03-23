@@ -12,8 +12,16 @@
 
 #endif
 
-#ifndef _DEFINITIONS_CUH
-#define _DEFINITIONS_CUH
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
+
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+#include <memory.h>
+
+#ifndef _PSPL_CUH
+#define _PSPL_CUH
 
 enum mark_t{ start, end };
 
@@ -22,12 +30,6 @@ enum h_matrix_t { empty, dense, low_rank, hierarchical };
 enum dep_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
 enum matrix_op_t { nop, getrf, trsml, trsmr, gemm, pivot };
-
-template <class T> class dev_dense;
-
-template <class T> class dev_low_rank;
-
-template <class T> class dev_hierarchical;
 
 __device__ int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
@@ -46,5 +48,25 @@ __device__ int warp_rank()
 
 __device__ int lane_rank()
 { return thread_rank() - warpSize * warp_rank(); }
+
+#include <dev_dense.cuh>
+#include <pivot.cuh>
+#include <dev_dense_funcs.cuh>
+
+#include <index.cuh>
+#include <dev_low_rank.cuh>
+
+template <class T> class dev_hierarchical;
+template <class T> class h_matrix_element;
+
+#include <dev_hierarchical.cuh>
+
+#include <ops.cuh>
+#include <get_ops.cuh>
+#include <dag.cuh>
+#include <inst_handler.cuh>
+
+#include <timer.cuh>
+#include <kernel.cuh>
 
 #endif

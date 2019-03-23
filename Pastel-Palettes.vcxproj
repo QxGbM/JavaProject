@@ -96,7 +96,7 @@
     <ClInclude Include="include\dev_low_rank.cuh" />
     <ClInclude Include="include\get_ops.cuh" />
     <ClInclude Include="include\index.cuh" />
-    <ClInclude Include="include\definitions.cuh" />
+    <ClInclude Include="include\pspl.cuh" />
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\ops.cuh" />
     <ClInclude Include="include\pivot.cuh" />
