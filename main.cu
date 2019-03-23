@@ -38,9 +38,9 @@ __host__ int test0()
   return 0;
 }
 
-__global__ void dense_getrf_kernel(double *matrix, const int nx, const int ny, const int ld)
+__global__ void test_kernel(inst_handler <float> ih)
 {
-  blockDenseGetrf <double>(matrix, nx, ny, ld);
+  ih.run();
 }
 
 __host__ int test1 ()
@@ -49,20 +49,23 @@ __host__ int test1 ()
 
   cudaSetDevice(0);
 
-  dev_dense <double> *a = new dev_dense <double> (x, y, 1024);
+  dev_dense <float> *a = new dev_dense <float> (x, y, 1024);
   a->loadTestMatrix();
   int *dim = a -> getDim3(), nx = dim[0], ny = dim[1], ld = dim[2];
-  double *matrix = a -> getElements();
+  float *matrix = a -> getElements();
   delete[] dim;
 
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
+  inst_handler <float> ih = inst_handler <float> (1);
+  ih.set_getrf_inst(0, matrix, nx, ny, ld);
+
   timer myTimer = timer();
-  void ** args = new void *[4]{ &matrix, &nx, &ny, &ld };
+  void ** args = new void *[1]{ &ih };
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)dense_getrf_kernel, 1, 1024, args);
+  cudaLaunchKernel((void *)test_kernel, 4, 1024, args);
 
   myTimer.newEvent("GETRF", end, main_stream);
   cudaStreamDestroy(main_stream);
@@ -72,7 +75,7 @@ __host__ int test1 ()
 
   printf("Cuda Execution: getrf finished.\n\n");
 
-  dev_dense <double> *b = a -> restoreLU();
+  dev_dense <float> *b = a -> restoreLU();
   a -> loadTestMatrix();
 
   printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
@@ -141,32 +144,11 @@ __host__ int test2()
   return 0;
 }
 
-__global__ void test_kernel(inst_handler <double> ih)
-{
-  ih.run();
-}
-
-__host__ int test3()
-{
-  cudaSetDevice(0);
-  inst_handler <double> ih = inst_handler <double> (3);
-  ih.change_ptrs_size(32);
-  double *a = new double[16];
-  double *b = new double[16];
-  ih.set_getrf_inst(0, a, 4, 4, 4);
-  ih.set_getrf_inst(1, b, 5, 6, 7);
-  ih.set_getrf_inst(2, a, 8, 9, 10);
-  ih.print();
-  test_kernel <<<1, 32>>> (ih);
-  cudaDeviceReset();
-  return 0;
-}
 
 int main(int argc, char **argv)
 {
-  test3();
   //test2();
-  //test1();
+  test1();
   //test0();
 
   return 0;

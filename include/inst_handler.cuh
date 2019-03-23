@@ -78,6 +78,18 @@ public:
     ptrs[i] = ptr; return i;
   }
 
+  __host__ void fill_nop_inst ()
+  {
+    for (int i = 0; i < inst_length; i++)
+    {
+      if (insts[i] == nullptr) 
+      {
+        cudaMallocManaged(&insts[i], sizeof(int), cudaMemAttachGlobal);
+        insts[i][0] = (int) nop;
+      }
+    }
+  }
+
   __host__ void set_getrf_inst (const int i, T * dev_matrix, const int nx, const int ny, const int ld)
   {
     if (insts[i] != nullptr) { cudaFree(insts[i]); }
@@ -93,6 +105,62 @@ public:
     insts[i] = inst;
   }
 
+  __host__ void set_trsml_inst (const int i, T * L, T * B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b)
+  {
+    if (insts[i] != nullptr) { cudaFree(insts[i]); }
+
+    int *inst;
+    cudaMallocManaged(&inst, 8 * sizeof(int), cudaMemAttachGlobal);
+    inst[0] = (int) trsml;
+    inst[1] = load_ptr(L);
+    inst[2] = load_ptr(B);
+    inst[3] = nx_l;
+    inst[4] = ny_l;
+    inst[5] = nx_b;
+    inst[6] = ld_l;
+    inst[7] = ld_b;
+
+    insts[i] = inst;
+  }
+
+  __host__ void set_trsmr_inst (const int i, T * U, T * B, const int nx_u, const int ny_u, const int ny_b, const int ld_u, const int ld_b)
+  {
+    if (insts[i] != nullptr) { cudaFree(insts[i]); }
+
+    int *inst;
+    cudaMallocManaged(&inst, 8 * sizeof(int), cudaMemAttachGlobal);
+    inst[0] = (int) trsmr;
+    inst[1] = load_ptr(U);
+    inst[2] = load_ptr(B);
+    inst[3] = nx_u;
+    inst[4] = ny_u;
+    inst[5] = ny_b;
+    inst[6] = ld_u;
+    inst[7] = ld_b;
+
+    insts[i] = inst;
+  }
+
+  __host__ void set_gemm_inst (const int i, T * M, T * A, T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+  {
+    if (insts[i] != nullptr) { cudaFree(insts[i]); }
+
+    int *inst;
+    cudaMallocManaged(&inst, 10 * sizeof(int), cudaMemAttachGlobal);
+    inst[0] = (int) gemm;
+    inst[1] = load_ptr(M);
+    inst[2] = load_ptr(A);
+    inst[3] = load_ptr(B);
+    inst[4] = m;
+    inst[5] = n;
+    inst[6] = k;
+    inst[7] = ld_m;
+    inst[8] = ld_a;
+    inst[9] = ld_b;
+
+    insts[i] = inst;
+  }
+
   __host__ void print() const
   {
     for (int i = 0; i < inst_length; i++)
@@ -104,7 +172,15 @@ public:
         switch (type)
         {
         case nop: printf("NOP\n"); break;
-        case getrf: printf("GETRF %d nx = %d, ny = %d, ld = %d.", insts[i][1], insts[i][2], insts[i][3], insts[i][4]); break;
+        case getrf: printf("GETRF M %d: %d x %d, (ld %d).", 
+          insts[i][1], insts[i][3], insts[i][2], insts[i][4]); break;
+        case trsml: printf("TRSML L %d: %d x %d, B %d: %d x %d, (ld %d %d).", 
+          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][4], insts[i][5], insts[i][6], insts[i][7]); break;
+        case trsmr: printf("TRSMR U %d: %d x %d, B %d: %d x %d, (ld %d %d).", 
+          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][5], insts[i][3], insts[i][6], insts[i][7]); break;
+        case gemm: printf("GEMM M %d: %d x %d, A %d: %d x %d, B %d: %d x %d, (ld %d %d %d)", 
+          insts[i][1], insts[i][4], insts[i][5], insts[i][2], insts[i][4], insts[i][6], insts[i][3], insts[i][6], insts[i][5], insts[i][7], insts[i][8], insts[i][9]); 
+          break;
         default: break;
         }
         printf("\n");
@@ -141,7 +217,18 @@ public:
     if (inst_num >= 0)
     {
       int *inst = insts[inst_num];
-      if (thread_rank() == 0) printf("%d %d %d %d\n", inst[0], inst[2], inst[3], inst[4]);
+      matrix_op_t op = (matrix_op_t) inst[0];
+      T *m1 = ptrs[inst[1]], *m2 = ptrs[inst[2]], *m3 = ptrs[inst[3]];
+      switch (op)
+      {
+      case nop: break;
+
+      case getrf: 
+        
+        blockDenseGetrf(m1, inst[2], inst[3], inst[4], nullptr); break;
+
+      default: break;
+      }
       __syncthreads();
 
     }

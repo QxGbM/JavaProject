@@ -50,7 +50,6 @@ __device__ int lane_rank()
 { return thread_rank() - warpSize * warp_rank(); }
 
 #include <dev_dense.cuh>
-#include <pivot.cuh>
 #include <dev_dense_funcs.cuh>
 
 #include <index.cuh>
