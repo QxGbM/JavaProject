@@ -99,7 +99,6 @@
     <ClInclude Include="include\pspl.cuh" />
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\ops.cuh" />
-    <ClInclude Include="include\pivot.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
