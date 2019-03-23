@@ -1,6 +1,8 @@
 
 #include <pspl.cuh>
 
+__global__ void test_kernel(inst_handler <float> ih) { ih.run(); }
+
 __host__ int test0()
 {
   dev_hierarchical <double> *a = new dev_hierarchical <double>(2, 2);
@@ -38,52 +40,49 @@ __host__ int test0()
   return 0;
 }
 
-__global__ void test_kernel(inst_handler <float> ih)
-{
-  ih.run();
-}
-
 __host__ int test1 ()
 {
-  const int x = 512, y = 512;
+  const int x = 4, y = 4;
 
   cudaSetDevice(0);
 
-  dev_dense <float> *a = new dev_dense <float> (x, y, 1024);
-  a->loadTestMatrix();
-  int *dim = a -> getDim3(), nx = dim[0], ny = dim[1], ld = dim[2];
-  float *matrix = a -> getElements();
-  delete[] dim;
+  dev_dense <float> *a = new dev_dense <float> (x, y);
+  a -> loadTestMatrix();
+  a -> print();
+
+  dev_dense <float> *b = new dev_dense <float> (2 * x, y);
+  b -> loadIdentityMatrix();
+  b -> print();
 
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
-  inst_handler <float> ih = inst_handler <float> (1);
-  ih.set_getrf_inst(0, matrix, nx, ny, ld);
+  inst_handler <float> *ih = new inst_handler <float> (2);
+  ih -> set_getrf_inst(0, a->getElements(), x, y, x);
+  ih -> set_trsml_inst(1, a->getElements(), b->getElements(), x, y, 2 * x, x, 2 * x);
+  ih -> add_dep(0, 1);
+  ih -> print();
 
   timer myTimer = timer();
-  void ** args = new void *[1]{ &ih };
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)test_kernel, 4, 1024, args);
-
+  cudaLaunchKernel((void *)test_kernel, 4, 1024, (void **) &ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
-  cudaStreamDestroy(main_stream);
 
   myTimer.printStatus();
   myTimer.dumpAllEvents_Sync();
 
-  printf("Cuda Execution: getrf finished.\n\n");
+  a->print();
+  b->print();
 
-  dev_dense <float> *b = a -> restoreLU();
-  a -> loadTestMatrix();
+  //a -> loadTestMatrix();
 
-  printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
-  printf("-------- n x n Dense GETRF test finished --------\n\n");
+  //printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
+
 
   delete a;
   delete b;
-
+  cudaStreamDestroy(main_stream);
   cudaDeviceReset();
 
   return 0;

@@ -18,8 +18,7 @@ template <class T> __device__ void blockDenseScalar (const T scale, T *matrix, c
 }
 
 /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
-template <class T> __device__ void blockDenseGemm (const T alpha, const T beta, T *matrix, const T *a, const T *b, const int m, const int n, const int k, 
-  const int ld_m, const int ld_a, const int ld_b)
+template <class T> __device__ void blockDenseGemm (const double alpha, const double beta, T *matrix, const T *a, const T *b, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
@@ -37,6 +36,12 @@ template <class T> __device__ void blockDenseGemm (const T alpha, const T beta, 
     matrix[row * ld_m + col] = old + accum;
   }
   __syncthreads();
+}
+
+/* An overloaded version gemm that uses alpha = -1 and beta = 1. */
+template <class T> __device__ void blockDenseGemm (T *matrix, const T *a, const T *b, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+{
+  blockDenseGemm (-1.0, 1.0, matrix, a, b, m, n, k, ld_m, ld_a, ld_b);
 }
 
 /* Find the index of the largest absolute value element in matrix[0], matrix[ld], ... matrix[(n-1) * ld]. */

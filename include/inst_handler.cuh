@@ -54,8 +54,8 @@ public:
     T ** ptrs_new;
     cudaMallocManaged(&ptrs_new, size * sizeof(T *), cudaMemAttachGlobal);
 
-    for (int i = 0; i < size && i < ptrs_size; i++)
-    { ptrs_new[i] = ptrs[i]; }
+    for (int i = 0; i < size; i++)
+    { ptrs_new[i] = (i < ptrs_size) ? ptrs[i] : nullptr; }
 
     cudaFree(ptrs);
     ptrs = ptrs_new;
@@ -78,6 +78,18 @@ public:
     ptrs[i] = ptr; return i;
   }
 
+  __host__ void add_dep (const int inst_from, const int inst_to)
+  {
+    if (!dep[inst_from * inst_length + inst_to]) { dep_counts[inst_to] ++; }
+    dep[inst_from * inst_length + inst_to] = true;
+  }
+
+  __host__ void remove_dep(const int inst_from, const int inst_to)
+  {
+    if (!dep[inst_from * inst_length + inst_to]) { dep_counts[inst_to] --; }
+    dep[inst_from * inst_length + inst_to] = false;
+  }
+
   __host__ void fill_nop_inst ()
   {
     for (int i = 0; i < inst_length; i++)
@@ -90,14 +102,14 @@ public:
     }
   }
 
-  __host__ void set_getrf_inst (const int i, T * dev_matrix, const int nx, const int ny, const int ld)
+  __host__ void set_getrf_inst (const int i, T * M, const int nx, const int ny, const int ld)
   {
     if (insts[i] != nullptr) { cudaFree(insts[i]); }
 
     int *inst;
     cudaMallocManaged(&inst, 5 * sizeof(int), cudaMemAttachGlobal);
     inst[0] = (int) getrf;
-    inst[1] = load_ptr(dev_matrix);
+    inst[1] = load_ptr(M);
     inst[2] = nx;
     inst[3] = ny;
     inst[4] = ld;
@@ -161,6 +173,11 @@ public:
     insts[i] = inst;
   }
 
+  __host__ void set_pivot_inst (const int i, T * M, int * p, const int nx, const int ny, const int ld)
+  {
+    // TODO
+  }
+
   __host__ void print() const
   {
     for (int i = 0; i < inst_length; i++)
@@ -185,6 +202,18 @@ public:
         }
         printf("\n");
       }
+    }
+
+    for (int i = 0; i < inst_length; i++)
+    {
+      for (int j = 0; j < i; j++)
+      {
+        if (dep[j * inst_length + i])
+        {
+          printf("Dependency: from %d to %d.\n", j, i);
+        }
+      }
+      printf("Total: %d dependencies.\n", dep_counts[i]);
     }
   }
 
@@ -212,20 +241,36 @@ public:
     return inst_shm;
   }
 
-  __device__ void inst_execute (int inst_num)
+  __device__ void inst_execute (const int inst_num)
   {
     if (inst_num >= 0)
     {
-      int *inst = insts[inst_num];
-      matrix_op_t op = (matrix_op_t) inst[0];
+      const int *inst = insts[inst_num];
+      const matrix_op_t op = (matrix_op_t) inst[0];
       T *m1 = ptrs[inst[1]], *m2 = ptrs[inst[2]], *m3 = ptrs[inst[3]];
       switch (op)
       {
       case nop: break;
 
       case getrf: 
+        blockDenseGetrf(m1, inst[2], inst[3], inst[4]); 
+        break;
         
-        blockDenseGetrf(m1, inst[2], inst[3], inst[4], nullptr); break;
+      case trsml:
+        blockDenseTrsmL(m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        break;
+
+      case trsmr:
+        blockDenseTrsmR(m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        break;
+
+      case gemm:
+        blockDenseGemm(m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
+        break;
+
+      case pivot:
+        // TODO
+        break;
 
       default: break;
       }
@@ -234,20 +279,20 @@ public:
     }
   }
 
-  __device__ void inst_commit (int inst_num)
+  __device__ void inst_commit (const int inst_num)
   {
     if (thread_rank() == 0 && inst_num >= 0)
     {
-      status[inst_num] = -1;
       for (int i = inst_num + 1; i < inst_length; i++)
       {
-        if (dep[i * inst_length + inst_num]) 
+        if (dep[inst_num * inst_length + i])
         { atomicSub(&dep_counts[i], 1); }
       }
+      status[inst_num] = -1;
     }
   }
 
-  __device__ void inst_wait (long long int count)
+  __device__ void inst_wait (const long long int count)
   {
     if (thread_rank() == 0)
     {
@@ -255,8 +300,8 @@ public:
       long long int lapse = 0;
       while (lapse < count)
       {
-        long long int stamp = clock64();
-        long long int interval = stamp - last;
+        const long long int stamp = clock64();
+        const long long int interval = stamp - last;
         lapse += (interval > 0) ? interval : 0;
         last = stamp;
       }
@@ -269,11 +314,13 @@ public:
     while (inst_ready < inst_length)
     {
       int i = inst_fetch();
+      if (thread_rank() == 0) { printf("%d: %d\n", block_rank(), i);  }
       inst_execute(i);
       inst_commit(i);
       inst_wait(1000);
     }
   }
+
 };
 
 #endif

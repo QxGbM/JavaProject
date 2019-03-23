@@ -95,8 +95,8 @@ public:
     {
       for(int y = 0; y < ny; y++)
       {
-        const T d = (x > y) ? x - y : y - x;
-        elements[y * ld + x] = 1.0 / (1.0 + d);
+        const int d = (x > y) ? x - y + 1 : y - x + 1;
+        elements[y * ld + x] = (T) (1.0 / d);
       }
     }
   }
