@@ -4,8 +4,8 @@
 
 #include <pspl.cuh>
 
-template <class T>
-__device__ void blockDenseScalar (const T scale, T *matrix, const int nx, const int ny, const int ld)
+/* Scalar of a matrix of ny by nx. */
+template <class T> __device__ void blockDenseScalar (const T scale, T *matrix, const int nx, const int ny, const int ld)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
@@ -17,11 +17,10 @@ __device__ void blockDenseScalar (const T scale, T *matrix, const int nx, const 
   __syncthreads();
 }
 
-template <class T>
-__device__ void blockDenseGemm (const T alpha, const T beta, T *matrix, const T *a, const T *b, const int m, const int n, const int k, 
+/* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
+template <class T> __device__ void blockDenseGemm (const T alpha, const T beta, T *matrix, const T *a, const T *b, const int m, const int n, const int k, 
   const int ld_m, const int ld_a, const int ld_b)
 {
-  /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
   const int thread_id = thread_rank();
   const int block_size = block_dim();
   for (int i = thread_id; i < m * n; i += block_size)
@@ -40,13 +39,12 @@ __device__ void blockDenseGemm (const T alpha, const T beta, T *matrix, const T 
   __syncthreads();
 }
 
-template <class T>
-__device__ void blockDenseGetrf (T *matrix, const int nx, const int ny, const int ld, int *pivot = nullptr)
+/* Pivoted LU decomposition of matrix of ny by nx. */
+template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, const int ny, const int ld, int *pivot = nullptr)
 {
   if (pivot != nullptr) { resetPivot(pivot, ny); }
 
-  const int n = (nx < ny) ? nx : ny;
-  for (int i = 0; i < n; i++)
+  for (int i = 0; i < nx && i < ny; i++)
   {
     if (pivot != nullptr)
     {
@@ -67,14 +65,28 @@ __device__ void blockDenseGetrf (T *matrix, const int nx, const int ny, const in
   }
 }
 
-template <class T>
-__device__ void blockDenseGessm(const T *A, T *B, const int m, const int n, const int ld_a, const int ld_b, const int *pivot = nullptr)
+/* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
+template <class T> __device__ void blockDenseTrsmL (const T *L, T *B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b, const int *pivot = nullptr)
 {
-  for (int i = 0; i < m; i++)
+  if (pivot != nullptr)
+  { 
+    blockApplyPivot(B, pivot, nx_b, ny_l, ld_b, false); 
+  }
+  for (int i = 0; i < nx_l && i + 1 < ny_l; i++)
   {
-    if (i != m - 1)
+    blockDenseGemm <T> (-1.0, 1.0, &B[(i + 1) * ld_b], &L[(i + 1) * ld_a + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b);
+  }
+}
+
+/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
+template <class T> __device__ void blockDenseTrsmR (const T *U, T *B, const int nx_u, const int ny_u, const int ny_b, const int ld_u, const int ld_b)
+{
+  for (int i = 0; i < nx_u && i < ny_u; i++)
+  {
+    blockDenseScalar <T> (-1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
+    if (nx_u - i > 1)
     {
-      blockDenseGemm <T>(-1.0, 1.0, &B[(i + 1) * ld_b], &A[(i + 1) * ld_a + i], &B[i * ld_b], m - (i + 1), n, 1, ld_b, ld_a, ld_b);
+      blockDenseGemm <T> (-1.0, 1.0, &B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u);
     }
   }
 }

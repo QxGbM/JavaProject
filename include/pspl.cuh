@@ -1,7 +1,7 @@
 
+/* This part does nothing but to resolve mis-reported intellisense errors. */
 #ifdef __INTELLISENSE__
 
-/* This part does nothing but to resolve mis-reported intellisense errors. */
 #define __host__
 #define __device__
 #define atomicAdd

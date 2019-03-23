@@ -4,8 +4,8 @@
 
 #include <pspl.cuh>
 
-template <class T>
-__device__ int blockAllFindRowPivot (const T *matrix, const int n, const int ld)
+/* Find the index of the largest absolute value element in matrix[0], matrix[ld], ... matrix[(n-1) * ld]. */
+template <class T> __device__ int blockAllFindRowPivot (const T *matrix, const int n, const int ld)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
@@ -66,8 +66,8 @@ __device__ int blockAllFindRowPivot (const T *matrix, const int n, const int ld)
   return shm_index[0];
 }
 
-template <class T>
-__device__ void blockSwapNSeqElements (T *row1, T *row2, const int n)
+/* Exchange row1[0] with row2[0], row1[1] with row2[1], ... row1[n-1] with row2[n-1]. */
+template <class T> __device__ void blockSwapNSeqElements (T *row1, T *row2, const int n)
 {
   /* Using a group of threads to exchange all elements in row with target row. */
   const int thread_id = thread_rank();
@@ -80,10 +80,9 @@ __device__ void blockSwapNSeqElements (T *row1, T *row2, const int n)
   }
 }
 
-template <class T>
-__device__ void blockApplyPivot (T *matrix, const int *pivot, const int nx, const int ny, const int ld, const bool recover)
+/* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
+template <class T> __device__ void blockApplyPivot (T *matrix, const int *pivot, const int nx, const int ny, const int ld, const bool recover)
 {
-  /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
   for (int i = 0; i < ny; i++) 
   {
     __shared__ bool smallest_row_in_cycle;
@@ -114,6 +113,7 @@ __device__ void blockApplyPivot (T *matrix, const int *pivot, const int nx, cons
   }
 }
 
+/* Set pivot[0] = 0, pivot[1] = 1, ... pivot[n-1] = n-1. */
 __device__ void resetPivot (int *pivot, const int n)
 {
   const int thread_id = thread_rank();
