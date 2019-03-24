@@ -127,7 +127,7 @@ template <class T> __device__ void blockSwapNSeqElements(T *row1, T *row2, const
 }
 
 /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
-template <class T> __device__ void blockApplyPivot(T *matrix, const int *pivot, const int nx, const int ny, const int ld, const bool recover)
+template <class T> __device__ void blockApplyPivot(T *matrix, const int *p, const int nx, const int ny, const int ld, const bool recover)
 {
   for (int i = 0; i < ny; i++)
   {
@@ -135,24 +135,24 @@ template <class T> __device__ void blockApplyPivot(T *matrix, const int *pivot, 
     if (thread_rank() == 0)
     {
       smallest_row_in_cycle = true;
-      int swapping_with = pivot[i];
+      int swapping_with = p[i];
 
       while (smallest_row_in_cycle && swapping_with != i)
       {
         if (swapping_with < i) { smallest_row_in_cycle = false; }
-        swapping_with = pivot[swapping_with];
+        swapping_with = p[swapping_with];
       }
     }
     __syncthreads();
 
     if (smallest_row_in_cycle)
     {
-      int source_row = i, swapping_with = pivot[i];
+      int source_row = i, swapping_with = p[i];
       while (swapping_with != i)
       {
         blockSwapNSeqElements <T>(&matrix[source_row * ld], &matrix[swapping_with * ld], nx);
         source_row = recover ? i : swapping_with;
-        swapping_with = pivot[swapping_with];
+        swapping_with = p[swapping_with];
       }
     }
     __syncthreads();
@@ -160,31 +160,31 @@ template <class T> __device__ void blockApplyPivot(T *matrix, const int *pivot, 
 }
 
 /* Set pivot[0] = 0, pivot[1] = 1, ... pivot[n-1] = n-1. */
-__device__ void resetPivot(int *pivot, const int n)
+__device__ void resetPivot(int *p, const int n)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
   for (int i = thread_id; i < n; i += block_size)
   {
-    pivot[i] = i;
+    p[i] = i;
   }
 }
 
 /* Pivoted LU decomposition of matrix of ny by nx. */
-template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, const int ny, const int ld, int *pivot = nullptr)
+template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, const int ny, const int ld, int *p = nullptr)
 {
-  if (pivot != nullptr) { resetPivot(pivot, ny); }
+  if (p != nullptr) { resetPivot(p, ny); }
 
   for (int i = 0; i < nx && i < ny; i++)
   {
-    if (pivot != nullptr)
+    if (p != nullptr)
     {
       const int target = i + blockAllFindRowPivot <T> (&matrix[i * ld + i], ny - i, ld);
 
       if (target != i)
       {
         blockSwapNSeqElements <T> (&matrix[target * ld], &matrix[i * ld], nx);
-        if (thread_rank() == 0) { int t = pivot[target]; pivot[target] = pivot[i]; pivot[i] = t; }
+        if (thread_rank() == 0) { int t = p[target]; p[target] = p[i]; p[i] = t; }
         __syncthreads();
       }
     }
@@ -197,12 +197,8 @@ template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, con
 }
 
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-template <class T> __device__ void blockDenseTrsmL (const T *L, T *B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b, const int *pivot = nullptr)
+template <class T> __device__ void blockDenseTrsmL (const T *L, T *B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b)
 {
-  if (pivot != nullptr)
-  { 
-    blockApplyPivot(B, pivot, nx_b, ny_l, ld_b, false); 
-  }
   for (int i = 0; i < nx_l && i + 1 < ny_l; i++)
   {
     blockDenseGemm <T> (-1.0, 1.0, &B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b);
@@ -214,7 +210,7 @@ template <class T> __device__ void blockDenseTrsmR (const T *U, T *B, const int 
 {
   for (int i = 0; i < nx_u && i < ny_u; i++)
   {
-    blockDenseScalar <T> (-1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
+    blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
     if (nx_u - i > 1)
     {
       blockDenseGemm <T> (-1.0, 1.0, &B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u);

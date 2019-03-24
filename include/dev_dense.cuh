@@ -17,7 +17,7 @@ private:
   int * pivot;
 
 public:
-  __host__ dev_dense (const int x, const int y, const int d = 0, const bool alloc_pivot = true)
+  __host__ dev_dense (const int x, const int y, const int d = 0, const bool alloc_pivot = false)
   {
     nx = x;
     ny = y;
@@ -70,8 +70,7 @@ public:
       for (int x = 0; x < nx; x++)
       {
         T e = elements[y * ld + x];
-        if (e >= 0) { printf(" "); }
-        printf("%3.4f, ", e);
+        printf("%5.4f, ", e);
       }
       printf("\n");
     }
@@ -116,10 +115,7 @@ public:
     for(int x = 0; x < nx; x++)
     {
       for(int y = 0; y < ny; y++)
-      {
-        const T d = (T) rand() / RAND_MAX;
-        elements[y * ld + x] = min + d * (max - min);
-      }
+      { elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); }
     }
   }
 
