@@ -150,7 +150,7 @@ template <class T> __device__ void blockApplyPivot(T *matrix, const int *p, cons
       int source_row = i, swapping_with = p[i];
       while (swapping_with != i)
       {
-        blockSwapNSeqElements <T>(&matrix[source_row * ld], &matrix[swapping_with * ld], nx);
+        blockSwapNSeqElements <T> (&matrix[source_row * ld], &matrix[swapping_with * ld], nx);
         source_row = recover ? i : swapping_with;
         swapping_with = p[swapping_with];
       }
@@ -191,8 +191,7 @@ template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, con
 
     blockDenseScalar <T> (1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ny - (i + 1), ld);
 
-    blockDenseGemm <T> (-1.0, 1.0, &matrix[(i + 1) * ld + (i + 1)], &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)],
-      ny - (i + 1), nx - (i + 1), 1, ld, ld, ld);
+    blockDenseGemm <T> (&matrix[(i + 1) * ld + (i + 1)], &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), 1, ld, ld, ld);
   }
 }
 
@@ -201,7 +200,7 @@ template <class T> __device__ void blockDenseTrsmL (const T *L, T *B, const int 
 {
   for (int i = 0; i < nx_l && i + 1 < ny_l; i++)
   {
-    blockDenseGemm <T> (-1.0, 1.0, &B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b);
+    blockDenseGemm <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b);
   }
 }
 
@@ -213,7 +212,7 @@ template <class T> __device__ void blockDenseTrsmR (const T *U, T *B, const int 
     blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
     if (nx_u - i > 1)
     {
-      blockDenseGemm <T> (-1.0, 1.0, &B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u);
+      blockDenseGemm <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u);
     }
   }
 }
