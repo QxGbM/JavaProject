@@ -5,47 +5,47 @@
 #include <pspl.cuh>
 
 /* Scalar of a matrix of ny by nx. */
-template <class T> __device__ void blockDenseScalar (const T scale, T *matrix, const int nx, const int ny, const int ld)
+template <class T> __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int ny, const int ld)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
   for (int i = thread_id; i < nx * ny; i += block_size)
   { 
     const int row = i / nx, col = i - row * nx;
-    matrix[row * ld + col] = (scale == 0) ? 0 : matrix[row * ld + col] * scale;
+    M[row * ld + col] = (scale == 0) ? 0 : M[row * ld + col] * scale;
   }
   __syncthreads();
 }
 
 /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
-template <class T> __device__ void blockDenseGemm (const double alpha, const double beta, T *matrix, const T *a, const T *b, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+template <class T> __device__ void blockDenseGemm (const double alpha, const double beta, T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
   for (int i = thread_id; i < m * n; i += block_size)
   { 
     const int row = i / n, col = i - row * n;
-    const T old = (beta == 0) ? 0 : beta * matrix[row * ld_m + col];
+    const T old = (beta == 0) ? 0 : beta * M[row * ld_m + col];
     T accum = 0;
     if (alpha != 0)
     {
       for (int j = 0; j < k; j++)
-      { accum += a[row * ld_a + j] * b[j * ld_b + col]; }
+      { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
       accum *= alpha;
     }
-    matrix[row * ld_m + col] = old + accum;
+    M[row * ld_m + col] = old + accum;
   }
   __syncthreads();
 }
 
 /* An overloaded version gemm that uses alpha = -1 and beta = 1. */
-template <class T> __device__ void blockDenseGemm (T *matrix, const T *a, const T *b, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+template <class T> __device__ void blockDenseGemm (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
 {
-  blockDenseGemm (-1.0, 1.0, matrix, a, b, m, n, k, ld_m, ld_a, ld_b);
+  blockDenseGemm (-1.0, 1.0, M, A, B, m, n, k, ld_m, ld_a, ld_b);
 }
 
 /* Find the index of the largest absolute value element in matrix[0], matrix[ld], ... matrix[(n-1) * ld]. */
-template <class T> __device__ int blockAllFindRowPivot(const T *matrix, const int n, const int ld)
+template <class T> __device__ int blockAllFindRowPivot(const T * M, const int n, const int ld)
 {
   const int thread_id = thread_rank();
   const int block_size = block_dim();
@@ -58,11 +58,9 @@ template <class T> __device__ int blockAllFindRowPivot(const T *matrix, const in
   /* Load all row entries in warps: Each warp can handle more than 1 warpsize of data or no data. */
   for (int i = thread_id; i < n; i += block_size)
   {
-    const T value = abs(matrix[i * ld]);
+    const T value = abs(M[i * ld]);
     if (value > max)
-    {
-      max = value; index = i;
-    }
+    { max = value; index = i; }
   }
 
   /* Reduction in all warps. No need to explicitly sync because warp shfl implies synchronization. */
@@ -71,9 +69,7 @@ template <class T> __device__ int blockAllFindRowPivot(const T *matrix, const in
     const T s_max = __shfl_xor_sync(0xffffffff, max, mask, warpSize);
     const int s_index = __shfl_xor_sync(0xffffffff, index, mask, warpSize);
     if (s_max > max)
-    {
-      max = s_max; index = s_index;
-    }
+    { max = s_max; index = s_index; }
   }
 
   __shared__ T shm_max[32];
@@ -82,7 +78,8 @@ template <class T> __device__ int blockAllFindRowPivot(const T *matrix, const in
   /* The first lane of each warp writes into their corresponding shared memory slot. */
   if (lane_id == 0) { shm_max[warp_id] = max; shm_index[warp_id] = index; }
 
-  __syncthreads(); /* Sync here to make sure shared mem is properly initialized, and reductions in all warps are completed. */
+  /* Sync here to make sure shared mem is properly initialized, and reductions in all warps are completed. */
+  __syncthreads(); 
 
   /* Do the final reduction in the first warp, if there are more than 1 warp. */
   if (block_size > warpSize && warp_id == 0)
@@ -95,9 +92,7 @@ template <class T> __device__ int blockAllFindRowPivot(const T *matrix, const in
       const int s_index = __shfl_xor_sync(0xffffffff, index, mask, warpSize);
       /* Uses more strict comparison to resolve ties. */
       if (s_max > max || (s_max == max && s_index < index))
-      {
-        max = s_max; index = s_index;
-      }
+      { max = s_max; index = s_index; }
     }
 
     if (lane_id == 0)
@@ -107,7 +102,8 @@ template <class T> __device__ int blockAllFindRowPivot(const T *matrix, const in
     }
   }
 
-  __syncthreads(); /* Sync here to stop other warps and waits for warp 0. */
+  /* Sync here to stop other warps and waits for warp 0. */
+  __syncthreads(); 
 
   return shm_index[0];
 }
@@ -118,16 +114,14 @@ template <class T> __device__ void blockSwapNSeqElements(T *row1, T *row2, const
   /* Using a group of threads to exchange all elements in row with target row. */
   const int thread_id = thread_rank();
   const int block_size = block_dim();
-  for (int i = thread_id; i < n; i += block_size) /* swapping n elements in two rows. */
-  {
-    const T t = row1[i];
-    row1[i] = row2[i];
-    row2[i] = t;
-  }
+
+  /* swapping n elements in two rows. */
+  for (int i = thread_id; i < n; i += block_size) 
+  { const T t = row1[i]; row1[i] = row2[i]; row2[i] = t; }
 }
 
 /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
-template <class T> __device__ void blockApplyPivot(T *matrix, const int *p, const int nx, const int ny, const int ld, const bool recover)
+template <class T> __device__ void blockApplyPivot(T * M, const int * p, const int nx, const int ny, const int ld, const bool recover)
 {
   for (int i = 0; i < ny; i++)
   {
@@ -150,7 +144,7 @@ template <class T> __device__ void blockApplyPivot(T *matrix, const int *p, cons
       int source_row = i, swapping_with = p[i];
       while (swapping_with != i)
       {
-        blockSwapNSeqElements <T> (&matrix[source_row * ld], &matrix[swapping_with * ld], nx);
+        blockSwapNSeqElements <T> (&M[source_row * ld], &M[swapping_with * ld], nx);
         source_row = recover ? i : swapping_with;
         swapping_with = p[swapping_with];
       }
@@ -171,7 +165,7 @@ __device__ void resetPivot(int *p, const int n)
 }
 
 /* Pivoted LU decomposition of matrix of ny by nx. */
-template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, const int ny, const int ld, int *p = nullptr)
+template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
 {
   if (p != nullptr) { resetPivot(p, ny); }
 
@@ -179,19 +173,20 @@ template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, con
   {
     if (p != nullptr)
     {
-      const int target = i + blockAllFindRowPivot <T> (&matrix[i * ld + i], ny - i, ld);
+      const int target = i + blockAllFindRowPivot <T> (&M[i * ld + i], ny - i, ld);
 
       if (target != i)
       {
-        blockSwapNSeqElements <T> (&matrix[target * ld], &matrix[i * ld], nx);
-        if (thread_rank() == 0) { int t = p[target]; p[target] = p[i]; p[i] = t; }
+        blockSwapNSeqElements <T> (&M[target * ld], &M[i * ld], nx);
+        if (thread_rank() == 0) 
+        { int t = p[target]; p[target] = p[i]; p[i] = t; }
         __syncthreads();
       }
     }
 
-    blockDenseScalar <T> (1.0 / matrix[i * ld + i], &matrix[(i + 1) * ld + i], 1, ny - (i + 1), ld);
+    blockDenseScalar <T> (1.0 / M[i * ld + i], &M[(i + 1) * ld + i], 1, ny - (i + 1), ld);
 
-    blockDenseGemm <T> (&matrix[(i + 1) * ld + (i + 1)], &matrix[(i + 1) * ld + i], &matrix[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), 1, ld, ld, ld);
+    blockDenseGemm <T> (&M[(i + 1) * ld + (i + 1)], &M[(i + 1) * ld + i], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), 1, ld, ld, ld);
   }
 }
 
@@ -199,9 +194,7 @@ template <class T> __device__ void blockDenseGetrf (T *matrix, const int nx, con
 template <class T> __device__ void blockDenseTrsmL (const T *L, T *B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b)
 {
   for (int i = 0; i < nx_l && i + 1 < ny_l; i++)
-  {
-    blockDenseGemm <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b);
-  }
+  { blockDenseGemm <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b); }
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
@@ -211,9 +204,7 @@ template <class T> __device__ void blockDenseTrsmR (const T *U, T *B, const int 
   {
     blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
     if (nx_u - i > 1)
-    {
-      blockDenseGemm <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u);
-    }
+    { blockDenseGemm <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u); }
   }
 }
 
