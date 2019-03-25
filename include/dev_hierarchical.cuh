@@ -134,6 +134,31 @@ public:
     return lookup (i -> levels, i -> ns);
   }
 
+  __host__ dev_dense <T> * convertToDense () const
+  {
+    const int nx_d = getNx(), ny_d = getNy();
+    if (nx_d > 0 && ny_d > 0)
+    {
+      dev_dense <T> * d = new dev_dense <T> (nx_d, ny_d);
+      for (int y = 0, row = 0; y < ny; y++)
+      {
+        int rows;
+        for (int x = 0, col = 0; x < nx; x++)
+        {
+          const dev_dense <T> * e = elements[y * nx + x].convertToDense();
+          rows = e -> getNy(); int cols = e -> getNx();
+          d -> loadArray(e -> getElements(), cols, rows, cols, col, row);
+          col += cols;
+          delete e;
+        }
+        row += rows;
+      }
+      return d;
+    }
+    else
+    { return nullptr; }
+  }
+
   __host__ void loadTestMatrix (const int levels, const int dim, const int block_size)
   {
     for (int y = 0; y < ny; y++)

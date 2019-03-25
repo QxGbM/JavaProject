@@ -75,17 +75,13 @@ public:
     const dev_hierarchical <T> *h = get_element_hierarchical();
 
     if (d != nullptr)
-    {
-      return d -> getNy();
-    }
+    { return d -> getNy(); }
     if (lr != nullptr)
     {
       //TODO
     }
     if (h != nullptr)
-    {
-      return h -> getNy();
-    }
+    { return h -> getNy(); }
 
     return 0;
   }
@@ -95,9 +91,7 @@ public:
     const dev_dense <T> *d = get_element_dense();
 
     if (d != nullptr)
-    {
-      return d -> getLd();
-    }
+    { return d -> getLd(); }
 
     return 0;
   }
@@ -125,6 +119,24 @@ public:
     if (d != nullptr) { d -> print(); }
     if (lr != nullptr) { lr -> print(); }
     if (h != nullptr) { h -> print(index); } 
+  }
+
+  __host__ dev_dense <T> * convertToDense() const
+  {
+    const dev_dense <T> *d = get_element_dense();
+    const dev_low_rank <T> *lr = get_element_low_rank();
+    const dev_hierarchical <T> *h = get_element_hierarchical();
+
+    if (d != nullptr) 
+    { return new dev_dense <T> (d -> getNx(), d -> getNy(), d -> getElements(), d -> getLd()); }
+    if (lr != nullptr) 
+    {
+      // TODO
+    }
+    if (h != nullptr) 
+    { return h -> convertToDense(); }
+
+    return nullptr;
   }
 
 };

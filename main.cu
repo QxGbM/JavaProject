@@ -9,6 +9,9 @@ __host__ int test0()
   a->loadTestMatrix(1, 2, 4);
   a->print();
 
+  dev_dense <double> *d = a->convertToDense();
+  d->print();
+
   //h_index *id = new h_index();
   //h_ops_tree *ops = get_ops_h_getrf(a, id);
   //ops->print();

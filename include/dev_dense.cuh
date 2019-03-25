@@ -37,14 +37,14 @@ public:
 
   }
 
-  __host__ dev_dense (const int x, const int y, const T * A, const int d = 0, const bool alloc_pivot = false)
+  __host__ dev_dense (const int x, const int y, const T * A, const int ld_a, const int d = 0, const bool alloc_pivot = false)
   {
     nx = x;
     ny = y;
     ld = (x > d) ? x : d;
 
     cudaMallocManaged (&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
-    loadArray (A, x, y);
+    loadArray (A, x, y, ld_a);
 
     pivoted = alloc_pivot;
     if (pivoted)
@@ -64,13 +64,13 @@ public:
     printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
   }
 
-  __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int x_start = 0, const int y_start = 0)
+  __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
   {
     for (int y = y_start, y_a = 0; y < ny && y_a < ny_a; y++, y_a++)
     {
       for (int x = x_start, x_a = 0; x < nx && x_a < nx_a; x++, x_a++)
       {
-        elements[y * ld + x] = A[y_a * nx_a + x_a];
+        elements[y * ld + x] = A[y_a * ld_a + x_a];
       }
     }
   }

@@ -108,49 +108,4 @@ public:
 };
 
 
-class h_index_linked_list
-{
-private:
-  h_index *index;
-  h_index_linked_list *next;
-
-public:
-  __host__ h_index_linked_list (const h_index * in)
-  {
-    index = in -> clone();
-    next = nullptr;
-  }
-
-  __host__ ~h_index_linked_list ()
-  {
-    delete index;
-    if (next != nullptr) { delete next; }
-  }
-
-  __host__ void hookup (const h_index * in)
-  {
-    if (next == nullptr) { next = new h_index_linked_list(in); }
-    else { next -> hookup(in); }
-  }
-
-  __host__ int length () const
-  {
-    return 1 + ((next == nullptr) ? 0 : next -> length());
-  }
-
-  __host__ h_index * lookup (const int i) const
-  {
-    if (i <= 0) { return index; }
-    else { return (next == nullptr) ? nullptr : next -> lookup(i - 1); }
-  }
-
-  __host__ void print () const
-  {
-    index -> printShort();
-    printf(" ");
-    if (next != nullptr) { next -> print(); }
-  }
-
-};
-
 #endif
