@@ -9,34 +9,14 @@ __host__ int test0()
   a->loadTestMatrix(1, 2, 4);
   a->print();
 
-  dev_dense <double> *d = a->convertToDense();
-  d->print();
-
-  //h_index *id = new h_index();
-  //h_ops_tree *ops = get_ops_h_getrf(a, id);
-  //ops->print();
+  const h_ops_tree *tree = a->generateOps_GETRF();
+  tree->print();
 
   //dag *d = new dag(ops);
-
   //d->print();
 
-  timer *myTimer = new timer();
-  myTimer->newEvent("TEST", start);
-
-  //void ** args = d -> getArgsAddress();
-  //cudaLaunchKernel((void *)kernel_dynamic, 4, 256, args);
-  //delete[] args;
-
-  myTimer->newEvent("TEST", end);
-  myTimer->printStatus();
-  myTimer->dumpAllEvents_Sync();
-  cudaDeviceSynchronize();
-
+  delete tree;
   delete a;
-  //delete ops;
-  //delete id;
-  //delete d;
-  delete myTimer;
 
   cudaDeviceReset();
 

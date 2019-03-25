@@ -92,7 +92,7 @@ public:
     { return (levels > n) ? contains : contained; }
   }
 
-  __host__ h_index * child (const int index_in = -1, const int offset_in = 0) const
+  __host__ h_index * child (const int index_in, const int offset_in = 0) const
   {
     h_index * i = new h_index (levels + 1, ns, offset_in, matrix);
     (i -> ns)[levels] = index_in;

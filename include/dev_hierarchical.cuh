@@ -50,7 +50,8 @@ public:
       for (int x = 1; x < nx; x++)
       {
         const int rows_x = elements[y * nx + x].getNy();
-        if (rows != rows_x) { return false; }
+        if (rows != rows_x) 
+        { printf("-- Unmatched Dimensions: (%d, %d) with (%d, 0). --\n\n", y, x, y); return false; }
       }
     }
 
@@ -60,7 +61,8 @@ public:
       for (int y = 1; y < ny; y++)
       {
         const int cols_y = elements[y * nx + x].getNx();
-        if (cols != cols_y) { return false; }
+        if (cols != cols_y)
+        { printf("-- Unmatched Dimensions: (%d, %d) with (0, %d). --\n\n", y, x, x); return false; }
       }
     }
 
@@ -95,46 +97,7 @@ public:
     return 0;
   }
 
-  __host__ void print (const h_index * index_in) const
-  {
-    for (int i = 0; i < ny * nx; i++)
-    {
-      const h_index * i_index = index_in -> child(i);
-      elements[i].print(i_index);
-      delete i_index;
-    }
-  }
-
-  __host__ void print() const
-  {
-    const h_index * root = getRootIndex();
-    print(root);
-    delete root;
-  }
-
-  __host__ dev_h_element <T> * lookup (const int i) const
-  {
-    return &elements[i];
-  }
-
-  __host__ dev_h_element <T> * lookup (const int levels, const int *n) const
-  {
-    const dev_h_element <T> *e = lookup (n[0]);
-    if (levels == 1)
-    { return e; }
-    else
-    {
-      const dev_hierarchical <T> *h = e -> get_element_hierarchical();
-      return (h == nullptr) ? nullptr : h -> lookup(levels - 1, &n[1]);
-    }
-  }
-
-  __host__ dev_h_element <T> * lookup (const h_index *i) const
-  {
-    return lookup (i -> levels, i -> ns);
-  }
-
-  __host__ dev_dense <T> * convertToDense () const
+  __host__ dev_dense <T> * convertToDense() const
   {
     const int nx_d = getNx(), ny_d = getNy();
     if (nx_d > 0 && ny_d > 0)
@@ -156,8 +119,63 @@ public:
       return d;
     }
     else
-    { return nullptr; }
+    {
+      return nullptr;
+    }
   }
+
+  __host__ void print (const h_index * index_in) const
+  {
+    for (int i = 0; i < ny * nx; i++)
+    {
+      const h_index * i_index = index_in -> child(i);
+      elements[i].print(i_index);
+      delete i_index;
+    }
+  }
+
+  __host__ void print() const
+  {
+    const h_index * root = getRootIndex();
+    print(root);
+    delete root;
+  }
+
+  __host__ const h_ops_tree * generateOps_GETRF() const
+  {
+    const h_index * root = getRootIndex();
+    const h_ops_tree * tree = generateOps_GETRF(root);
+    delete root;
+    return tree;
+  }
+
+  __host__ const h_ops_tree * generateOps_GETRF (const h_index *self) const
+  {
+    const h_ops * op = new h_ops(getrf, self, getNx(), getNy(), 0);
+    return new h_ops_tree(op);
+  }
+
+  /*__host__ dev_h_element <T> * lookup (const int i) const
+  {
+    return &elements[i];
+  }
+
+  __host__ dev_h_element <T> * lookup (const int levels, const int *n) const
+  {
+    const dev_h_element <T> *e = lookup (n[0]);
+    if (levels == 1)
+    { return e; }
+    else
+    {
+      const dev_hierarchical <T> *h = e -> get_element_hierarchical();
+      return (h == nullptr) ? nullptr : h -> lookup(levels - 1, &n[1]);
+    }
+  }
+
+  __host__ dev_h_element <T> * lookup (const h_index *i) const
+  {
+    return lookup (i -> levels, i -> ns);
+  }*/
 
   __host__ void loadTestMatrix (const int levels, const int dim, const int block_size)
   {

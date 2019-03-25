@@ -74,16 +74,34 @@ public:
   {
     switch (op_type)
     {
-    case nop: printf("NOP   "); break;
-    case getrf: printf("GETRF "); break;
-    case trsml: printf("TRSML "); break;
-    case trsmr: printf("TRSMR "); break;
-    case gemm: printf("GEMM  "); break;
-    case pivot: printf("PIVOT "); break;
+    case nop: 
+      printf("NOP "); 
+      break;
+    case getrf: 
+      printf("GETRF "); 
+      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]); 
+      break;
+    case trsml: 
+      printf("TRSML "); 
+      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]); 
+      r[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[2], lds[1]); 
+      break;
+    case trsmr: 
+      printf("TRSMR "); 
+      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
+      r[0].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[0], lds[1]);
+      break;
+    case gemm: 
+      printf("GEMM  "); 
+      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
+      r[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[2], lds[1]);
+      r[1].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[0], lds[2]);
+      break;
+    case pivot: 
+      printf("PIVOT "); 
+      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]); 
+      break;
     }
-
-    if (wr != nullptr) wr -> print();
-    if (r != nullptr) r -> print();
 
     printf("\n");
   }
@@ -94,16 +112,16 @@ class h_ops_tree
 {
 private:
 
-  h_ops *op;
+  h_ops op;
 
   h_ops_tree * next;
   h_ops_tree * child;
 
 public:
 
-  __host__ h_ops_tree (const operation_t op_in = nop)
+  __host__ h_ops_tree (const h_ops * op_in)
   {
-    op = new h_ops(op_in);
+    op = *op_in;
 
     next = nullptr;
     child = nullptr;
@@ -111,22 +129,21 @@ public:
 
   __host__ ~h_ops_tree ()
   {
-    delete op;
     delete child;
     delete next;
   }
 
-  __host__ void hookup_next (h_ops_tree *chain)
+  __host__ void hookup_next (h_ops_tree *tree)
   {
     if (next != nullptr)
-    { next -> hookup_next (chain); }
+    { next -> hookup_next (tree); }
     else
-    { next = chain; }
+    { next = tree; }
   }
 
-  __host__ void hookup_child (h_ops_tree *chain)
+  __host__ void hookup_child (h_ops_tree *tree)
   {
-    child = chain;
+    child = tree;
   }
 
   __host__ const h_ops_tree * lookup (const int index) const
@@ -159,7 +176,7 @@ public:
 
     if (child == nullptr) { printf("%d: ", op_id); }
 
-    op -> print();
+    op.print();
 
     if (child != nullptr) { child -> print(op_id, indent + 1); }
 

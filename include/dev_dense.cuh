@@ -60,8 +60,6 @@ public:
   {
     cudaFree(elements);
     cudaFree(pivot);
-
-    printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
   }
 
   __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
@@ -90,9 +88,9 @@ public:
     return ld;
   }
 
-  __host__ T * getElements () const
+  __host__ T * getElements (const int offset = 0) const
   {
-    return elements;
+    return &elements[offset];
   }
 
   __host__ int * getPivot () const
@@ -132,28 +130,32 @@ public:
     {
       for(int y = 0; y < ny; y++)
       {
-        const int d = (x > y) ? x - y + 1 : y - x + 1;
-        elements[y * ld + x] = (T) (1.0 / d);
+        elements[y * ld + x] = (T) (1.0 / ((x > y) ? x - y + 1 : y - x + 1));
       }
     }
   }
 
   __host__ void loadIdentityMatrix()
   {
-    int n = (nx > ny) ? ny : nx;
-    for(int x = 0; x < n; x++)
+    for (int x = 0; x < nx; x++)
     {
-      elements[x * nx + x] = 1;
+      for (int y = 0; y < ny; y++)
+      {
+        elements[y * ld + x] = (T)((x == y) ? 1 : 0);
+      }
     }
   }
 
   __host__ void loadRandomMatrix(const double min, const double max, const int seed = 0)
   {
-    if (seed > 0) { srand(seed); }
+    if (seed > 0) 
+    { srand(seed); }
     for(int x = 0; x < nx; x++)
     {
       for(int y = 0; y < ny; y++)
-      { elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); }
+      { 
+        elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); 
+      }
     }
   }
 
