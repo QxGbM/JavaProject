@@ -11,30 +11,30 @@ private:
 
 public:
 
-  __host__ dag (const ops_chain * ops) 
+  __host__ dag (const h_ops_tree * ops) 
   {
     length = ops -> length();
 
     dep = new dependency_t [length * length];
     for (int i = 0; i < length; i++)
     {
-      const ops_chain *op_src = ops -> lookup(i);
+      const h_ops_tree *op_src = ops -> lookup(i);
       const int src_n_read_write = op_src -> getN_WR(), src_n_read_only = op_src -> getN_R();
 
       for (int j = i + 1; j < length; j++)
       {
-        const ops_chain *op = ops -> lookup(j);
+        const h_ops_tree *op = ops -> lookup(j);
         const int inst_n_read_write = op ->getN_WR(), inst_n_read_only = op -> getN_R();
 
         dep[j * length + i] = no_dep;
 
         for (int k = 0; k < src_n_read_write; k++)
         {
-          const multi_level_index *dest = op_src -> getI_WR(k);
+          const h_index *dest = op_src -> getI_WR(k);
 
           for (int l = 0; l < inst_n_read_only; l++)
           {
-            const multi_level_index *in = op -> getI_R(l);
+            const h_index *in = op -> getI_R(l);
             switch (dest -> compare(in)) 
             {
             case no_relation: case diff_offset_no_overlap: break;
@@ -45,7 +45,7 @@ public:
 
           for (int l = 0; l < inst_n_read_write; l++)
           {
-            const multi_level_index *in = op -> getI_WR(l);
+            const h_index *in = op -> getI_WR(l);
             switch (dest -> compare(in))
             {
             case no_relation: case diff_offset_no_overlap: break;
@@ -57,11 +57,11 @@ public:
 
         for (int k = 0; k < inst_n_read_write; k++)
         {
-          const multi_level_index *dest = op -> getI_WR(k);
+          const h_index *dest = op -> getI_WR(k);
 
           for (int l = 0; l < src_n_read_only; l++)
           {
-            const multi_level_index *in = op_src -> getI_R(l);
+            const h_index *in = op_src -> getI_R(l);
             switch (dest -> compare(in))
             {
             case no_relation: case diff_offset_no_overlap: break;

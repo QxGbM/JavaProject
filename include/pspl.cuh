@@ -31,7 +31,7 @@ enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_
 
 enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot };
 
-enum index_relation_t { no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained};
+enum relation_t { no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained};
 
 __device__ int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
@@ -59,7 +59,7 @@ __device__ int lane_rank()
 #include <dev_low_rank.cuh>
 
 template <class T> class dev_hierarchical;
-template <class T> class h_matrix_element;
+template <class T> class dev_h_element;
 
 #include <dev_hierarchical_index.cuh>
 #include <dev_hierarchical.cuh>

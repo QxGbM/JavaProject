@@ -1,112 +1,132 @@
 
-#ifndef _DEV_DENSE_OPS_CUH
-#define _DEV_DENSE_OPS_CUH
+#ifndef _DEV_HIERARCHICAL_OPS_CUH
+#define _DEV_HIERARCHICAL_OPS_CUH
 
 #include <pspl.cuh>
 
-class ops_chain 
+class h_ops
 {
 private:
 
-  class index_chain
-  {
-  private:
-    multi_level_index *index;
-    index_chain *next;
-
-  public:
-    __host__ index_chain (const multi_level_index * in) 
-    {
-      index = in -> clone();
-      next = nullptr;
-    }
-
-    __host__ ~index_chain()
-    {
-      delete index;
-      if (next != nullptr) { delete next; }
-    }
-
-    __host__ void hookup (const multi_level_index * in)
-    {
-      if (next == nullptr) { next = new index_chain(in); }
-      else { next -> hookup(in); }
-    }
-
-    __host__ int length() const
-    {
-      return 1 + ((next == nullptr) ? 0 : next -> length());
-    }
-
-    __host__ multi_level_index * lookup(const int i) const
-    {
-      if (i <= 0) { return index; }
-      else { return (next == nullptr) ? nullptr : next -> lookup(i - 1); }
-    }
-
-    __host__ void print() const
-    {
-      index -> print_short();
-      printf(" ");
-      if (next != nullptr) { next -> print(); }
-    }
-
-  };
-
   operation_t op_type;
-
-  index_chain *wr;
-  index_chain *r;
-
-  ops_chain *next;
-  ops_chain *child;
+  h_index_linked_list *wr;
+  h_index_linked_list *r;
 
 public:
 
-  __host__ ops_chain (const operation_t opin = nop)
+  __host__ h_ops (const operation_t op_in = nop)
   {
-    op_type = opin;
-
+    op_type = op_in;
     wr = nullptr;
     r = nullptr;
-    next = nullptr;
-    child = nullptr;
   }
 
-  __host__ ~ops_chain ()
+  __host__ ~h_ops ()
   {
     if (wr != nullptr) { delete wr; }
     if (r != nullptr) { delete r; }
-
-    if (child != nullptr) { delete child; }
-    if (next != nullptr) { delete next; }
   }
 
-  __host__ void addWR (const multi_level_index *in)
+  __host__ void addWR(const h_index *in)
   {
-    if (wr == nullptr) { wr = new index_chain(in); }
+    if (wr == nullptr) { wr = new h_index_linked_list(in); }
     else { wr -> hookup(in); }
   }
 
-  __host__ void addR (const multi_level_index *in)
+  __host__ void addR(const h_index *in)
   {
-    if (r == nullptr) { r = new index_chain(in); }
+    if (r == nullptr) { r = new h_index_linked_list(in); }
     else { r -> hookup(in); }
   }
 
   __host__ int getN_WR() const
-  { return (wr == nullptr) ? 0 : wr -> length(); }
+  {
+    return (wr == nullptr) ? 0 : wr -> length();
+  }
 
   __host__ int getN_R() const
-  { return (r == nullptr) ? 0 : r -> length(); }
+  {
+    return (r == nullptr) ? 0 : r -> length();
+  }
 
-  __host__ multi_level_index * getI_WR (const int i) const
-  { return (wr == nullptr) ? nullptr : wr -> lookup(i); }
+  __host__ h_index * getI_WR(const int i) const
+  {
+    return (wr == nullptr) ? nullptr : wr -> lookup(i);
+  }
 
-  __host__ multi_level_index * getI_R (const int i) const
-  { return (r == nullptr) ? nullptr : r -> lookup(i); }
+  __host__ h_index * getI_R(const int i) const
+  {
+    return (r == nullptr) ? nullptr : r -> lookup(i);
+  }
 
-  __host__ void hookup_next (ops_chain *chain)
+  __host__ void print() const
+  {
+    switch (op_type)
+    {
+    case nop: printf("NOP   "); break;
+    case getrf: printf("GETRF "); break;
+    case trsml: printf("TRSML "); break;
+    case trsmr: printf("TRSMR "); break;
+    case gemm: printf("GEMM  "); break;
+    case pivot: printf("PIVOT "); break;
+    }
+
+    printf("%dx W: ", getN_WR());
+    if (wr != nullptr) wr->print();
+
+    printf("%dx R: ", getN_R());
+    if (r != nullptr) r->print();
+
+    printf("\n");
+  }
+  
+};
+
+class h_ops_tree 
+{
+private:
+
+  h_ops *op;
+
+  h_ops_tree * next;
+  h_ops_tree * child;
+
+public:
+
+  __host__ h_ops_tree (const operation_t op_in = nop)
+  {
+    op = new h_ops(op_in);
+
+    next = nullptr;
+    child = nullptr;
+  }
+
+  __host__ ~h_ops_tree ()
+  {
+    delete op;
+    if (child != nullptr) { delete child; }
+    if (next != nullptr) { delete next; }
+  }
+
+  __host__ void addWR (const h_index *in)
+  { op -> addWR(in); }
+
+  __host__ void addR (const h_index *in)
+  { op -> addR(in); }
+
+  __host__ int getN_WR() const
+  { return op -> getN_WR(); }
+
+  __host__ int getN_R() const
+  { return op -> getN_R(); }
+
+  __host__ h_index * getI_WR (const int i) const
+  { return op -> getI_WR(i); }
+
+  __host__ h_index * getI_R (const int i) const
+  { return op -> getI_R(i); }
+
+  __host__ void hookup_next (h_ops_tree *chain)
   {
     if (next != nullptr)
     { next -> hookup_next (chain); }
@@ -114,12 +134,12 @@ public:
     { next = chain; }
   }
 
-  __host__ void hookup_child (ops_chain *chain)
+  __host__ void hookup_child (h_ops_tree *chain)
   {
     child = chain;
   }
 
-  __host__ const ops_chain * lookup (const int index) const
+  __host__ const h_ops_tree * lookup (const int index) const
   {
     if (child == nullptr)
     {
@@ -149,23 +169,7 @@ public:
 
     if (child == nullptr) { printf("%d: ", op_id); }
 
-    switch(op_type)
-    {
-      case nop: printf("NOP   "); break;
-      case getrf: printf("GETRF "); break;
-      case trsml: printf("TRSML "); break;
-      case trsmr: printf("TRSMR "); break;
-      case gemm: printf("GEMM  "); break;
-      case pivot: printf("PIVOT "); break;
-    }
-
-    printf("%dx W: ", getN_WR());
-    if (wr != nullptr) wr -> print();
-
-    printf("%dx R: ", getN_R());
-    if (r != nullptr) r -> print();
-
-    printf("\n");
+    op -> print();
 
     if (child != nullptr) { child -> print(op_id, indent + 1); }
 

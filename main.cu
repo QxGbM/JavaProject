@@ -7,10 +7,9 @@ __host__ int test0()
 {
   dev_hierarchical <double> *a = new dev_hierarchical <double>(2, 2);
   a->loadTestMatrix(0, 2, 4);
-  a->print();
 
-  multi_level_index *id = new multi_level_index();
-  ops_chain *ops = get_ops_h_getrf(a, id);
+  h_index *id = new h_index();
+  h_ops_tree *ops = get_ops_h_getrf(a, id);
   ops->print();
 
   dag *d = new dag(ops);

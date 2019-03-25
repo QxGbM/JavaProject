@@ -10,7 +10,7 @@ private:
 
   int nx;
   int ny;
-  h_matrix_element <T> **elements;
+  dev_h_element <T> **elements;
 
 public:
   
@@ -18,7 +18,7 @@ public:
   {
     nx = x;
     ny = y;
-    elements = new h_matrix_element <T> * [x * y];
+    elements = new dev_h_element <T> * [x * y];
     for (int i = 0; i < x * y; i++) { elements[i] = nullptr; }
   }
 
@@ -34,10 +34,10 @@ public:
 
   __host__ void set_element (void *matrix, const element_t type, const int x, const int y) 
   {
-    elements[y * nx + x] = new h_matrix_element <T> (matrix, type);
+    elements[y * nx + x] = new dev_h_element <T> (matrix, type);
   }
 
-  __host__ int * getDim3(const bool actual = true) const
+  __host__ int * getDim3 (const bool actual = true) const
   {
     int *dim = new int[3]{ 0, 0, 0 };
     if (actual)
@@ -63,14 +63,14 @@ public:
     return dim;
   }
 
-  __host__ void print (const multi_level_index *index_in = nullptr) const
+  __host__ void print (const h_index *index_in = nullptr) const
   {
     const int *dim = getDim3(false);
     for (int i = 0; i < ny * nx; i++)
     {
       if (elements[i] != nullptr) 
       {
-        const multi_level_index *index = (index_in == nullptr) ? new multi_level_index(0, nullptr, i, 0, dim) : index_in -> child(i, 0, dim);
+        const h_index *index = (index_in == nullptr) ? new h_index(0, nullptr, i, 0, dim) : index_in -> child(i, 0, dim);
         elements[i] -> print(index);
         delete index;
       }
@@ -78,14 +78,14 @@ public:
     delete[] dim;
   }
 
-  __host__ h_matrix_element <T> * lookup (const int i) const
+  __host__ dev_h_element <T> * lookup (const int i) const
   {
     return elements[i];
   }
 
-  __host__ h_matrix_element <T> * lookup (const int levels, const int *n) const
+  __host__ dev_h_element <T> * lookup (const int levels, const int *n) const
   {
-    const h_matrix_element <T> *e = lookup(n[0]);
+    const dev_h_element <T> *e = lookup(n[0]);
     if (levels == 1)
     { return e; }
     else
@@ -95,16 +95,16 @@ public:
     }
   }
 
-  __host__ h_matrix_element <T> * lookup (const multi_level_index *i) const
+  __host__ dev_h_element <T> * lookup (const h_index *i) const
   {
     return lookup (i -> levels, i -> ns);
   }
 
-  __host__ multi_level_index * child_index (const int child_id, const multi_level_index *self_index = nullptr) const
+  __host__ h_index * child_index (const int child_id, const h_index *self_index = nullptr) const
   {
-    const h_matrix_element <T> *child = lookup(child_id);
+    const dev_h_element <T> *child = lookup(child_id);
     const int *dim = child -> getDim3(true);
-    multi_level_index *index = (self_index == nullptr) ? new multi_level_index(0, nullptr, child_id, 0, dim) : self_index -> child(child_id, 0, dim);
+    h_index *index = (self_index == nullptr) ? new h_index(0, nullptr, child_id, 0, dim) : self_index -> child(child_id, 0, dim);
     delete[] dim;
     return index;
   }

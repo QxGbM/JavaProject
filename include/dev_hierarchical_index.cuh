@@ -3,7 +3,7 @@
 
 #include <pspl.cuh>
 
-class multi_level_index 
+class h_index 
 {
 private:
 
@@ -14,7 +14,7 @@ private:
 
 public:
 
-  __host__ multi_level_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr)
+  __host__ h_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr)
   {
     levels = ((levels_in > 0) ? levels_in : 0) + ((index_in >= 0) ? 1 : 0);
     if (levels > 0)
@@ -33,7 +33,7 @@ public:
     else { for (int i = 0; i < 3; i++) dim[i] = 1; }
   }
 
-  __host__ ~multi_level_index ()
+  __host__ ~h_index ()
   {
     delete[] ns;
     delete[] dim;
@@ -49,7 +49,7 @@ public:
     printf("dim: %d x %d by %d --\n", dim[0], dim[1], dim[2]);
   }
 
-  __host__ void print_short () const
+  __host__ void printShort () const
   {
     printf("[%d", levels);
     for(int i = 0; i < levels; i++)
@@ -69,7 +69,7 @@ public:
   __host__ int getLd() const
   { return dim[2]; }
 
-  __host__ index_relation_t compare (const multi_level_index *in) const
+  __host__ relation_t compare (const h_index *in) const
   {
     if (in == nullptr) { return no_relation; }
 
@@ -108,16 +108,62 @@ public:
     { return (levels > n) ? contains : contained; }
   }
 
-  __host__ multi_level_index * child (const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr) const
+  __host__ h_index * child (const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr) const
   {
-    multi_level_index * i = new multi_level_index(levels, ns, index_in, offset_in, dim_in);
+    h_index * i = new h_index(levels, ns, index_in, offset_in, dim_in);
     return i;
   }
 
-  __host__ multi_level_index * clone() const
+  __host__ h_index * clone() const
   {
-    multi_level_index * i = new multi_level_index(levels, ns, -1, offset, dim);
+    h_index * i = new h_index(levels, ns, -1, offset, dim);
     return i;
+  }
+
+};
+
+
+class h_index_linked_list
+{
+private:
+  h_index *index;
+  h_index_linked_list *next;
+
+public:
+  __host__ h_index_linked_list (const h_index * in)
+  {
+    index = in -> clone();
+    next = nullptr;
+  }
+
+  __host__ ~h_index_linked_list ()
+  {
+    delete index;
+    if (next != nullptr) { delete next; }
+  }
+
+  __host__ void hookup (const h_index * in)
+  {
+    if (next == nullptr) { next = new h_index_linked_list(in); }
+    else { next -> hookup(in); }
+  }
+
+  __host__ int length () const
+  {
+    return 1 + ((next == nullptr) ? 0 : next -> length());
+  }
+
+  __host__ h_index * lookup (const int i) const
+  {
+    if (i <= 0) { return index; }
+    else { return (next == nullptr) ? nullptr : next -> lookup(i - 1); }
+  }
+
+  __host__ void print () const
+  {
+    index -> printShort();
+    printf(" ");
+    if (next != nullptr) { next -> print(); }
   }
 
 };
