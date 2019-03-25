@@ -171,7 +171,7 @@ public:
     }
   }
 
-  __host__ void remove_dep(const int inst_from, const int inst_to)
+  __host__ void remove_dep (const int inst_from, const int inst_to)
   {
     if (inst_from < inst_to)
     {

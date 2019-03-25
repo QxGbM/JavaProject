@@ -19,15 +19,6 @@ public:
     type = type_in;
   }
 
-  __host__ dev_dense <T> * get_element_dense () const
-  { return (type == dense) ? ((dev_dense <T> *) element) : nullptr; }
-
-  __host__ dev_low_rank <T> * get_element_low_rank() const
-  { return (type == low_rank) ? ((dev_low_rank <T> *) element) : nullptr; }
-
-  __host__ dev_hierarchical <T> * get_element_hierarchical () const
-  { return (type == hierarchical) ? ((dev_hierarchical <T> *) element) : nullptr; }
-
   __host__ ~dev_h_element ()
   { 
     dev_dense <T> *d = get_element_dense();
@@ -39,34 +30,88 @@ public:
     if (h != nullptr) { delete h; }
   }
 
+  __host__ dev_dense <T> * get_element_dense() const
+  {
+    return (type == dense) ? ((dev_dense <T> *) element) : nullptr;
+  }
+
+  __host__ dev_low_rank <T> * get_element_low_rank() const
+  {
+    return (type == low_rank) ? ((dev_low_rank <T> *) element) : nullptr;
+  }
+
+  __host__ dev_hierarchical <T> * get_element_hierarchical() const
+  {
+    return (type == hierarchical) ? ((dev_hierarchical <T> *) element) : nullptr;
+  }
+
   __host__ element_t getType() const
   {
     return type;
   }
 
-  __host__ int * getDim3 (const bool actual = true) const
+  __host__ int getNx() const
   {
     const dev_dense <T> *d = get_element_dense();
     const dev_low_rank <T> *lr = get_element_low_rank();
     const dev_hierarchical <T> *h = get_element_hierarchical();
 
-    if (d != nullptr) 
-    { return d -> getDim3(); }
-    if (lr != nullptr) 
+    if (d != nullptr)
+    { return d -> getNx(); }
+    if (lr != nullptr)
     {
-      // TODO
+      //TODO
     }
-    if (h != nullptr) 
+    if (h != nullptr)
+    { return h -> getNx(); }
+
+    return 0;
+  }
+
+  __host__ int getNy() const
+  {
+    const dev_dense <T> *d = get_element_dense();
+    const dev_low_rank <T> *lr = get_element_low_rank();
+    const dev_hierarchical <T> *h = get_element_hierarchical();
+
+    if (d != nullptr)
     {
-      int *dim = new int[3]{ 0, 0, 0 };
-      int *dim_h = h -> getDim3(actual);
-      dim[0] = dim_h[0];
-      dim[1] = dim_h[1];
-      dim[2] = dim_h[2];
-      delete[] dim_h;
-      return dim;
+      return d -> getNy();
     }
-    return new int[3]{ 0, 0, 0 };
+    if (lr != nullptr)
+    {
+      //TODO
+    }
+    if (h != nullptr)
+    {
+      return h -> getNy();
+    }
+
+    return 0;
+  }
+
+  __host__ int getLd() const
+  {
+    const dev_dense <T> *d = get_element_dense();
+
+    if (d != nullptr)
+    {
+      return d -> getLd();
+    }
+
+    return 0;
+  }
+
+  __host__ int getRank() const
+  {
+    const dev_low_rank <T> *lr = get_element_low_rank();
+
+    if (lr != nullptr)
+    {
+      //TODO
+    }
+
+    return 0;
   }
 
   __host__ void print (const h_index *index) const

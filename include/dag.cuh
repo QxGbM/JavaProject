@@ -37,7 +37,7 @@ public:
             const h_index *in = op -> getI_R(l);
             switch (dest -> compare(in)) 
             {
-            case no_relation: case diff_offset_no_overlap: break;
+            case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
             case diff_offset_overlapped: case same_index: case contains: case contained:
               dep[j * length + i] = (dependency_t) ((int) flow_dep | (int) dep[j * length + i]); l = inst_n_read_only;
             }
@@ -48,7 +48,7 @@ public:
             const h_index *in = op -> getI_WR(l);
             switch (dest -> compare(in))
             {
-            case no_relation: case diff_offset_no_overlap: break;
+            case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
             case diff_offset_overlapped: case same_index: case contains: case contained:
               dep[j * length + i] = (dependency_t) ((int) output_dep | (int) dep[j * length + i]); l = inst_n_read_write;
             }
@@ -64,7 +64,7 @@ public:
             const h_index *in = op_src -> getI_R(l);
             switch (dest -> compare(in))
             {
-            case no_relation: case diff_offset_no_overlap: break;
+            case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
             case diff_offset_overlapped: case same_index: case contains: case contained:
               dep[j * length + i] = (dependency_t) ((int) anti_dep | (int) dep[j * length + i]); l = src_n_read_only;
             }

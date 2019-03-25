@@ -75,9 +75,19 @@ public:
     }
   }
 
-  __host__ int * getDim3 () const
+  __host__ int getNx () const
   {
-    return new int[3]{ nx, ny, ld };
+    return nx;
+  }
+
+  __host__ int getNy () const
+  {
+    return ny;
+  }
+
+  __host__ int getLd () const
+  {
+    return ld;
   }
 
   __host__ T * getElements () const

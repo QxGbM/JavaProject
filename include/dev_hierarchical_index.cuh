@@ -8,45 +8,37 @@ class h_index
 private:
 
   int levels;
-  int *ns;
+  int * ns;
   int offset;
-  int *dim;
+  const void * matrix;
 
 public:
 
-  __host__ h_index (const int levels_in = 0, const int *ns_in = nullptr, const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr)
+  __host__ h_index (const int levels_in = 0, const int *ns_in = nullptr, const int offset_in = 0, const void * matrix_in = nullptr)
   {
-    levels = ((levels_in > 0) ? levels_in : 0) + ((index_in >= 0) ? 1 : 0);
-    if (levels > 0)
-    {
-      ns = new int [levels];
-      for (int i = 0; i < levels - 1; i++) 
-      { ns[i] = (ns_in == nullptr) ? -1 : ns_in[i]; }
-      ns[levels - 1] = (index_in >= 0) ? index_in : ((ns_in == nullptr) ? -1 : ns_in[levels - 1]);
-    }
-    else
-    { ns = nullptr; }
+    levels = (levels_in >= 0) ? levels_in : 0;
+
+    ns = new int [levels];
+    for (int i = 0; i < levels; i++) 
+    { ns[i] = (ns_in == nullptr) ? -1 : ns_in[i]; }
 
     offset = offset_in;
-    dim = new int[3]; 
-    if (dim_in != nullptr) { for (int i = 0; i < 3; i++) dim[i] = dim_in[i]; }
-    else { for (int i = 0; i < 3; i++) dim[i] = 1; }
+    matrix = matrix_in;
+
   }
 
   __host__ ~h_index ()
   {
     delete[] ns;
-    delete[] dim;
   }
 
   __host__ void print () const
   {
     printf("-- ");
-    if (levels == 0) printf("root");
+    if (levels == 0) printf("root, ");
     for(int i = 0; i < levels; i++)
     { printf("level %d: %d, ", i, ns[i]); }
-    printf("offset %d ", offset);
-    printf("dim: %d x %d by %d --\n", dim[0], dim[1], dim[2]);
+    printf("offset %d. --\n", offset);
   }
 
   __host__ void printShort () const
@@ -54,24 +46,16 @@ public:
     printf("[%d", levels);
     for(int i = 0; i < levels; i++)
     { printf("%d", ns[i]); }
-    printf(" (%d) (%d,%d,%d)]", offset, dim[0], dim[1], dim[2]);
+    printf(" (%d)]", offset);
   }
 
   __host__ int getOffset() const
   { return offset; }
 
-  __host__ int getNx() const
-  { return dim[0]; }
-
-  __host__ int getNy() const
-  { return dim[1]; }
-
-  __host__ int getLd() const
-  { return dim[2]; }
-
-  __host__ relation_t compare (const h_index *in) const
+  __host__ relation_t compare (const h_index *in, const int * my_dim, const int * dim_in) const
   {
     if (in == nullptr) { return no_relation; }
+    if (matrix != in -> matrix) { return diff_matrix; }
 
     int n = ((in -> levels) > levels) ? levels : (in -> levels);
     for (int i = 0; i < n; i++) 
@@ -82,8 +66,8 @@ public:
       if (offset == in -> offset) return same_index;
       else
       {
-        const int offset0 = offset, nx0 = dim[0], ny0 = dim[1], ld0 = (dim[2] == 0) ? nx0 : dim[2];
-        const int offset1 = in -> offset, nx1 = (in -> dim)[0], ny1 = (in -> dim)[1], ld1 = ((in -> dim)[2] == 0) ? nx1 : (in -> dim)[2];
+        const int offset0 = offset, nx0 = my_dim[0], ny0 = my_dim[1], ld0 = (my_dim[2] == 0) ? nx0 : my_dim[2];
+        const int offset1 = in -> offset, nx1 = dim_in[0], ny1 = dim_in[1], ld1 = (dim_in[2] == 0) ? nx1 : dim_in[2];
 
         if (ld0 >= nx0 && ld1 >= nx1)
         {
@@ -108,15 +92,16 @@ public:
     { return (levels > n) ? contains : contained; }
   }
 
-  __host__ h_index * child (const int index_in = -1, const int offset_in = 0, const int *dim_in = nullptr) const
+  __host__ h_index * child (const int index_in = -1, const int offset_in = 0) const
   {
-    h_index * i = new h_index(levels, ns, index_in, offset_in, dim_in);
+    h_index * i = new h_index (levels + 1, ns, offset_in, matrix);
+    (i -> ns)[levels] = index_in;
     return i;
   }
 
   __host__ h_index * clone() const
   {
-    h_index * i = new h_index(levels, ns, -1, offset, dim);
+    h_index * i = new h_index (levels, ns, offset, matrix);
     return i;
   }
 

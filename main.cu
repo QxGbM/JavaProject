@@ -1,20 +1,21 @@
 
 #include <pspl.cuh>
 
-__global__ void test_kernel(inst_handler <float> ih) { ih.run(); }
+template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
   dev_hierarchical <double> *a = new dev_hierarchical <double>(2, 2);
-  a->loadTestMatrix(0, 2, 4);
+  a->loadTestMatrix(1, 2, 4);
+  a->print();
 
-  h_index *id = new h_index();
-  h_ops_tree *ops = get_ops_h_getrf(a, id);
-  ops->print();
+  //h_index *id = new h_index();
+  //h_ops_tree *ops = get_ops_h_getrf(a, id);
+  //ops->print();
 
-  dag *d = new dag(ops);
+  //dag *d = new dag(ops);
 
-  d->print();
+  //d->print();
 
   timer *myTimer = new timer();
   myTimer->newEvent("TEST", start);
@@ -29,9 +30,9 @@ __host__ int test0()
   cudaDeviceSynchronize();
 
   delete a;
-  delete ops;
-  delete id;
-  delete d;
+  //delete ops;
+  //delete id;
+  //delete d;
   delete myTimer;
 
   cudaDeviceReset();
@@ -68,7 +69,7 @@ __host__ int test1 ()
   timer myTimer = timer();
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)test_kernel, 4, 1024, (void **) &ih, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <float>, 4, 1024, (void **) &ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   myTimer.printStatus();

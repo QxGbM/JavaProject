@@ -9,54 +9,65 @@ class h_ops
 private:
 
   operation_t op_type;
-  h_index_linked_list *wr;
-  h_index_linked_list *r;
+  h_index *wr;
+  h_index *r;
+  int *dims;
+  int *lds;
 
 public:
 
   __host__ h_ops (const operation_t op_in = nop)
   {
     op_type = op_in;
-    wr = nullptr;
-    r = nullptr;
+    wr = new h_index[0];
+    r = new h_index[0];
+    dims = new int[0];
+    lds = new int[0];
+  }
+
+  __host__ h_ops (const operation_t op_in, const h_index * M, const int nx, const int ny, const int ld)
+  {
+    op_type = op_in;
+    wr = new h_index[1]{ *(M -> clone()) };
+    r = new h_index[0];
+    dims = new int[2]{ nx, ny };
+    lds = new int[1]{ ld };
+  }
+
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * B, const int nx_m, const int ny_m, const int dim_b, const int ld_m, const int ld_b)
+  {
+    op_type = op_in;
+    wr = new h_index[1]{ *(B -> clone()) };
+    r = new h_index[1]{ *(M -> clone()) };
+    dims = new int[3]{ nx_m, ny_m, dim_b };
+    lds = new int[2]{ ld_m, ld_b };
+  }
+
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+  {
+    op_type = op_in;
+    wr = new h_index[1]{ *(M -> clone()) };
+    r = new h_index[2]{ *(A -> clone()), *(B -> clone()) };
+    dims = new int[3]{ m, n, k };
+    lds = new int[3]{ ld_m, ld_a, ld_b };
   }
 
   __host__ ~h_ops ()
   {
-    if (wr != nullptr) { delete wr; }
-    if (r != nullptr) { delete r; }
+    delete[] r;
+    delete[] wr;
+    delete[] dims;
+    delete[] lds;
   }
 
-  __host__ void addWR(const h_index *in)
+  __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
-    if (wr == nullptr) { wr = new h_index_linked_list(in); }
-    else { wr -> hookup(in); }
+    return no_dep;
   }
 
-  __host__ void addR(const h_index *in)
+  __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
   {
-    if (r == nullptr) { r = new h_index_linked_list(in); }
-    else { r -> hookup(in); }
-  }
-
-  __host__ int getN_WR() const
-  {
-    return (wr == nullptr) ? 0 : wr -> length();
-  }
-
-  __host__ int getN_R() const
-  {
-    return (r == nullptr) ? 0 : r -> length();
-  }
-
-  __host__ h_index * getI_WR(const int i) const
-  {
-    return (wr == nullptr) ? nullptr : wr -> lookup(i);
-  }
-
-  __host__ h_index * getI_R(const int i) const
-  {
-    return (r == nullptr) ? nullptr : r -> lookup(i);
+    return no_dep;
   }
 
   __host__ void print() const
@@ -71,11 +82,8 @@ public:
     case pivot: printf("PIVOT "); break;
     }
 
-    printf("%dx W: ", getN_WR());
-    if (wr != nullptr) wr->print();
-
-    printf("%dx R: ", getN_R());
-    if (r != nullptr) r->print();
+    if (wr != nullptr) wr -> print();
+    if (r != nullptr) r -> print();
 
     printf("\n");
   }
@@ -104,27 +112,9 @@ public:
   __host__ ~h_ops_tree ()
   {
     delete op;
-    if (child != nullptr) { delete child; }
-    if (next != nullptr) { delete next; }
+    delete child;
+    delete next;
   }
-
-  __host__ void addWR (const h_index *in)
-  { op -> addWR(in); }
-
-  __host__ void addR (const h_index *in)
-  { op -> addR(in); }
-
-  __host__ int getN_WR() const
-  { return op -> getN_WR(); }
-
-  __host__ int getN_R() const
-  { return op -> getN_R(); }
-
-  __host__ h_index * getI_WR (const int i) const
-  { return op -> getI_WR(i); }
-
-  __host__ h_index * getI_R (const int i) const
-  { return op -> getI_R(i); }
 
   __host__ void hookup_next (h_ops_tree *chain)
   {
