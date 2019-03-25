@@ -23,20 +23,37 @@ public:
     ny = y;
     ld = (x > d) ? x : d;
 
-    cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
-    cudaMemset(elements, 0, ld * ny * sizeof(T));
+    cudaMallocManaged (&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
+    cudaMemset (elements, 0, ld * ny * sizeof(T));
     
     pivoted = alloc_pivot;
     if (pivoted)
     {
-      cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal);
-      cudaMemset(pivot, 0, ny * sizeof(int));
+      cudaMallocManaged (&pivot, ny * sizeof(int), cudaMemAttachGlobal);
+      cudaMemset (pivot, 0, ny * sizeof(int));
     }
     else
-    {
-      pivot = nullptr;
-    }
+    { pivot = nullptr; }
 
+  }
+
+  __host__ dev_dense (const int x, const int y, const T * A, const int d = 0, const bool alloc_pivot = false)
+  {
+    nx = x;
+    ny = y;
+    ld = (x > d) ? x : d;
+
+    cudaMallocManaged (&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
+    loadArray (A, x, y);
+
+    pivoted = alloc_pivot;
+    if (pivoted)
+    {
+      cudaMallocManaged (&pivot, ny * sizeof(int), cudaMemAttachGlobal);
+      cudaMemset (pivot, 0, ny * sizeof(int));
+    }
+    else
+    { pivot = nullptr; }
   }
 
   __host__ ~dev_dense ()
@@ -45,6 +62,17 @@ public:
     cudaFree(pivot);
 
     printf("-- %d x %d matrix destructed. --\n\n", ny, ld);
+  }
+
+  __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int x_start = 0, const int y_start = 0)
+  {
+    for (int y = y_start, y_a = 0; y < ny && y_a < ny_a; y++, y_a++)
+    {
+      for (int x = x_start, x_a = 0; x < nx && x_a < nx_a; x++, x_a++)
+      {
+        elements[y * ld + x] = A[y_a * nx_a + x_a];
+      }
+    }
   }
 
   __host__ int * getDim3 () const

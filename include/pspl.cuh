@@ -25,11 +25,13 @@
 
 enum mark_t{ start, end };
 
-enum h_matrix_t { empty, dense, low_rank, hierarchical };
+enum element_t { empty, dense, low_rank, hierarchical };
 
-enum dep_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
+enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
-enum matrix_op_t { nop, getrf, trsml, trsmr, gemm, pivot };
+enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot };
+
+enum index_relation_t { no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained};
 
 __device__ int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
@@ -49,23 +51,23 @@ __device__ int warp_rank()
 __device__ int lane_rank()
 { return thread_rank() - warpSize * warp_rank(); }
 
+#include <timer.cuh>
+
 #include <dev_dense.cuh>
 #include <dev_dense_funcs.cuh>
 
-#include <index.cuh>
 #include <dev_low_rank.cuh>
 
 template <class T> class dev_hierarchical;
 template <class T> class h_matrix_element;
 
+#include <dev_hierarchical_index.cuh>
 #include <dev_hierarchical.cuh>
+#include <dev_hierarchical_element.cuh>
+#include <dev_hierarchical_ops.cuh>
 
-#include <ops.cuh>
 #include <get_ops.cuh>
 #include <dag.cuh>
 #include <inst_handler.cuh>
-
-#include <timer.cuh>
-#include <kernel.cuh>
 
 #endif

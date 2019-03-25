@@ -4,72 +4,71 @@
 
 #include <pspl.cuh>
 
+class event_linked_list
+{
+private:
+
+  cudaEvent_t event;
+  mark_t type;
+  event_linked_list *next;
+
+public:
+
+  __host__ event_linked_list (const mark_t type_in, const cudaStream_t stream = 0)
+  {
+    cudaEventCreate (&event);
+    cudaEventRecord (event, stream);
+    type = type_in;
+    next = nullptr;
+  }
+
+  __host__ ~event_linked_list ()
+  {
+    cudaEventDestroy(event);
+    if (next != nullptr)
+    { delete next; }
+  }
+
+  __host__ void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
+  {
+    if (next == nullptr)
+    { next = new event_linked_list (type_in, stream); }
+    else
+    { next -> hookNewEvent(type_in, stream); }
+  }
+
+  __host__ int length () const
+  { return (next == nullptr) ? 1 : 1 + next->length(); }
+
+  __host__ int length (const mark_t type_in) const
+  {
+    int count = (int) (type == type_in);
+    return (next == nullptr) ? count : count + next -> length (type_in);
+  }
+
+  __host__ float getTotal_Sync (const event_linked_list *e = nullptr) const
+  {
+    float millis = 0.0;
+    switch (type)
+    {
+    case start:
+      millis = (next == nullptr) ? 0 : next->getTotal_Sync(this);
+      break;
+    case end:
+      if (e != nullptr) { cudaEventElapsedTime(&millis, e -> event, event); }
+      millis += (next == nullptr) ? 0 : next->getTotal_Sync(e);
+      break;
+    }
+    return millis;
+  }
+
+};
+
 class timer 
 {
 private:
 
-  class event_chain 
-  {
-  private:
-
-    cudaEvent_t event;
-    mark_t type;
-    event_chain *next;
-
-  public:
-  
-    __host__ event_chain (const mark_t type_in, const cudaStream_t stream = 0)
-    {
-      cudaEventCreate (&event);
-      cudaEventRecord (event, stream);
-      type = type_in;
-      next = nullptr;
-    }
-  
-    __host__ ~event_chain ()
-    {
-      cudaEventDestroy (event);
-      if (next != nullptr)
-      { delete next; }
-    }
-  
-    __host__ void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
-    {
-      if (next == nullptr)
-      { next = new event_chain(type_in, stream); }
-      else
-      { next -> hookNewEvent(type_in, stream); }
-    }
-  
-    __host__ int length () const
-    {
-      return (next == nullptr) ? 1 : 1 + next -> length();
-    }
-
-    __host__ int length (const mark_t type_in) const
-    {
-      int count = (int)(type == type_in);
-      return (next == nullptr) ? count : count + next -> length(type_in);
-    }
-
-    __host__ float getTotal_Sync (const event_chain *e = nullptr) const
-    {
-      float millis = 0.0;
-      switch (type)
-      {
-      case start: 
-        millis = (next == nullptr) ? 0 : next -> getTotal_Sync(this);
-        break;
-      case end: 
-        if (e != nullptr) { cudaEventElapsedTime(&millis, e -> event, event); }
-        millis += (next == nullptr) ? 0 : next -> getTotal_Sync(e);
-      }
-      return millis;
-    }
-  
-  };
-
-  event_chain ** events;
+  event_linked_list ** events;
   char ** names;
   int event_counter;
   int table_size;
@@ -78,9 +77,9 @@ public:
 
   __host__ timer (const int time_table_size = 1)
   {
-    events = new event_chain * [time_table_size];
+    events = new event_linked_list * [time_table_size];
     names = new char * [time_table_size];
-    memset ((void *) events, 0, time_table_size * sizeof(event_chain *));
+    memset ((void *) events, 0, time_table_size * sizeof(event_linked_list *));
     memset ((void *) names, 0, time_table_size * sizeof(char *));
     event_counter = 0;
     table_size = (time_table_size > 0) ? time_table_size : 1;
@@ -95,7 +94,7 @@ public:
     printf("-- Timer destructed. --\n\n");
   }
 
-  __host__ event_chain * getEvent (const char *event_name) const
+  __host__ event_linked_list * getEvent (const char *event_name) const
   {
     for (int i = 0; i < event_counter; i++)
     {
@@ -108,9 +107,9 @@ public:
   {
     int size = (time_table_size > 0) ? time_table_size : 1;
 
-    event_chain ** events_old = events; 
-    events = new event_chain *[size];
-    memset((void *)events, 0, size * sizeof(event_chain *));
+    event_linked_list ** events_old = events; 
+    events = new event_linked_list *[size];
+    memset((void *)events, 0, size * sizeof(event_linked_list *));
 
     char ** names_old = names;
     names = new char *[size];
@@ -136,7 +135,7 @@ public:
 
   __host__ void newEvent (const char *event_name, mark_t type, cudaStream_t stream = 0)
   {
-    event_chain *p = getEvent(event_name);
+    event_linked_list *p = getEvent(event_name);
     
     if (p == nullptr)
     {
@@ -144,7 +143,7 @@ public:
       {
         change_table_size(table_size * 2);
       }
-      events[event_counter] = new event_chain(type, stream);
+      events[event_counter] = new event_linked_list(type, stream);
       const int length = (int) strlen(event_name) + 1;
       names[event_counter] = new char[length];
       strcpy(names[event_counter], event_name);

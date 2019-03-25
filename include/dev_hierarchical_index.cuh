@@ -1,17 +1,7 @@
-#ifndef _INDEX_CUH
-#define _INDEX_CUH
+#ifndef _DEV_HIERARCHICAL_INDEX_CUH
+#define _DEV_HIERARCHICAL_INDEX_CUH
 
 #include <pspl.cuh>
-
-enum index_relation_t 
-{
-  no_relation,
-  diff_offset_no_overlap,
-  diff_offset_overlapped,
-  same_index,
-  contains,
-  contained,
-};
 
 class multi_level_index 
 {

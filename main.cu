@@ -6,7 +6,7 @@ __global__ void test_kernel(inst_handler <float> ih) { ih.run(); }
 __host__ int test0()
 {
   dev_hierarchical <double> *a = new dev_hierarchical <double>(2, 2);
-  a->loadTestMatrix(2, 2, 4);
+  a->loadTestMatrix(0, 2, 4);
   a->print();
 
   multi_level_index *id = new multi_level_index();
@@ -20,9 +20,9 @@ __host__ int test0()
   timer *myTimer = new timer();
   myTimer->newEvent("TEST", start);
 
-  void ** args = d -> getArgsAddress();
-  cudaLaunchKernel((void *)kernel_dynamic, 4, 256, args);
-  delete[] args;
+  //void ** args = d -> getArgsAddress();
+  //cudaLaunchKernel((void *)kernel_dynamic, 4, 256, args);
+  //delete[] args;
 
   myTimer->newEvent("TEST", end);
   myTimer->printStatus();
@@ -63,6 +63,7 @@ __host__ int test1 ()
   ih -> add_dep(2, 3);
   ih -> add_dep(3, 4);
 
+  ih -> fill_nop_inst();
   ih -> print();
 
   timer myTimer = timer();
@@ -90,7 +91,7 @@ __host__ int test1 ()
 int main(int argc, char **argv)
 {
   test1();
-  //test0();
+  test0();
 
   return 0;
 }

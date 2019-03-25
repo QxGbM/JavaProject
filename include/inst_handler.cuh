@@ -302,7 +302,7 @@ public:
     {
       if (insts[i] != nullptr)
       {
-        matrix_op_t type = (matrix_op_t) insts[i][0];
+        operation_t type = (operation_t) insts[i][0];
         printf("%d: ", i);
         switch (type)
         {
@@ -379,7 +379,7 @@ public:
     if (inst_num >= 0)
     {
       const int *inst = insts[inst_num];
-      const matrix_op_t op = (matrix_op_t) inst[0];
+      const operation_t op = (operation_t) inst[0];
       T *m1 = ptrs[inst[1]], *m2 = ptrs[inst[2]], *m3 = ptrs[inst[3]];
       int *p = (inst[2] == -1) ? nullptr: pivot_ptrs[inst[2]];
       switch (op)

@@ -1,6 +1,6 @@
 
-#ifndef _OPS_CUH
-#define _OPS_CUH
+#ifndef _DEV_DENSE_OPS_CUH
+#define _DEV_DENSE_OPS_CUH
 
 #include <pspl.cuh>
 
@@ -53,7 +53,7 @@ private:
 
   };
 
-  matrix_op_t op_type;
+  operation_t op_type;
 
   index_chain *wr;
   index_chain *r;
@@ -63,7 +63,7 @@ private:
 
 public:
 
-  __host__ ops_chain (const matrix_op_t opin = nop)
+  __host__ ops_chain (const operation_t opin = nop)
   {
     op_type = opin;
 
