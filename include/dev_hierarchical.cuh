@@ -356,27 +356,23 @@ public:
     return ops;
   }
 
-  /*__host__ dev_h_element <T> * lookup (const int i) const
+  __host__ T * lookup (const h_index * index, const int level_self = 0) const
   {
-    return &elements[i];
-  }
-
-  __host__ dev_h_element <T> * lookup (const int levels, const int *n) const
-  {
-    const dev_h_element <T> *e = lookup (n[0]);
-    if (levels == 1)
-    { return e; }
+    if (index == nullptr || index -> getLevels() <= level_self)
+    {
+      return nullptr;
+    }
+    else if (index -> getLevels() == level_self + 1)
+    {
+      const dev_dense <T> *d = elements[index -> getIndex(level_self)].getElementDense();
+      return (d == nullptr) ? nullptr : d -> getElements(index -> getOffset());
+    }
     else
     {
-      const dev_hierarchical <T> *h = e -> get_element_hierarchical();
-      return (h == nullptr) ? nullptr : h -> lookup(levels - 1, &n[1]);
+      const dev_hierarchical <T> *h = elements[index -> getIndex(level_self)].getElementHierarchical();
+      return (h == nullptr) ? nullptr : h -> lookup(index, level_self + 1);
     }
   }
-
-  __host__ dev_h_element <T> * lookup (const h_index *i) const
-  {
-    return lookup (i -> levels, i -> ns);
-  }*/
 
   __host__ void print(const h_index * index_in) const
   {

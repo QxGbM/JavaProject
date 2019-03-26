@@ -49,8 +49,11 @@ public:
     printf(" (%d)]", offset);
   }
 
-  __host__ int getOffset() const
-  { return offset; }
+  __host__ int getLevels() const { return levels; }
+
+  __host__ int getIndex(const int level) const { return ns[level]; }
+
+  __host__ int getOffset() const { return offset; }
 
   __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const h_index *in, const int nx1, const int ny1, const int ld1) const
   {
