@@ -5,8 +5,11 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
-  dev_hierarchical <double> *a = new dev_hierarchical <double> (2, 2);
-  a -> loadTestMatrix(2, 2, 4, 999);
+  const int n = 8, levels = 0, dim = 16, seed = 999;
+
+  dev_hierarchical <double> *a = new dev_hierarchical <double> (n, n);
+  a -> loadTestMatrix(levels, n, dim, seed);
+  printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
   h_ops_dag *d = new h_ops_dag(a -> generateOps_GETRF());
 
@@ -17,7 +20,7 @@ __host__ int test0()
   cudaStreamCreate(&main_stream);
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <double>, 8, 1024, (void **)&ih, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <double>, 16, 1024, (void **)&ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   myTimer.printStatus();
@@ -25,16 +28,13 @@ __host__ int test0()
 
   dev_dense <double> *b = a -> convertToDense() -> restoreLU();
 
-  a -> loadTestMatrix(2, 2, 4, 999);
+  a -> loadTestMatrix(levels, n, dim, seed);
   dev_dense <double> *c = a -> convertToDense();
 
-  printf("Rel. L2 Error: %e\n\n", b->L2Error(c));
+  printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
 
-  delete ih;
-  delete d;
-  delete a;
-  delete b;
-  delete c;
+  delete ih, d, a;
+  delete b, c;
 
   cudaStreamDestroy(main_stream);
   cudaDeviceReset();

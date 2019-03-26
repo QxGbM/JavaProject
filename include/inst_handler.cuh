@@ -8,7 +8,7 @@ template <class T> class inst_handler
 private:
   int inst_length;
   int ** insts;
-  bool * dep;
+  int ** dep;
   int * dep_counts;
   int * status;
   int inst_ready;
@@ -21,31 +21,12 @@ private:
 
 public:
 
-  __host__ inst_handler (const int inst_length_in, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
-  {
-    inst_length = inst_length_in;
-
-    cudaMallocManaged(&insts, inst_length_in * sizeof(int *), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep, inst_length_in * inst_length_in * sizeof(bool), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep_counts, inst_length_in * sizeof(int), cudaMemAttachGlobal);
-    cudaMallocManaged(&status, inst_length_in * sizeof(int), cudaMemAttachGlobal);
-    inst_ready = 0;
-
-    ptrs_size = ptrs_size_in;
-    cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
-
-    pivot_ptrs_size = pivot_ptrs_size_in;
-    cudaMallocManaged(&pivot_ptrs, pivot_ptrs_size_in * sizeof(int *), cudaMemAttachGlobal);
-
-    reset(false);
-  }
-
   __host__ inst_handler (const h_ops_dag * dag, const dev_hierarchical <T> *h, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
   {
     inst_length = dag -> getLength();
 
     cudaMallocManaged(&insts, inst_length * sizeof(int *), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep, inst_length * inst_length * sizeof(bool), cudaMemAttachGlobal);
+    cudaMallocManaged(&dep, inst_length * sizeof(int *), cudaMemAttachGlobal);
     cudaMallocManaged(&dep_counts, inst_length * sizeof(int), cudaMemAttachGlobal);
     cudaMallocManaged(&status, inst_length * sizeof(int), cudaMemAttachGlobal);
     inst_ready = 0;
@@ -86,21 +67,22 @@ public:
         break;
       }
 
-      for (int j = 0; j < i; j++)
-      {
-        switch (dag -> getDep(i, j))
-        {
-        case no_dep: break;
-        default: add_dep(j, i); 
-        }
-      }
+      const int dep_length = dag -> getDepLength(i);
+      cudaMallocManaged(&dep[i], (dep_length + 1) * sizeof(int), cudaMemAttachGlobal);
+      dag -> flattenDep(i, dep[i]);
+      dep_counts[i] = dag -> getDepCount(i);
     }
   }
 
   __host__ ~inst_handler ()
   {
     for (int i = 0; i < inst_length; i++)
-    { if (insts[i] != nullptr) cudaFree(insts[i]); }
+    {
+      if (insts[i] != nullptr) 
+      { cudaFree(insts[i]); }
+      if (dep[i] != nullptr)
+      { cudaFree(dep[i]); }
+    }
     cudaFree(insts);
     cudaFree(dep);
     cudaFree(dep_counts);
@@ -112,50 +94,18 @@ public:
   __host__ void reset (const bool free_insts = true)
   {
     for (int i = 0; free_insts && i < inst_length; i++)
-    { if (insts[i] != nullptr) cudaFree(insts[i]); }
+    {
+      if (insts[i] != nullptr) 
+      { cudaFree(insts[i]); }
+      if (dep[i] != nullptr)
+      { cudaFree(dep[i]); }
+    }
     cudaMemset(insts, 0, inst_length * sizeof(int *));
-    cudaMemset(dep, 0, inst_length * inst_length * sizeof(bool));
+    cudaMemset(dep, 0, inst_length * sizeof(int *));
     cudaMemset(dep_counts, 0, inst_length * sizeof(int));
     cudaMemset(status, 0, inst_length * sizeof(int));
     cudaMemset(ptrs, 0, ptrs_size * sizeof(T *));
     cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
-  }
-
-  __host__ void change_insts_length (const int length_in)
-  {
-    const int length = (length_in >= 1) ? length_in : 1;
-    int ** insts_new, * dep_counts_new, * status_new;
-    bool * dep_new;
-
-    cudaMallocManaged(&insts_new, length * sizeof(int *), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep_new, length * length * sizeof(bool), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep_counts_new, length * sizeof(int), cudaMemAttachGlobal);
-    cudaMallocManaged(&status_new, length * sizeof(int), cudaMemAttachGlobal);
-
-    for (int i = 0; i < length; i++)
-    {
-      insts_new[i] = insts[i];
-      status_new[i] = status[i];
-      for (int j = 0; j < i; j++)
-      {
-        if (dep[j * inst_length + i])
-        { dep_new[j * length + i] = true; dep_counts_new[i]++; }
-      }
-    }
-
-    for (int i = length; i < inst_length; i++)
-    { if (insts[i] != nullptr) cudaFree(insts[i]); }
-    cudaFree(insts);
-    cudaFree(dep);
-    cudaFree(dep_counts);
-    cudaFree(status);
-
-    inst_length = length;
-    insts = insts_new;
-    dep = dep_new;
-    dep_counts = dep_counts_new;
-    status = status_new;
-
   }
 
   __host__ void change_ptrs_size (const int size_in)
@@ -218,24 +168,6 @@ public:
     }
     change_pivot_ptrs_size (pivot_ptrs_size * 2);
     pivot_ptrs[i] = ptr; return i;
-  }
-
-  __host__ void add_dep (const int inst_from, const int inst_to)
-  {
-    if (inst_from < inst_to)
-    {
-      if (!dep[inst_from * inst_length + inst_to]) { dep_counts[inst_to] ++; }
-      dep[inst_from * inst_length + inst_to] = true;
-    }
-  }
-
-  __host__ void remove_dep (const int inst_from, const int inst_to)
-  {
-    if (inst_from < inst_to)
-    {
-      if (!dep[inst_from * inst_length + inst_to]) { dep_counts[inst_to] --; }
-      dep[inst_from * inst_length + inst_to] = false;
-    }
   }
 
   __host__ void fill_nop_inst ()
@@ -395,18 +327,20 @@ public:
       }
     }
 
+    printf("\n");
+
     for (int i = 0; i < inst_length; i++)
     {
-      for (int j = 0; j < i; j++)
+      for (int j = 1; j <= dep[i][0]; j++)
       {
-        if (dep[j * inst_length + i])
-        {
-          printf("Dependency: from %d to %d.\n", j, i);
-        }
+        printf("Dependency: from %d to %d.\n", i, dep[i][j]);
       }
-      printf("Inst %d Total: %d dependencies.\n", i, dep_counts[i]);
+      printf("Inst %d Output Total: %d dependencies.\n", i, dep[i][0]);
+      printf("Inst %d Input  Total: %d dependencies.\n\n", i, dep_counts[i]);
     }
   }
+
+
 
   __device__ int inst_fetch ()
   {
@@ -474,10 +408,11 @@ public:
   {
     if (thread_rank() == 0 && inst_num >= 0)
     {
-      for (int i = inst_num + 1; i < inst_length; i++)
+      const int length = dep[inst_num][0];
+      for (int i = 1; i <= length; i++)
       {
-        if (dep[inst_num * inst_length + i])
-        { atomicSub(&dep_counts[i], 1); }
+        const int inst_i = dep[inst_num][i];
+        atomicSub(&dep_counts[inst_i], 1);
       }
       status[inst_num] = -1;
     }
