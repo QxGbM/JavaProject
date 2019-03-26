@@ -144,7 +144,7 @@ public:
     if (B -> getNy() != getNy()) 
     { printf("Unmatched Dimension for TRSML.\n"); return nullptr; }
 
-    h_ops_tree * ops = new h_ops_tree( new h_ops(trsml, index_b, self, B -> getNx(), B -> getNy(), getNx(), B -> getLd(), getLd()) );
+    h_ops_tree * ops = new h_ops_tree( new h_ops(trsml, index_b, self, B -> getNx(), getNy(), getNx(), B -> getLd(), getLd()) );
     const dev_hierarchical <T> *h = get_element_hierarchical(), *h_b = B -> get_element_hierarchical();
     const dev_dense <T> *d_b = B -> get_element_dense();
     if (h != nullptr) 
@@ -175,7 +175,21 @@ public:
     const dev_hierarchical <T> *h = get_element_hierarchical(), *h_b = B -> get_element_hierarchical();
     const dev_dense <T> *d_b = B -> get_element_dense();
     if (h != nullptr) 
-    {  }
+    {
+      if (h_b != nullptr)
+      { ops -> hookup_child(h -> generateOps_TRSMR(self, h_b, index_b)); }
+      if (d_b != nullptr)
+      { ops -> hookup_child(h -> generateOps_TRSMR(self, d_b, index_b)); }
+    }
+    return ops;
+  }
+
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
+  {
+    h_ops_tree * ops = new h_ops_tree( new h_ops(trsmr, index_b, self, getNx(), B -> getNy(), getNy(), B -> getLd(), getLd()));
+    const dev_hierarchical <T> *h = get_element_hierarchical();
+    if (h != nullptr)
+    { ops -> hookup_child(h -> generateOps_TRSMR(self, B, index_b)); }
     return ops;
   }
 
@@ -185,18 +199,41 @@ public:
     { printf("Unmatched Dimension for GEMM.\n"); return nullptr; }
 
     h_ops_tree * ops = new h_ops_tree( new h_ops(gemm, self, index_a, index_b, getNy(), getNx(), A -> getNx(), getLd(), A -> getLd(), B -> getLd()) );
+    const dev_hierarchical <T> *h = get_element_hierarchical(), *h_a = A -> get_element_hierarchical(), *h_b = B -> get_element_hierarchical();
+    const dev_dense <T> *d = get_element_dense(), *d_a = A -> get_element_dense(), *d_b = B -> get_element_dense();
+    if (h != nullptr)
+    {
+      if (d_a != nullptr && d_b != nullptr)
+      { ops -> hookup_child(h -> generateOps_GEMM (self, d_a, index_a, d_b, index_b)); }
+      // TODO
+    }
+    return ops;
+  }
+
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *index_m, const dev_dense <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
+  {
+    h_ops_tree * ops = new h_ops_tree( new h_ops(gemm, index_m, index_a, index_b, getNy(), getNx(), A -> getNx(), getLd(), A -> getLd(), B -> getLd()) );
     const dev_hierarchical <T> *h = get_element_hierarchical();
-    if (h != nullptr) 
-    { }
+    if (h != nullptr)
+    { ops -> hookup_child(h -> generateOps_GEMM (index_m, A, index_a, B, index_b)); }
     return ops;
   }
 
   __host__ h_ops_tree * generateOps_GEMM_A (const dev_dense <T> *M, const h_index *index_m, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * ops = new h_ops_tree(new h_ops(gemm, index_m, index_a, index_b, getNy(), M -> getNx(), getNx(), M -> getLd(), getLd(), B -> getLd()));
+    h_ops_tree * ops = new h_ops_tree( new h_ops(gemm, index_m, index_a, index_b, getNy(), M -> getNx(), getNx(), M -> getLd(), getLd(), B -> getLd()) );
     const dev_hierarchical <T> *h_a = get_element_hierarchical();
     if (h_a != nullptr)
-    { }
+    { } //TODO
+    return ops;
+  }
+
+  __host__ h_ops_tree * generateOps_GEMM_B (const dev_dense <T> *M, const h_index *index_m, const dev_dense <T> *A, const h_index *index_a, const h_index *index_b) const
+  {
+    h_ops_tree * ops = new h_ops_tree( new h_ops(gemm, index_m, index_a, index_b, M -> getNy(), getNx(), getNy(), M -> getLd(), A -> getLd(), getLd()) );
+    const dev_hierarchical <T> *h_b = get_element_hierarchical();
+    if (h_b != nullptr)
+    { } //TODO
     return ops;
   }
 

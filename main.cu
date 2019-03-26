@@ -5,8 +5,8 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
-  dev_hierarchical <double> *a = new dev_hierarchical <double>(2, 2);
-  a->loadTestMatrix(2, 2, 4);
+  dev_hierarchical <double> *a = new dev_hierarchical <double>(3, 3);
+  a->loadTestMatrix(1, 3, 4);
 
   const h_ops_tree *tree = a->generateOps_GETRF();
   tree->print();
