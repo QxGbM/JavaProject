@@ -34,13 +34,13 @@ public:
     lds = new int[1]{ ld };
   }
 
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * B, const int nx_m, const int ny_m, const int dim_b, const int ld_m, const int ld_b)
+  __host__ h_ops (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, const int ld_b, const int ld_m)
   {
     op_type = op_in;
     wr = new h_index[1]{ *(B -> clone()) };
     r = new h_index[1]{ *(M -> clone()) };
-    dims = new int[3]{ nx_m, ny_m, dim_b };
-    lds = new int[2]{ ld_m, ld_b };
+    dims = new int[3]{ nx_b, ny_b, dim_m };
+    lds = new int[2]{ ld_b, ld_m };
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
@@ -93,9 +93,9 @@ public:
       break;
     case gemm: 
       printf("GEMM  "); 
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      r[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[2], lds[1]);
-      r[1].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[0], lds[2]);
+      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[1], lds[0]);
+      r[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[2], lds[1]);
+      r[1].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[1], lds[2]);
       break;
     case pivot: 
       printf("PIVOT "); 
