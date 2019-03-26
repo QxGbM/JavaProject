@@ -211,7 +211,7 @@ public:
     }
   }
 
-  __host__ void set_trsml_inst (const int i, T * L, T * B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b)
+  __host__ void set_trsml_inst (const int i, T * B, T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
   {
     if (i >= 0 && i < inst_length)
     {
@@ -220,19 +220,19 @@ public:
       int *inst;
       cudaMallocManaged(&inst, 8 * sizeof(int), cudaMemAttachGlobal);
       inst[0] = (int) trsml;
-      inst[1] = load_ptr(L);
-      inst[2] = load_ptr(B);
-      inst[3] = nx_l;
-      inst[4] = ny_l;
-      inst[5] = nx_b;
-      inst[6] = ld_l;
-      inst[7] = ld_b;
+      inst[1] = load_ptr(B);
+      inst[2] = load_ptr(L);
+      inst[3] = nx_b;
+      inst[4] = ny_b;
+      inst[5] = nx_l;
+      inst[6] = ld_b;
+      inst[7] = ld_l;
 
       insts[i] = inst;
     }
   }
 
-  __host__ void set_trsmr_inst (const int i, T * U, T * B, const int nx_u, const int ny_u, const int ny_b, const int ld_u, const int ld_b)
+  __host__ void set_trsmr_inst (const int i, T * B, T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
   {
     if (i >= 0 && i < inst_length)
     {
@@ -241,13 +241,13 @@ public:
       int *inst;
       cudaMallocManaged(&inst, 8 * sizeof(int), cudaMemAttachGlobal);
       inst[0] = (int) trsmr;
-      inst[1] = load_ptr(U);
-      inst[2] = load_ptr(B);
-      inst[3] = nx_u;
-      inst[4] = ny_u;
-      inst[5] = ny_b;
-      inst[6] = ld_u;
-      inst[7] = ld_b;
+      inst[1] = load_ptr(B);
+      inst[2] = load_ptr(U);
+      inst[3] = nx_b;
+      inst[4] = ny_b;
+      inst[5] = ny_u;
+      inst[6] = ld_b;
+      inst[7] = ld_u;
 
       insts[i] = inst;
     }
@@ -314,12 +314,12 @@ public:
           insts[i][1], insts[i][4], insts[i][3], insts[i][5], insts[i][2]); 
           break;
 
-        case trsml: printf("TRSML L %d: %d x %d, B %d: %d x %d, (ld %d %d).", 
-          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][4], insts[i][5], insts[i][6], insts[i][7]); 
+        case trsml: printf("TRSML B %d: %d x %d, L %d: %d x %d, (ld %d %d).", 
+          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][4], insts[i][5], insts[i][6], insts[i][7]);
           break;
 
-        case trsmr: printf("TRSMR U %d: %d x %d, B %d: %d x %d, (ld %d %d).", 
-          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][5], insts[i][3], insts[i][6], insts[i][7]); 
+        case trsmr: printf("TRSMR B %d: %d x %d, U %d: %d x %d, (ld %d %d).", 
+          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][5], insts[i][3], insts[i][6], insts[i][7]);
           break;
 
         case gemm: printf("GEMM M %d: %d x %d, A %d: %d x %d, B %d: %d x %d, (ld %d %d %d)", 

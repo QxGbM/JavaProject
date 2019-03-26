@@ -6,15 +6,12 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 __host__ int test0()
 {
   dev_hierarchical <double> *a = new dev_hierarchical <double>(3, 3);
-  a->loadTestMatrix(1, 3, 4);
+  a -> loadTestMatrix(0, 2, 4);
 
-  const h_ops_tree *tree = a->generateOps_GETRF();
-  tree->print();
+  h_ops_dag *d = new h_ops_dag(a -> generateOps_GETRF());
+  d -> print();
 
-  //dag *d = new dag(ops);
-  //d->print();
-
-  delete tree;
+  delete d;
   delete a;
 
   cudaDeviceReset();
@@ -34,8 +31,8 @@ __host__ int test1 ()
 
   inst_handler <float> *ih = new inst_handler <float> (5);
   ih -> set_getrf_inst(0, a -> getElements(0), 8, 8, 16);
-  ih -> set_trsml_inst(1, a -> getElements(0), a -> getElements(8), 8, 8, 8, 16, 16);
-  ih -> set_trsmr_inst(2, a -> getElements(0), a -> getElements(128), 8, 8, 8, 16, 16);
+  ih -> set_trsml_inst(1, a -> getElements(8), a -> getElements(0), 8, 8, 8, 16, 16);
+  ih -> set_trsmr_inst(2, a -> getElements(128), a -> getElements(0), 8, 8, 8, 16, 16);
   ih -> set_gemm_inst(3, a -> getElements(136), a -> getElements(128), a -> getElements(8), 8, 8, 8, 16, 16, 16);
   ih -> set_getrf_inst(4, a -> getElements(136), 8, 8, 16);
 

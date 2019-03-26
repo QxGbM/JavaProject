@@ -90,12 +90,11 @@
     <ClInclude Include="include\dev_hierarchical_element.cuh" />
     <ClInclude Include="include\inst_handler.cuh" />
     <ClInclude Include="include\timer.cuh" />
-    <ClInclude Include="include\dag.cuh" />
+    <ClInclude Include="include\dev_hierarchical_ops_dag.cuh" />
     <ClInclude Include="include\dev_dense_funcs.cuh" />
     <ClInclude Include="include\dev_dense.cuh" />
     <ClInclude Include="include\dev_hierarchical.cuh" />
     <ClInclude Include="include\dev_low_rank.cuh" />
-    <ClInclude Include="include\get_ops.cuh" />
     <ClInclude Include="include\dev_hierarchical_index.cuh" />
     <ClInclude Include="include\pspl.cuh" />
     <ClInclude Include="include\dev_hierarchical_ops.cuh" />

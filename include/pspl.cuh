@@ -67,6 +67,7 @@ template <class T> class dev_h_element;
 
 #include <dev_hierarchical_index.cuh>
 #include <dev_hierarchical_ops.cuh>
+#include <dev_hierarchical_ops_dag.cuh>
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 

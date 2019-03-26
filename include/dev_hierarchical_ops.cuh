@@ -18,6 +18,7 @@ public:
 
   __host__ h_ops (const operation_t op_in = nop)
   {
+    if (op_in != nop) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
     wr = new h_index[0];
     r = new h_index[0];
@@ -27,6 +28,7 @@ public:
 
   __host__ h_ops (const operation_t op_in, const h_index * M, const int nx, const int ny, const int ld)
   {
+    if (op_in != getrf && op_in != pivot) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
     wr = new h_index[1]{ *(M -> clone()) };
     r = new h_index[0];
@@ -36,6 +38,7 @@ public:
 
   __host__ h_ops (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, const int ld_b, const int ld_m)
   {
+    if (op_in != trsml && op_in != trsmr) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
     wr = new h_index[1]{ *(B -> clone()) };
     r = new h_index[1]{ *(M -> clone()) };
@@ -45,6 +48,7 @@ public:
 
   __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
   {
+    if (op_in != gemm) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
     wr = new h_index[1]{ *(M -> clone()) };
     r = new h_index[2]{ *(A -> clone()), *(B -> clone()) };
@@ -60,14 +64,107 @@ public:
     delete[] lds;
   }
 
+  __host__ int wr0_nx() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[1] : dims[0]); }
+
+  __host__ int wr0_ny() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[0] : dims[1]); }
+
+  __host__ int wr0_ld() const { return (op_type == nop) ? 0 : lds[0]; }
+
+  __host__ int r0_nx() const { return (op_type == gemm || op_type == trsml) ? dims[2] : ((op_type == trsmr) ? dims[0] : 0); }
+
+  __host__ int r0_ny() const { return (op_type == gemm) ? dims[0] : ((op_type == trsml) ? dims[1] : ((op_type == trsmr) ? dims[2] : 0)); }
+
+  __host__ int r0_ld() const { return (op_type == gemm || op_type == trsml || op_type == trsmr) ? lds[1] : 0; }
+
+  __host__ int r1_nx() const { return (op_type == gemm) ? dims[1] : 0; }
+
+  __host__ int r1_ny() const { return (op_type == gemm) ? dims[2] : 0; }
+
+  __host__ int r1_ld() const { return (op_type == gemm) ? lds[2] : 0; }
+
   __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
-    return no_dep;
+    bool wr0_from = false, r0_from = false, r1_from = false;
+
+    switch (op_from -> op_type)
+    {
+    case gemm: r1_from = true;
+    case trsml: case trsmr: r0_from = true;
+    case getrf: case pivot: wr0_from = true;
+    case nop: break;
+    }
+
+    bool wr0_to = false, r0_to = false, r1_to = false;
+
+    switch (op_type)
+    {
+    case gemm: r1_to = true;
+    case trsml: case trsmr: r0_to = true;
+    case getrf: case pivot: wr0_to = true;
+    case nop: break;
+    }
+
+    dependency_t dep = no_dep;
+    
+    if (wr0_from && r0_to)
+    {
+      relation_t relation = r[0].compare(r0_nx(), r0_ny(), r0_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
+      switch (relation)
+      {
+      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+      case diff_offset_overlapped: case same_index: case contains: case contained:
+        dep = (dependency_t) ((int) dep | (int) flow_dep);
+      }
+    }
+    if (wr0_from && r1_to)
+    {
+      relation_t relation = r[1].compare(r1_nx(), r1_ny(), r1_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
+      switch (relation)
+      {
+      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+      case diff_offset_overlapped: case same_index: case contains: case contained:
+        dep = (dependency_t) ((int) dep | (int) flow_dep);
+      }
+    }
+
+    if (wr0_to && r0_from)
+    {
+      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> r)[0], op_from -> r0_nx(), op_from -> r0_ny(), op_from -> r0_ld());
+      switch (relation)
+      {
+      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+      case diff_offset_overlapped: case same_index: case contains: case contained:
+        dep = (dependency_t) ((int) dep | (int) anti_dep);
+      }
+    }
+    if (wr0_to && r1_from)
+    {
+      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> r)[1], op_from -> r1_nx(), op_from -> r1_ny(), op_from -> r1_ld());
+      switch (relation)
+      {
+      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+      case diff_offset_overlapped: case same_index: case contains: case contained:
+        dep = (dependency_t) ((int) dep | (int) anti_dep);
+      }
+    }
+
+    if (wr0_from && wr0_to) 
+    {
+      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
+      switch (relation)
+      {
+      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+      case diff_offset_overlapped: case same_index: case contains: case contained:
+        dep = (dependency_t) ((int) dep | (int) output_dep);
+      }
+    }
+
+    return dep;
   }
 
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
   {
-    return no_dep;
+    return op_to -> checkDependencyFrom(this);
   }
 
   __host__ void print() const
@@ -141,11 +238,6 @@ public:
     { next = tree; }
   }
 
-  __host__ void hookup_next (h_ops *op)
-  {
-    hookup_next(new h_ops_tree(op));
-  }
-
   __host__ void hookup_child (h_ops_tree *tree)
   {
     if (child != nullptr)
@@ -154,33 +246,34 @@ public:
     { child = tree; }
   }
 
-  __host__ void hookup_child (h_ops *op)
-  {
-    hookup_child(new h_ops_tree(op));
-  }
-
-  __host__ const h_ops_tree * lookup (const int index) const
-  {
-    if (child == nullptr)
-    {
-      if (index == 0) { return this; }
-      if (next != nullptr) { return next -> lookup(index - 1); } 
-    }
-    else
-    {
-      int length = child -> length();
-      if (index < length) { return child -> lookup(index); }
-      if (next != nullptr) { return next -> lookup(index - length); }
-    }
-
-    return nullptr;
-  }
-
-  __host__ int length () const 
+  __host__ int length() const
   {
     int l_child = (child == nullptr) ? 1 : child -> length();
     int l_next = (next == nullptr) ? 0 : next -> length();
     return l_child + l_next;
+  }
+
+  __host__ void flatten (h_ops * ops_list) const
+  {
+    if (child == nullptr) 
+    { 
+      ops_list[0] = op;
+      if (next != nullptr)
+      { next -> flatten (&ops_list[1]);}
+    }
+    else
+    {
+      child -> flatten (ops_list);
+      if (next != nullptr)
+      {
+        int l_child = child -> length();
+        next -> flatten (&ops_list[l_child]);
+      }
+    }
+
+    
+
+    
   }
 
   __host__ void print (const int op_id = 0, const int indent = 0) const

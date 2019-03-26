@@ -52,10 +52,9 @@ public:
   __host__ int getOffset() const
   { return offset; }
 
-  __host__ relation_t compare (const h_index *in, const int * my_dim, const int * dim_in) const
+  __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const h_index *in, const int nx1, const int ny1, const int ld1) const
   {
-    if (in == nullptr) { return no_relation; }
-    if (matrix != in -> matrix) { return diff_matrix; }
+    if (in == nullptr || matrix != in -> matrix) { return diff_matrix; }
 
     int n = ((in -> levels) > levels) ? levels : (in -> levels);
     for (int i = 0; i < n; i++) 
@@ -66,26 +65,16 @@ public:
       if (offset == in -> offset) return same_index;
       else
       {
-        const int offset0 = offset, nx0 = my_dim[0], ny0 = my_dim[1], ld0 = (my_dim[2] == 0) ? nx0 : my_dim[2];
-        const int offset1 = in -> offset, nx1 = dim_in[0], ny1 = dim_in[1], ld1 = (dim_in[2] == 0) ? nx1 : dim_in[2];
+        const int offset0 = offset, offset1 = in -> offset;
 
-        if (ld0 >= nx0 && ld1 >= nx1)
-        {
-          const int row0 = offset0 / ld0, col0 = offset0 - row0 * ld0;
-          const int row1 = offset1 / ld1, col1 = offset1 - row1 * ld1;
-          const int row_diff = row1 - row0, col_diff = col1 - col0;
+        const int row0 = offset0 / ld0, col0 = offset0 - row0 * ld0;
+        const int row1 = offset1 / ld1, col1 = offset1 - row1 * ld1;
+        const int row_diff = row1 - row0, col_diff = col1 - col0;
 
-          const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
-          const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);
+        const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
+        const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);
 
-          return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
-        }
-        else
-        {
-          // TODO: low rank
-          return no_relation;
-        }
-
+        return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
       }
     }
     else

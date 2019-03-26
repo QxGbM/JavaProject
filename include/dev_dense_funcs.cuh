@@ -191,20 +191,20 @@ template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const i
 }
 
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-template <class T> __device__ void blockDenseTrsmL (const T *L, T *B, const int nx_l, const int ny_l, const int nx_b, const int ld_l, const int ld_b)
+template <class T> __device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
-  for (int i = 0; i < nx_l && i + 1 < ny_l; i++)
-  { blockDenseGemm <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_l - (i + 1), nx_b, 1, ld_b, ld_l, ld_b); }
+  for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
+  { blockDenseGemm <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_b - (i + 1), nx_b, 1, ld_b, ld_l, ld_b); }
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-template <class T> __device__ void blockDenseTrsmR (const T *U, T *B, const int nx_u, const int ny_u, const int ny_b, const int ld_u, const int ld_b)
+template <class T> __device__ void blockDenseTrsmR (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
-  for (int i = 0; i < nx_u && i < ny_u; i++)
+  for (int i = 0; i < nx_b && i < ny_u; i++)
   {
     blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
-    if (nx_u - i > 1)
-    { blockDenseGemm <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_u - (i + 1), 1, ld_b, ld_b, ld_u); }
+    if (nx_b - i > 1)
+    { blockDenseGemm <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), 1, ld_b, ld_b, ld_u); }
   }
 }
 
