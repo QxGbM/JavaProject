@@ -5,7 +5,7 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
-  const int n = 8, levels = 0, dim = 16, seed = 999;
+  const int n = 32, levels = 0, dim = 128, seed = 1999;
 
   dev_hierarchical <double> *a = new dev_hierarchical <double> (n, n);
   a -> loadTestMatrix(levels, n, dim, seed);
@@ -20,7 +20,7 @@ __host__ int test0()
   cudaStreamCreate(&main_stream);
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <double>, 16, 1024, (void **)&ih, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <double>, 64, 1024, (void **)&ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   myTimer.printStatus();
