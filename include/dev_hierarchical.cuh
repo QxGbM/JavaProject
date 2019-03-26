@@ -144,15 +144,55 @@ public:
   __host__ const h_ops_tree * generateOps_GETRF() const
   {
     const h_index * root = getRootIndex();
-    const h_ops_tree * tree = generateOps_GETRF(root);
+    h_ops_tree * ops = new h_ops_tree( new h_ops(getrf, root, getNx(), getNy(), 0) ), * tree = generateOps_GETRF(root);
+    ops -> hookup_child(tree);
     delete root;
-    return tree;
+    return ops;
   }
 
-  __host__ const h_ops_tree * generateOps_GETRF (const h_index *self) const
+  __host__ h_ops_tree * generateOps_GETRF (const h_index *self) const
   {
-    const h_ops * op = new h_ops(getrf, self, getNx(), getNy(), 0);
-    return new h_ops_tree(op);
+    h_ops_tree * ops = nullptr;
+    for (int i = 0; i < nx && i < ny; i++)
+    {
+      const h_index * index_i = self -> child(i * nx + i);
+      h_ops_tree * ops_i = elements[i * nx + i].generateOps_GETRF(index_i);
+
+      for (int j = i + 1; j < nx; j++)
+      {
+        const h_index * index_j = self -> child(i * nx + j);
+        h_ops_tree * ops_j = elements[i * nx + i].generateOps_TRSML(index_i, &elements[i * nx + j], index_j);
+        delete index_j;
+        ops_i -> hookup_next(ops_j);
+      }
+
+      for (int j = i + 1; j < ny; j++)
+      {
+        const h_index * index_j = self -> child(j * nx + i);
+        h_ops_tree * ops_j = elements[i * nx + i].generateOps_TRSMR(index_i, &elements[j * nx + i], index_j);
+        delete index_j;
+        ops_i -> hookup_next(ops_j);
+      }
+
+      delete index_i;
+
+      for (int j = i + 1; j < ny; j++)
+      {
+        for (int k = i + 1; k < nx; k++)
+        {
+          const h_index * index_j = self -> child(j * nx + i), * index_k = self -> child(i * nx + k), * index_m = self -> child(j * nx + k);
+          h_ops_tree * ops_m = elements[j * nx + k].generateOps_GEMM(index_m, &elements[j * nx + i], index_j, &elements[i * nx + k], index_k);
+          delete index_j, index_k, index_m;
+          ops_i -> hookup_next(ops_m);
+        }
+      }
+
+      if (ops == nullptr)
+      { ops = ops_i; }
+      else
+      { ops -> hookup_next (ops_i); }
+    }
+    return ops;
   }
 
   /*__host__ dev_h_element <T> * lookup (const int i) const

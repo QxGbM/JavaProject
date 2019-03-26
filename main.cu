@@ -34,11 +34,11 @@ __host__ int test1 ()
   cudaStreamCreate(&main_stream);
 
   inst_handler <float> *ih = new inst_handler <float> (5);
-  ih -> set_getrf_inst(0, &(a -> getElements())[0], 8, 8, 16);
-  ih -> set_trsml_inst(1, &(a -> getElements())[0], &(a -> getElements())[8], 8, 8, 8, 16, 16);
-  ih -> set_trsmr_inst(2, &(a -> getElements())[0], &(a -> getElements())[128], 8, 8, 8, 16, 16);
-  ih -> set_gemm_inst(3, &(a -> getElements())[136], &(a -> getElements())[128], &(a -> getElements())[8], 8, 8, 8, 16, 16, 16);
-  ih -> set_getrf_inst(4, &(a -> getElements())[136], 8, 8, 16);
+  ih -> set_getrf_inst(0, a -> getElements(0), 8, 8, 16);
+  ih -> set_trsml_inst(1, a -> getElements(0), a -> getElements(8), 8, 8, 8, 16, 16);
+  ih -> set_trsmr_inst(2, a -> getElements(0), a -> getElements(128), 8, 8, 8, 16, 16);
+  ih -> set_gemm_inst(3, a -> getElements(136), a -> getElements(128), a -> getElements(8), 8, 8, 8, 16, 16, 16);
+  ih -> set_getrf_inst(4, a -> getElements(136), 8, 8, 16);
 
   ih -> add_dep(0, 1);
   ih -> add_dep(0, 2);

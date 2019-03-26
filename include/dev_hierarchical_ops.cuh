@@ -121,7 +121,7 @@ public:
 
   __host__ h_ops_tree (const h_ops * op_in)
   {
-    op = *op_in;
+    op = * op_in;
 
     next = nullptr;
     child = nullptr;
@@ -141,9 +141,22 @@ public:
     { next = tree; }
   }
 
+  __host__ void hookup_next (h_ops *op)
+  {
+    hookup_next(new h_ops_tree(op));
+  }
+
   __host__ void hookup_child (h_ops_tree *tree)
   {
-    child = tree;
+    if (child != nullptr)
+    { child -> hookup_next (tree); }
+    else
+    { child = tree; }
+  }
+
+  __host__ void hookup_child (h_ops *op)
+  {
+    hookup_child(new h_ops_tree(op));
   }
 
   __host__ const h_ops_tree * lookup (const int index) const

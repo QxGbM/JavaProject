@@ -59,12 +59,11 @@ __device__ int lane_rank()
 #include <dev_low_rank.cuh>
 
 class h_index;
-class h_ops;
 class h_ops_tree;
+class h_ops;
 
 template <class T> class dev_hierarchical;
 template <class T> class dev_h_element;
-
 
 #include <dev_hierarchical_index.cuh>
 #include <dev_hierarchical_ops.cuh>
