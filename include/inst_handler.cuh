@@ -20,17 +20,6 @@ private:
   int ** pivot_ptrs;
 
 public:
-  __host__ void reset (const bool free_insts = true)
-  {
-    for (int i = 0; free_insts && i < inst_length; i++)
-    { if (insts[i] != nullptr) cudaFree(insts[i]); }
-    cudaMemset(insts, 0, inst_length * sizeof(int *));
-    cudaMemset(dep, 0, inst_length * inst_length * sizeof(bool));
-    cudaMemset(dep_counts, 0, inst_length * sizeof(int));
-    cudaMemset(status, 0, inst_length * sizeof(int));
-    cudaMemset(ptrs, 0, ptrs_size * sizeof(T *));
-    cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
-  }
 
   __host__ inst_handler (const int inst_length_in, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
   {
@@ -51,6 +40,63 @@ public:
     reset(false);
   }
 
+  __host__ inst_handler (const h_ops_dag * dag, const dev_hierarchical <T> *h, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
+  {
+    inst_length = dag -> getLength();
+
+    cudaMallocManaged(&insts, inst_length * sizeof(int *), cudaMemAttachGlobal);
+    cudaMallocManaged(&dep, inst_length * inst_length * sizeof(bool), cudaMemAttachGlobal);
+    cudaMallocManaged(&dep_counts, inst_length * sizeof(int), cudaMemAttachGlobal);
+    cudaMallocManaged(&status, inst_length * sizeof(int), cudaMemAttachGlobal);
+    inst_ready = 0;
+
+    ptrs_size = ptrs_size_in;
+    cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
+
+    pivot_ptrs_size = pivot_ptrs_size_in;
+    cudaMallocManaged(&pivot_ptrs, pivot_ptrs_size_in * sizeof(int *), cudaMemAttachGlobal);
+
+    reset(false);
+
+    for (int i = 0; i < inst_length; i++)
+    {
+      h_ops * op = dag -> getOps(i);
+      switch (op -> opType())
+      {
+      case nop: 
+        break;
+
+      case getrf: 
+        set_getrf_inst(i, op -> wr0_ptr <T> (h), op -> wr0_nx(), op -> wr0_ny(), op -> wr0_ld(), nullptr); // TODO
+        break;
+
+      case trsml:
+        set_trsml_inst(i, op -> wr0_ptr <T> (h), op -> r0_ptr <T> (h), op -> wr0_nx(), op -> wr0_ny(), op -> r0_nx(), op -> wr0_ld(), op -> r0_ld());
+        break;
+
+      case trsmr:
+        set_trsmr_inst(i, op -> wr0_ptr <T> (h), op -> r0_ptr <T> (h), op -> wr0_nx(), op -> wr0_ny(), op -> r0_ny(), op -> wr0_ld(), op -> r0_ld());
+        break;
+
+      case gemm:
+        set_gemm_inst(i, op -> wr0_ptr <T> (h), op -> r0_ptr <T> (h), op -> r1_ptr <T> (h), op -> wr0_ny(), op->wr0_nx(), op -> r0_nx(), op -> wr0_ld(), op -> r0_ld(), op -> r1_ld());
+        break;
+        
+      case pivot: // TODO
+        break;
+      }
+
+      for (int j = 0; j < i; j++)
+      {
+        switch (dag -> getDep(i, j))
+        {
+        case no_dep: break;
+        default: add_dep(j, i); 
+        }
+      }
+    }
+  }
+
   __host__ ~inst_handler ()
   {
     for (int i = 0; i < inst_length; i++)
@@ -61,6 +107,18 @@ public:
     cudaFree(status);
     cudaFree(ptrs);
     cudaFree(pivot_ptrs);
+  }
+
+  __host__ void reset (const bool free_insts = true)
+  {
+    for (int i = 0; free_insts && i < inst_length; i++)
+    { if (insts[i] != nullptr) cudaFree(insts[i]); }
+    cudaMemset(insts, 0, inst_length * sizeof(int *));
+    cudaMemset(dep, 0, inst_length * inst_length * sizeof(bool));
+    cudaMemset(dep_counts, 0, inst_length * sizeof(int));
+    cudaMemset(status, 0, inst_length * sizeof(int));
+    cudaMemset(ptrs, 0, ptrs_size * sizeof(T *));
+    cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
   }
 
   __host__ void change_insts_length (const int length_in)

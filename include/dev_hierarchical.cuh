@@ -391,8 +391,9 @@ public:
     delete root;
   }
 
-  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size)
+  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int seed = 0)
   {
+    if (seed > 0) { srand(seed); }
     for (int y = 0; y < ny; y++)
     {
       for (int x = 0; x < nx; x++)

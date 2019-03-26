@@ -41,6 +41,21 @@ public:
     printf("-- DAG destroyed. --\n\n");
   }
 
+  __host__ int getLength() const
+  {
+    return length;
+  }
+
+  __host__ h_ops * getOps(const int i) const
+  {
+    return &ops_list[i];
+  }
+
+  __host__ dependency_t getDep(const int from, const int to) const
+  {
+    return deps_graph[from * length + to];
+  }
+
   __host__ void print() const
   {
     for (int i = 0; i < length; i++)

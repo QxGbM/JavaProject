@@ -64,6 +64,8 @@ public:
     delete[] lds;
   }
 
+  __host__ operation_t opType() const { return op_type; }
+
   __host__ int wr0_nx() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[1] : dims[0]); }
 
   __host__ int wr0_ny() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[0] : dims[1]); }
@@ -81,6 +83,12 @@ public:
   __host__ int r1_ny() const { return (op_type == gemm) ? dims[2] : 0; }
 
   __host__ int r1_ld() const { return (op_type == gemm) ? lds[2] : 0; }
+
+  template <class T> __host__ T * wr0_ptr (const dev_hierarchical <T> *h) const { return (op_type == nop) ? nullptr : h -> lookup(&wr[0]); }
+
+  template <class T> __host__ T * r0_ptr (const dev_hierarchical <T> *h) const { return (op_type == trsml || op_type == trsmr || op_type == gemm) ? h -> lookup(&r[0]) : nullptr; }
+
+  template <class T> __host__ T * r1_ptr (const dev_hierarchical <T> *h) const { return (op_type == gemm) ?  h -> lookup(&r[1]) : nullptr; }
 
   __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
