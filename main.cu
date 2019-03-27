@@ -5,7 +5,7 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
-  const int n = 16, levels = 0, dim = 128, seed = 2000;
+  const int n = 16, levels = 0, dim = 64, seed = 2000;
 
   dev_hierarchical <double> *a = new dev_hierarchical <double> (n, n);
   a -> loadTestMatrix(levels, n, dim, seed);

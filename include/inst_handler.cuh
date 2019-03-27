@@ -345,17 +345,12 @@ public:
   __device__ int inst_fetch_right_looking (const int look_ahead_offset = 0)
   {
     __shared__ int inst_shm;
-    __shared__ int inst_ready_shm;
 
     if (thread_rank() == 0)
     {
       inst_shm = -1;
-      int i = inst_ready;
-      while (i < inst_length && status[i] == -1)
-      { i++; }
-      inst_ready_shm = i;
+      int i = inst_ready + look_ahead_offset;
 
-      i += look_ahead_offset;
       while (i < inst_length && inst_shm == -1)
       {
         if (dep_counts[i] == 0 && status[i] == 0)
@@ -366,7 +361,7 @@ public:
         i++;
       }
 
-      i = inst_ready_shm;
+      i = inst_ready;
       int n = i + look_ahead_offset; n = (n > inst_length) ? inst_length : n;
       while (i < n && inst_shm == -1)
       {
@@ -379,25 +374,20 @@ public:
       }
     }
     __syncthreads();
-    inst_ready = inst_ready_shm;
     return inst_shm;
   }
 
     __device__ int inst_fetch_left_looking (const int look_ahead_offset = 0)
   {
     __shared__ int inst_shm;
-    __shared__ int inst_ready_shm;
 
     if (thread_rank() == 0)
     {
       inst_shm = -1;
-      int i = inst_ready;
-      while (i < inst_length && status[i] == -1)
-      { i++; }
-      inst_ready_shm = i;
+      int i = inst_ready + look_ahead_offset - 1; 
+      i = (i >= inst_length) ? inst_length - 1 : i;
 
-      i += look_ahead_offset - 1; i = (i >= inst_length) ? inst_length - 1 : i;
-      while (i >= inst_ready_shm && inst_shm == -1)
+      while (i >= inst_ready && inst_shm == -1)
       {
         if (dep_counts[i] == 0 && status[i] == 0)
         {
@@ -407,7 +397,7 @@ public:
         i--;
       }
 
-      i = inst_ready_shm + look_ahead_offset;
+      i = inst_ready + look_ahead_offset;
       while (i < inst_length && inst_shm == -1)
       {
         if (dep_counts[i] == 0 && status[i] == 0)
@@ -419,7 +409,7 @@ public:
       }
     }
     __syncthreads();
-    inst_ready = inst_ready_shm;
+
     return inst_shm;
   }
 
@@ -492,6 +482,22 @@ public:
     __syncthreads();
   }
 
+  __device__ void inst_adjust_window()
+  {
+    __shared__ int inst_ready_shm;
+
+    if (thread_rank() == 0)
+    {
+      int i = inst_ready;
+      while (i < inst_length && status[i] == -1)
+      { i++; }
+      inst_ready_shm = i;
+    }
+    __syncthreads();
+
+    inst_ready = inst_ready_shm;
+  }
+
   __device__ void run()
   {
     while (inst_ready < inst_length)
@@ -504,6 +510,7 @@ public:
       inst_execute(i);
       inst_commit(i);
       inst_wait(1000);
+      inst_adjust_window();
     }
   }
 
