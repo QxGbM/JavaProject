@@ -342,24 +342,81 @@ public:
 
 
 
-  __device__ int inst_fetch ()
+  __device__ int inst_fetch_right_looking (const int look_ahead_offset = 0)
   {
     __shared__ int inst_shm;
     __shared__ int inst_ready_shm;
+
     if (thread_rank() == 0)
     {
       inst_shm = -1;
-      for (int i = inst_ready; i < inst_length; i++)
+      int i = inst_ready;
+      while (i < inst_length && status[i] == -1)
+      { i++; }
+      inst_ready_shm = i;
+
+      i += look_ahead_offset;
+      while (i < inst_length && inst_shm == -1)
       {
-        if (i == inst_ready && status[i] == -1) 
-        { inst_ready ++; }
         if (dep_counts[i] == 0 && status[i] == 0)
         {
-          int s = atomicAdd(&status[i], 1);
-          if (s == 0) { inst_shm = i; break; }
+          if (atomicAdd(&status[i], 1) == 0) 
+          { inst_shm = i; }
         }
+        i++;
       }
-      inst_ready_shm = inst_ready;
+
+      i = inst_ready_shm;
+      int n = i + look_ahead_offset; n = (n > inst_length) ? inst_length : n;
+      while (i < n && inst_shm == -1)
+      {
+        if (dep_counts[i] == 0 && status[i] == 0)
+        {
+          if (atomicAdd(&status[i], 1) == 0) 
+          { inst_shm = i; }
+        }
+        i++;
+      }
+    }
+    __syncthreads();
+    inst_ready = inst_ready_shm;
+    return inst_shm;
+  }
+
+    __device__ int inst_fetch_left_looking (const int look_ahead_offset = 0)
+  {
+    __shared__ int inst_shm;
+    __shared__ int inst_ready_shm;
+
+    if (thread_rank() == 0)
+    {
+      inst_shm = -1;
+      int i = inst_ready;
+      while (i < inst_length && status[i] == -1)
+      { i++; }
+      inst_ready_shm = i;
+
+      i += look_ahead_offset - 1; i = (i >= inst_length) ? inst_length - 1 : i;
+      while (i >= inst_ready_shm && inst_shm == -1)
+      {
+        if (dep_counts[i] == 0 && status[i] == 0)
+        {
+          if (atomicAdd(&status[i], 1) == 0) 
+          { inst_shm = i; }
+        }
+        i--;
+      }
+
+      i = inst_ready_shm + look_ahead_offset;
+      while (i < inst_length && inst_shm == -1)
+      {
+        if (dep_counts[i] == 0 && status[i] == 0)
+        {
+          if (atomicAdd(&status[i], 1) == 0) 
+          { inst_shm = i; }
+        }
+        i++;
+      }
     }
     __syncthreads();
     inst_ready = inst_ready_shm;
@@ -439,7 +496,11 @@ public:
   {
     while (inst_ready < inst_length)
     {
-      int i = inst_fetch();
+      int i;
+      if (block_rank() % 2 == 0)
+      { i = inst_fetch_right_looking(32); }
+      else
+      { i = inst_fetch_left_looking(32); }
       inst_execute(i);
       inst_commit(i);
       inst_wait(1000);
