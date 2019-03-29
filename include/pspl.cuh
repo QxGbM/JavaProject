@@ -57,6 +57,7 @@ __device__ int lane_rank()
 #include <dev_dense_funcs.cuh>
 
 #include <dev_low_rank.cuh>
+#include <svd.cuh>
 
 class h_index;
 class h_ops_tree;

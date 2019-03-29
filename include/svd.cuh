@@ -1,24 +1,30 @@
+#ifndef _SVD_CUH
+#define _SVD_CUH
 
-#include <sys/time.h>
+#include <pspl.cuh>
 
-#include <helper_functions.h>
+#define target 1.e-8
 
-#define epsilon 1.e-8
-
-int main (int argc, char* argv[]) {
+int test1 () 
+{
 
   const int M = 4, N = 4;
   
-  double *U, *S, *VT, *A;
+  dev_dense <double> *d_U, *d_S, *d_VT, *d_A;
 
-  U = zeroMatrix(M, M);
-  S = zeroMatrix(M, N);
+  d_U = new dev_dense <double> (M, M);
+  d_S = new dev_dense <double> (M, N);
 
-  A = testMatrix(M, N);
-  VT = identityMatrix(N, N);
+  d_A = new dev_dense <double> (M, N);
+  d_A -> loadTestMatrix();
 
-  timeval start, end;
-  gettimeofday(&start, NULL);
+  d_VT = new dev_dense <double> (N, N);
+  d_VT -> loadIdentityMatrix();
+
+  double *A = d_A->getElements();
+  double *S = d_S->getElements();
+  double *U = d_U->getElements();
+  double *VT = d_VT->getElements();
 
   double convergence;
   do
@@ -41,7 +47,7 @@ int main (int argc, char* argv[]) {
           s_ij += A[i * M + k] * A[k * M + j]; // s_ij = A[i]_T (horizontal) * A[j] (orthogonal)
         }
 
-        double t2 = (s_jj - s_ii) / 2 * s_ij; // torque
+        double t2 = (s_jj - s_ii) / 2 * s_ij; // torque^2
         double t = 1.0 / (abs(t2) + sqrt(1.0 + t2 * t2)); // tangent
         double c = 1.0 / (sqrt(1.0 + (t * t))); // cosine
         double s = c * t; // sine
@@ -59,11 +65,13 @@ int main (int argc, char* argv[]) {
           VT[j * M + k] = s * vi_T + c * vj_T;
         }
 
-        convergence = max_(convergence, abs(s_ij) / sqrt(s_ii * s_jj));
+        double new_convergence = abs(s_ij) / sqrt(s_ii * s_jj);
+
+        convergence = (convergence > new_convergence) ? convergence : new_convergence;
 
       }
     }
-  } while(convergence > epsilon);
+  } while(convergence > target);
 
 
   for(int i = 0; i < M; i++)
@@ -83,22 +91,14 @@ int main (int argc, char* argv[]) {
     }
   }
 
-  gettimeofday(&end, NULL);
+  d_U -> print();
+  d_S -> print();
+  d_VT -> print();
 
-  double elapsedTime;
-
-  elapsedTime = (end.tv_sec - start.tv_sec) * 1000.0;
-  elapsedTime += (end.tv_usec - start.tv_usec) / 1000.0;
-  printf("Time: %f ms.\n", elapsedTime);
-
-  printMatrix(U, M, M, N);
-  printMatrix(S, M, M, N);
-  printMatrix(VT, M, M, N);
-
-  double *b = matrixMultiplication(U, S, M, M, M, M, N);
-  double *c = matrixMultiplication(b, VT, M, M, M, M, N);
-
-  printMatrix(c, M, M, N);
+  dev_dense <double> *c = d_U -> matrixMultiplication(d_S) -> matrixMultiplication(d_VT);
+  c -> print();
 
   return 0;
 }
+
+#endif
