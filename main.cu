@@ -45,8 +45,8 @@ __host__ int test0()
 
 int main(int argc, char **argv)
 {
-  test0();
-  //test1();
+  //test0();
+  test1();
 
   return 0;
 }

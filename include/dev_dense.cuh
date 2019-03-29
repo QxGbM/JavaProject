@@ -175,6 +175,19 @@ public:
     return C;
   }
 
+  __host__ dev_dense <T> * transpose() const
+  {
+    dev_dense <T> *C = new dev_dense <T> (ny, nx);
+    for (int m = 0; m < ny; m++)
+    {
+      for (int n = 0; n < nx; n++)
+      {
+        (C -> elements)[n * nx + m] = elements[m * ld + n];
+      }
+    }
+    return C;
+  }
+
   __host__ dev_dense <T> * restoreLU () const
   {
     dev_dense <T> *L = new dev_dense <T>(ny, ny);
