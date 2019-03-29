@@ -15,7 +15,7 @@ void swap_col (double *col1, double *col2, const int ny, const int ld)
 int test1 () 
 {
 
-  const int nx = 8, ny = 4;
+  const int nx = 256, ny = 256;
   
   dev_dense <double> *d_VT, *d_A;
 
@@ -49,7 +49,6 @@ svd:
       { 
         swap_col(&A[i], &A[j], ny, nx); 
         swap_col(&VT[i], &VT[j], nx, nx);
-        double t = s_ii; s_ii = s_jj; s_jj = t;
       }
 
       const double torque = (s_jj - s_ii) / (2.0 * s_ij);
@@ -79,9 +78,6 @@ svd:
 
   if (iter) goto svd;
 
-  d_A -> print();
-  d_VT -> print();
-
   for (int i = 0; i < nx; i++)
   {
     double s = 0.0;
@@ -93,7 +89,8 @@ svd:
   }
 
   dev_dense <double> *c = d_A -> matrixMultiplication(d_VT -> transpose());
-  c -> print();
+  d_A -> loadTestMatrix();
+  printf("Rel. L2 Error: %e\n\n", c -> L2Error(d_A));
 
   return 0;
 }
