@@ -84,7 +84,7 @@ template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int
   return conv;
 }
 
-template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const double epi)
+template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const double epi, const int iter_limit)
 {
   __shared__ bool iter;
   __shared__ int iter_counter;
@@ -105,13 +105,13 @@ template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, c
         { iter = true; }
       }
     }
-  } while (iter);
+  } while (iter && iter_counter < iter_limit);
   return iter_counter;
 }
 
 __global__ void svd_kernel(double * A, double * VT, const int nx, const int ny, const int ld_a, const int ld_v)
 {
-  int i = blockJacobiSVD <double> (A, VT, nx, ny, ld_a, ld_v, 1.0e-14);
+  int i = blockJacobiSVD <double> (A, VT, nx, ny, ld_a, ld_v, 1.0e-14, 100);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -127,7 +127,7 @@ void swap_col(double *col1, double *col2, const int ny, const int ld)
 int test1 () 
 {
 
-  const int nx = 64, ny = 64;
+  const int nx = 16, ny = 16;
   
   dev_dense <double> *d_VT, *d_A;
 
