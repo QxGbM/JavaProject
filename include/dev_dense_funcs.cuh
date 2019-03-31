@@ -72,8 +72,8 @@ template <class T> __device__ int blockAllFindRowPivot(const T * M, const int n,
     { max = s_max; index = s_index; }
   }
 
-  __shared__ T shm_max[32];
-  __shared__ int shm_index[32];
+  __shared__ T shm_max [MAX_WARPS];
+  __shared__ int shm_index [MAX_WARPS];
 
   /* The first lane of each warp writes into their corresponding shared memory slot. */
   if (lane_id == 0) { shm_max[warp_id] = max; shm_index[warp_id] = index; }
@@ -84,8 +84,13 @@ template <class T> __device__ int blockAllFindRowPivot(const T * M, const int n,
   /* Do the final reduction in the first warp, if there are more than 1 warp. */
   if (block_size > warpSize && warp_id == 0)
   {
-    max = shm_max[lane_id];
-    index = shm_index[lane_id];
+    for (int i = lane_id; i < num_warps(); i += warpSize)
+    {
+      const T value = shm_max[i];
+      if (value > max)
+      { max = value; index = shm_index[i]; }
+    }
+
     for (int mask = warpSize / 2; mask > 0; mask /= 2)
     {
       const T s_max = __shfl_xor_sync(0xffffffff, max, mask, warpSize);

@@ -23,6 +23,8 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
+#define MAX_WARPS 32
+
 enum mark_t{ start, end };
 
 enum element_t { empty, dense, low_rank, hierarchical };
@@ -50,6 +52,9 @@ __device__ int warp_rank()
 
 __device__ int lane_rank()
 { return thread_rank() - warpSize * warp_rank(); }
+
+__device__ int num_warps()
+{ return (block_dim() + warpSize - 1) / warpSize; }
 
 #include <timer.cuh>
 
