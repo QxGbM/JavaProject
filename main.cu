@@ -5,10 +5,10 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
-  const int n = 16, levels = 0, dim = 64, seed = 2000;
+  const int n = 16, levels = 0, dim = 64;
 
   dev_hierarchical <double> *a = new dev_hierarchical <double> (n, n);
-  a -> loadTestMatrix(levels, n, dim, seed);
+  a -> loadTestMatrix(levels, n, dim);
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
   h_ops_dag *d = new h_ops_dag(a -> generateOps_GETRF());
@@ -28,7 +28,7 @@ __host__ int test0()
 
   dev_dense <double> *b = a -> convertToDense() -> restoreLU();
 
-  a -> loadTestMatrix(levels, n, dim, seed);
+  a -> loadTestMatrix(levels, n, dim);
   dev_dense <double> *c = a -> convertToDense();
 
   printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
@@ -45,8 +45,8 @@ __host__ int test0()
 
 int main(int argc, char **argv)
 {
-  //test0();
-  test1();
+  test0();
+  //test1();
 
   return 0;
 }

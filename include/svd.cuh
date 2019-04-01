@@ -132,7 +132,7 @@ int test1 ()
   dev_dense <double> *d_VT, *d_A;
 
   d_A = new dev_dense <double> (nx, ny);
-  d_A -> loadTestMatrix();
+  d_A -> loadTestMatrix(20);
 
   d_VT = new dev_dense <double> (nx, nx);
   d_VT -> loadIdentityMatrix();
@@ -209,7 +209,7 @@ int test1 ()
   }
 
   dev_dense <double> *c = d_A -> matrixMultiplication(d_VT -> transpose());
-  d_A -> loadTestMatrix();
+  d_A -> loadTestMatrix(20);
   printf("Rel. L2 Error: %e\n\n", c -> L2Error(d_A));
 
   return 0;

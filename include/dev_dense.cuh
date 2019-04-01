@@ -124,13 +124,15 @@ public:
     printf("\n");
   }
 
-  __host__ void loadTestMatrix()
+  __host__ void loadTestMatrix(const int x_start = 0, const int y_start = 0)
   {
-    for(int x = 0; x < nx; x++)
+    for(int i = 0; i < ny; i++)
     {
-      for(int y = 0; y < ny; y++)
+      const int y = y_start + i;
+      for(int j = 0; j < nx; j++)
       {
-        elements[y * ld + x] = (T) (1.0 / ((x > y) ? x - y + 1 : y - x + 1));
+        const int x = x_start + j;
+        elements[i * ld + j] = (T) (1.0 / (1.0 + ((x > y) ? x - y : y - x)));
       }
     }
   }
