@@ -35,25 +35,25 @@ enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot };
 
 enum relation_t { diff_matrix, no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained };
 
-__device__ int thread_rank()
+__device__ inline int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
 
-__device__ int block_dim()
+__device__ inline int block_dim()
 { return blockDim.z * blockDim.y * blockDim.x; }
 
-__device__ int block_rank()
+__device__ inline int block_rank()
 { return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
 
-__device__ int grid_dim()
+__device__ inline int grid_dim()
 { return gridDim.z * gridDim.y * gridDim.x; }
 
-__device__ int warp_rank()
+__device__ inline int warp_rank()
 { return thread_rank() / warpSize; }
 
-__device__ int lane_rank()
+__device__ inline int lane_rank()
 { return thread_rank() - warpSize * warp_rank(); }
 
-__device__ int num_warps()
+__device__ inline int num_warps()
 { return (block_dim() + warpSize - 1) / warpSize; }
 
 #include <timer.cuh>

@@ -23,40 +23,59 @@ template <class T> __device__ void blockRotateColumns (T * col1, T * col2, const
   }
 }
 
-template <class T> __device__ T blockVectorMultiplication (const T * vec1, const T * vec2, const int length, const int ld_1, const int ld_2)
+template <class T> __device__ T warpAllReduceSum (T value)
 {
-  T thread_sum = 0;
-  for (int i = thread_rank(); i < length; i += block_dim())
-  { thread_sum += vec1[i * ld_1] * vec2[i * ld_2]; }
-
   for (int mask = warpSize / 2; mask > 0; mask /= 2)
-  { thread_sum += __shfl_xor_sync (0xffffffff, thread_sum, mask, warpSize); }
+  { value += __shfl_xor_sync(0xffffffff, value, mask, warpSize); }
+  return value;
+}
+
+template <class T> __device__ T blockAllReduceSum (T value)
+{
+  value = warpAllReduceSum(value);
 
   __shared__ T warp_sum[MAX_WARPS];
   if (lane_rank() == 0)
-  { warp_sum[warp_rank()] = thread_sum; }
+  { warp_sum[warp_rank()] = value; }
   __syncthreads();
 
   if (block_dim() > warpSize && warp_rank() == 0)
   {
-    thread_sum = 0;
+    value = 0;
     for (int i = lane_rank(); i < num_warps(); i += warpSize)
-    { thread_sum += warp_sum[i]; }
-    
-    for (int mask = warpSize / 2; mask > 0; mask /= 2)
-    { thread_sum += __shfl_xor_sync (0xffffffff, thread_sum, mask, warpSize); }
-    if (lane_rank() == 0) 
-    { warp_sum[0] = thread_sum; }
+    { value += warp_sum[i]; }
+
+    value = warpAllReduceSum(value);
+    if (lane_rank() == 0)
+    { warp_sum[0] = value; }
   }
   __syncthreads();
 
   return warp_sum[0];
 }
 
+template <class T> __device__ T blockVectorMultiplication (const T * vec, const int length, const int ld)
+{
+  T thread_sum = 0;
+  for (int i = thread_rank(); i < length; i += block_dim())
+  { thread_sum += vec[i * ld] * vec[i * ld]; }
+
+  return blockAllReduceSum(thread_sum);
+}
+
+template <class T> __device__ T blockVectorMultiplication (const T * vec1, const T * vec2, const int length, const int ld_1, const int ld_2)
+{
+  T thread_sum = 0;
+  for (int i = thread_rank(); i < length; i += block_dim())
+  { thread_sum += vec1[i * ld_1] * vec2[i * ld_2]; }
+
+  return blockAllReduceSum(thread_sum);
+}
+
 template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const int col_i, const int col_j)
 {
-  const T s_ii = blockVectorMultiplication <T> (&A[col_i], &A[col_i], ny, ld_a, ld_a);
-  const T s_jj = blockVectorMultiplication <T> (&A[col_j], &A[col_j], ny, ld_a, ld_a);
+  const T s_ii = blockVectorMultiplication <T> (&A[col_i], ny, ld_a);
+  const T s_jj = blockVectorMultiplication <T> (&A[col_j], ny, ld_a);
   const T s_ij = blockVectorMultiplication <T> (&A[col_i], &A[col_j], ny, ld_a, ld_a);
 
   if (s_ii > s_jj)
@@ -68,9 +87,10 @@ template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int
   __shared__ double sine, cosine, conv;
   if (thread_rank() == 0)
   {
-    const double torque = (s_jj - s_ii) / (2.0 * s_ij);
-    const double sign_torque = (torque >= 0) ? 1.0 : -1.0;
-    const double tangent = sign_torque / (abs(torque) + sqrt(1.0 + torque * torque));
+    const double torque = (double) ((s_jj - s_ii) / (2.0 * s_ij));
+    const int sign_torque = (int) (torque >= 0.0) * 2 - 1;
+    const double abs_torque = sign_torque * torque;
+    const double tangent = sign_torque / (abs_torque + sqrt(1.0 + torque * torque));
     cosine = 1.0 / (sqrt(1.0 + tangent * tangent));
     sine = cosine * tangent;
     conv = (s_ij > 0) ? (double) s_ij : (double) -s_ij;
@@ -84,14 +104,26 @@ template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int
   return conv;
 }
 
+template <class T> __device__ void resetVT (T * VT, const int n, const int ld)
+{
+  for (int i = thread_rank(); i < n * n; i++)
+  {
+    const int row = i / n, col = i - row * n;
+    VT[row * ld + col] = (int) (row == col);
+  }
+}
+
 template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const double epi, const int iter_limit)
 {
   __shared__ bool iter;
   __shared__ int iter_counter;
-  if (thread_rank() == 0) 
-  { iter_counter = 0; }
 
-  do
+  resetVT (VT, nx, ld_v);
+  if (thread_rank() == 0) 
+  { iter_counter = 0; iter = true; }
+  __syncthreads();
+
+  while (iter && iter_counter < iter_limit)
   {
     if (thread_rank() == 0)
     { iter = false; iter_counter ++; }
@@ -100,12 +132,12 @@ template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, c
     {
       for (int j = 0; j < i; j++)
       {
-        double conv = blockJacobiRotate <T> (A, VT, nx, ny, ld_a, ld_v, i, j);
+        const double conv = blockJacobiRotate <T> (A, VT, nx, ny, ld_a, ld_v, i, j);
         if (thread_rank() == 0 && conv > epi)
         { iter = true; }
       }
     }
-  } while (iter && iter_counter < iter_limit);
+  }
   return iter_counter;
 }
 
@@ -114,15 +146,6 @@ __global__ void svd_kernel(double * A, double * VT, const int nx, const int ny, 
   int i = blockJacobiSVD <double> (A, VT, nx, ny, ld_a, ld_v, 1.0e-14, 100);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
-
-void swap_col(double *col1, double *col2, const int ny, const int ld)
-{
-  for (int i = 0; i < ny; i++)
-  {
-    const double t = col1[i * ld]; col1[i * ld] = col2[i * ld]; col2[i * ld] = t;
-  }
-}
-
 
 int test1 () 
 {
@@ -135,68 +158,18 @@ int test1 ()
   d_A -> loadTestMatrix(20);
 
   d_VT = new dev_dense <double> (nx, nx);
-  d_VT -> loadIdentityMatrix();
+  //d_VT -> loadIdentityMatrix();
 
   double *A = d_A -> getElements();
   double *VT = d_VT -> getElements();
 
   timer myTimer = timer();
 
-  myTimer.newEvent("GETRF", start);
+  myTimer.newEvent("SVD", start);
   svd_kernel <<<1, 1024>>> (A, VT, nx, ny, nx, nx);
-  myTimer.newEvent("GETRF", end);
+  myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
-
-/*svd:
-  bool iter = false;
-
-  for(int i = 1; i < nx; i++)
-  {
-    for(int j = 0; j < i; j++)
-    {
-
-      double s_ii = 0.0, s_jj = 0.0, s_ij = 0.0;
-
-      for(int k = 0; k < ny; k++)
-      {
-        s_ii += A[k * nx + i] * A[k * nx + i];
-        s_jj += A[k * nx + j] * A[k * nx + j];
-        s_ij += A[k * nx + i] * A[k * nx + j];
-      }
-
-      if (s_ii > s_jj) 
-      { 
-        swap_col(&A[i], &A[j], ny, nx); 
-        swap_col(&VT[i], &VT[j], nx, nx);
-      }
-
-      const double torque = (s_jj - s_ii) / (2.0 * s_ij);
-      const double sign_torque = (torque >= 0) ? 1.0 : -1.0;
-      const double t = sign_torque / (abs (torque) + sqrt (1.0 + torque * torque));
-      const double c = 1.0 / (sqrt (1.0 + t * t));
-      const double s = c * t;
-
-      for (int k = 0; k < ny; k++)
-      {
-        const double ai_T = A[k * nx + i], aj_T = A[k * nx + j];
-        A[k * nx + i] = c * ai_T - s * aj_T;
-        A[k * nx + j] = s * ai_T + c * aj_T;
-      }
-
-      for (int k = 0; k < nx; k++)
-      {
-        const double vi_T = VT[k * nx + i], vj_T = VT[k * nx + j];
-        VT[k * nx + i] = c * vi_T - s * vj_T;
-        VT[k * nx + j] = s * vi_T + c * vj_T;
-      }
-
-      if (abs(s_ij) > 1.e-14) iter = true;
-
-    }
-  }
-
-  if (iter) goto svd;*/
 
   for (int i = 0; i < nx; i++)
   {
