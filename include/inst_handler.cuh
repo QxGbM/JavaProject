@@ -6,6 +6,8 @@
 template <class T> class inst_handler
 {
 private:
+  unsigned long long int fops;
+
   int inst_length;
   int ** insts;
   int ** dep;
@@ -23,6 +25,7 @@ public:
 
   __host__ inst_handler (const h_ops_dag * dag, const dev_hierarchical <T> *h, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
   {
+    fops = dag -> getFops();
     inst_length = dag -> getLength();
 
     cudaMallocManaged(&insts, inst_length * sizeof(int *), cudaMemAttachGlobal);
@@ -327,16 +330,17 @@ public:
       }
     }
 
-    printf("\n");
+    printf("Total Float Ops: %llu\n\n", fops);
 
     for (int i = 0; i < inst_length; i++)
     {
-      for (int j = 1; j <= dep[i][0]; j++)
+      if (dep[i][0] > 0)
       {
-        printf("Dependency: from %d to %d.\n", i, dep[i][j]);
+        for (int j = 1; j <= dep[i][0]; j++)
+        { printf("(%d -> %d) ", i, dep[i][j]); }
+        printf("\n\n");
       }
-      printf("Inst %d Output Total: %d dependencies.\n", i, dep[i][0]);
-      printf("Inst %d Input  Total: %d dependencies.\n\n", i, dep_counts[i]);
+      printf("Inst %d: [%d Output] [%d Input] dependencies.\n\n", i, dep[i][0], dep_counts[i]);
     }
   }
 

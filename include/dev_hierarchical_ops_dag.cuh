@@ -71,6 +71,7 @@ private:
   int length;
   h_ops * ops_list;
   dependency_linked_list ** deps_graph;
+  unsigned long long int fops;
 
 public:
 
@@ -98,6 +99,8 @@ public:
         }
       }
     }
+
+    fops = ops -> getFops_All();
 
   }
 
@@ -155,6 +158,11 @@ public:
     return sum;
   }
 
+  __host__ unsigned long long int getFops () const
+  {
+    return fops;
+  }
+
   __host__ void print() const
   {
     for (int i = 0; i < length; i++)
@@ -181,8 +189,9 @@ public:
           printf("] ");
         }
       }
-      printf("\n\n");
+      printf("\n");
     }
+    printf("Total FOPS: %llu.\n\n", fops);
   }
   
 };

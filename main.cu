@@ -5,13 +5,13 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 __host__ int test0()
 {
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 10, levels = 0, dim = 100;
 
   dev_hierarchical <double> *a = new dev_hierarchical <double> (n, n);
   a -> loadTestMatrix(levels, n, dim);
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
-  h_ops_dag *d = new h_ops_dag(a -> generateOps_GETRF());
+  h_ops_dag *d = new h_ops_dag (a -> generateOps_GETRF());
 
   inst_handler <double> *ih = new inst_handler <double> (d, a);
 
@@ -20,11 +20,11 @@ __host__ int test0()
   cudaStreamCreate(&main_stream);
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <double>, 64, 1024, (void **)&ih, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <double>, 16, 1024, (void **)&ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   myTimer.printStatus();
-  myTimer.dumpAllEvents_Sync();
+  myTimer.dumpAllEvents_Sync(d -> getFops());
 
   dev_dense <double> *b = a -> convertToDense() -> restoreLU();
 
@@ -45,8 +45,8 @@ __host__ int test0()
 
 int main(int argc, char **argv)
 {
-  //test0();
-  test1();
+  test0();
+  //test1();
 
   return 0;
 }

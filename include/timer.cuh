@@ -154,7 +154,7 @@ public:
 
   }
 
-  __host__ cudaError_t dumpAllEvents_Sync ()
+  __host__ cudaError_t dumpAllEvents_Sync (const unsigned long long int total_fops = 0)
   {
     cudaError_t error = cudaDeviceSynchronize();
     if (error != cudaSuccess) 
@@ -163,19 +163,38 @@ public:
     printf("-----------------------------------------------------\n");
     printf("CUDA device synchronized, start dumping timed events:\n");
 
+    double accum = 0.;
     for (int i = 0; i < event_counter; i++)
     {
       float millis = events[i] -> getTotal_Sync();
       printf ("%s:  %f ms.\n", names[i], millis);
+      accum += millis;
 
       delete events[i];
       delete[] names[i];
       events[i] = nullptr;
       names[i] = nullptr;
     }
-
     event_counter = 0;
-    printf("All timed events dumped, table is cleared. \n");
+
+    if (total_fops > 0)
+    { 
+      double flops = 1000 * total_fops / accum;
+      int power = 0;
+      while (power <= 4 && flops > 1024.) { flops /= 1024.; power ++; }
+
+      printf("# of fp OPs: %llu \nTotal FLOPS: %f ", total_fops, flops);
+      switch (power)
+      {
+      case 0: break;
+      case 1: printf("K"); break;
+      case 2: printf("M"); break;
+      case 3: printf("G"); break;
+      case 4: printf("T"); break;
+      }
+      printf("FLOPS. \n");
+    }
+    printf("All timed events dumped, table is cleared.\n");
     printf("-----------------------------------------------------\n\n");
 
     return cudaSuccess;
