@@ -78,5 +78,6 @@ template <class T> class dev_h_element;
 #include <dev_hierarchical_element.cuh>
 
 #include <inst_handler.cuh>
+#include <inst_scheduler.cuh>
 
 #endif

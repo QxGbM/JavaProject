@@ -283,11 +283,17 @@ public:
     { child = tree; }
   }
 
+  __host__ int length_child() const
+  {
+    return (child == nullptr) ? 1 : child -> length();
+  }
+
   __host__ int length() const
   {
-    int l_child = (child == nullptr) ? 1 : child -> length();
-    int l_next = (next == nullptr) ? 0 : next -> length();
-    return l_child + l_next;
+    int length = length_child();
+    for (h_ops_tree *ptr = next; ptr != nullptr; ptr = ptr -> next)
+    { length += next -> length_child(); }
+    return length;
   }
 
   __host__ void flatten (h_ops * ops_list) const

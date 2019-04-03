@@ -14,19 +14,19 @@ template <class T> __host__ int test0()
   h_ops_dag *d = new h_ops_dag (a -> generateOps_GETRF());
 
   inst_handler <T> *ih = new inst_handler <T> (d, a);
+  ih->print();
   delete d;
 
   timer myTimer = timer();
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
-
+  
   const int blocks = (n > 16) ? n * 2 : 32, threads = 1024;
   myTimer.newEvent("GETRF", start, main_stream);
   cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **)&ih, dim * dim * sizeof(T), main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
-
   cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
 
   if (error == cudaSuccess)
