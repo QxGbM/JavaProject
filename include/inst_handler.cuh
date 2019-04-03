@@ -469,23 +469,6 @@ public:
     }
   }
 
-  __device__ void inst_wait (const long long int count)
-  {
-    if (thread_rank() == 0)
-    {
-      long long int last = clock64();
-      long long int lapse = 0;
-      while (lapse < count)
-      {
-        const long long int stamp = clock64();
-        const long long int interval = stamp - last;
-        lapse += (interval > 0) ? interval : 0;
-        last = stamp;
-      }
-    }
-    __syncthreads();
-  }
-
   __device__ void inst_adjust_window()
   {
     __shared__ int inst_ready_shm;
@@ -506,14 +489,13 @@ public:
   {
     while (inst_ready < inst_length)
     {
-      int i;
-      if (block_rank() % 2 == 0)
+      int i = inst_fetch_right_looking(0);
+      /*if (block_rank() % 2 == 0)
       { i = inst_fetch_right_looking(32); }
       else
-      { i = inst_fetch_left_looking(32); }
+      { i = inst_fetch_left_looking(32); }*/
       inst_execute(i);
       inst_commit(i);
-      inst_wait(1000);
       inst_adjust_window();
     }
   }

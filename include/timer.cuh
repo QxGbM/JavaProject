@@ -181,9 +181,9 @@ public:
     { 
       double flops = 1000 * total_fops / accum;
       int power = 0;
-      while (power <= 4 && flops > 1024.) { flops /= 1024.; power ++; }
+      while (power < 4 && flops > 1024.) { flops /= 1024.; power ++; }
 
-      printf("# of fp OPs: %llu \nTotal FLOPS: %f ", total_fops, flops);
+      printf("# of float-point OPs: %llu \nTotal FLOPS: %f ", total_fops, flops);
       switch (power)
       {
       case 0: break;

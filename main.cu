@@ -3,49 +3,52 @@
 
 template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
-__host__ int test0()
+template <class T> __host__ int test0()
 {
-  const int n = 10, levels = 0, dim = 100;
+  const int n = 32, levels = 0, dim = 512;
 
-  dev_hierarchical <double> *a = new dev_hierarchical <double> (n, n);
+  dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
   h_ops_dag *d = new h_ops_dag (a -> generateOps_GETRF());
 
-  inst_handler <double> *ih = new inst_handler <double> (d, a);
+  inst_handler <T> *ih = new inst_handler <T> (d, a);
+  delete d;
 
   timer myTimer = timer();
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
+  const int blocks = (n > 16) ? n * 2 : 32, threads = 1024;
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <double>, 16, 1024, (void **)&ih, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **)&ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
-  myTimer.printStatus();
-  myTimer.dumpAllEvents_Sync(d -> getFops());
+  fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
 
-  dev_dense <double> *b = a -> convertToDense() -> restoreLU();
+  cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
+  delete ih;
 
-  a -> loadTestMatrix(levels, n, dim);
-  dev_dense <double> *c = a -> convertToDense();
-
-  printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
-
-  delete ih, d, a;
-  delete b, c;
+  if (error == cudaSuccess)
+  {
+    dev_dense <T> *b = a -> convertToDense() -> restoreLU();
+    a -> loadTestMatrix(levels, n, dim);
+    dev_dense <T> *c = a -> convertToDense();
+    printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
+    delete b, c;
+  }
+  delete a;
 
   cudaStreamDestroy(main_stream);
   cudaDeviceReset();
-
   return 0;
 }
 
 
 int main(int argc, char **argv)
 {
-  test0();
+  test0 <double> ();
   //test1();
 
   return 0;

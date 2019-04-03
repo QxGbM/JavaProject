@@ -7,9 +7,7 @@
 /* Scalar of a matrix of ny by nx. */
 template <class T> __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int ny, const int ld)
 {
-  const int thread_id = thread_rank();
-  const int block_size = block_dim();
-  for (int i = thread_id; i < nx * ny; i += block_size)
+  for (int i = thread_rank(); i < nx * ny; i += block_dim())
   { 
     const int row = i / nx, col = i - row * nx;
     M[row * ld + col] = (scale == 0) ? 0 : M[row * ld + col] * scale;
@@ -20,9 +18,7 @@ template <class T> __device__ void blockDenseScalar (const T scale, T * M, const
 /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
 template <class T> __device__ void blockDenseGemm (const double alpha, const double beta, T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
 {
-  const int thread_id = thread_rank();
-  const int block_size = block_dim();
-  for (int i = thread_id; i < m * n; i += block_size)
+  for (int i = thread_rank(); i < m * n; i += block_dim())
   { 
     const int row = i / n, col = i - row * n;
     const T old = (beta == 0) ? 0 : beta * M[row * ld_m + col];
@@ -41,14 +37,20 @@ template <class T> __device__ void blockDenseGemm (const double alpha, const dou
 /* An overloaded version gemm that uses alpha = -1 and beta = 1. */
 template <class T> __device__ void blockDenseGemm (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
 {
-  blockDenseGemm (-1.0, 1.0, M, A, B, m, n, k, ld_m, ld_a, ld_b);
+  for (int i = thread_rank(); i < m * n; i += block_dim())
+  {
+    const int row = i / n, col = i - row * n;
+    T accum = 0;
+    for (int j = 0; j < k; j++)
+    { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
+    M[row * ld_m + col] -= accum;
+  }
+  __syncthreads();
 }
 
 /* Find the index of the largest absolute value element in matrix[0], matrix[ld], ... matrix[(n-1) * ld]. */
 template <class T> __device__ int blockAllFindRowPivot(const T * M, const int n, const int ld)
 {
-  const int thread_id = thread_rank();
-  const int block_size = block_dim();
   const int warp_id = warp_rank();
   const int lane_id = lane_rank();
 
@@ -56,7 +58,7 @@ template <class T> __device__ int blockAllFindRowPivot(const T * M, const int n,
   T max = 0;
 
   /* Load all row entries in warps: Each warp can handle more than 1 warpsize of data or no data. */
-  for (int i = thread_id; i < n; i += block_size)
+  for (int i = thread_rank(); i < n; i += block_dim())
   {
     const T value = abs(M[i * ld]);
     if (value > max)
@@ -82,7 +84,7 @@ template <class T> __device__ int blockAllFindRowPivot(const T * M, const int n,
   __syncthreads(); 
 
   /* Do the final reduction in the first warp, if there are more than 1 warp. */
-  if (block_size > warpSize && warp_id == 0)
+  if (block_dim() > warpSize && warp_id == 0)
   {
     for (int i = lane_id; i < num_warps(); i += warpSize)
     {

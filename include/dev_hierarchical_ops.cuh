@@ -195,7 +195,9 @@ public:
       { accum += (2 * (x - 1) + 1) * y_b; }
       break;
     case gemm:
-      accum = 2 * wr0_nx() * wr0_ny() * r0_nx();
+      accum = 2 * wr0_nx();
+      accum *= wr0_ny();
+      accum *= r0_nx();
       break;
     case pivot:
       break;
@@ -236,7 +238,7 @@ public:
       break;
     }
 
-    printf("\n");
+    printf(" [fp-ops: %llu]\n", getFops());
   }
   
 };

@@ -191,7 +191,7 @@ public:
       }
       printf("\n");
     }
-    printf("Total FOPS: %llu.\n\n", fops);
+    printf("Total fp-ops: %llu.\n\n", fops);
   }
   
 };
