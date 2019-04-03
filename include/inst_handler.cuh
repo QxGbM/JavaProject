@@ -430,7 +430,7 @@ public:
       case nop: break;
 
       case getrf: 
-        blockDenseGetrf(m1, inst[3], inst[4], inst[5], p); 
+        blockDenseGetrf_shm (m1, inst[3], inst[4], inst[5], p); 
         break;
         
       case trsml:

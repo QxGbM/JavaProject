@@ -183,21 +183,20 @@ public:
     case nop:
       break;
     case getrf:
-      for (int x = wr0_nx(), y = wr0_ny(); x >= 0 && y >= 0; x--, y--)
-      { accum += (2 * (x - 1) + 1) * (y - 1); }
+      for (int x = wr0_nx(), y = wr0_ny(); x > 0 && y > 0; x--, y--)
+      { accum += (y - 1) + 2 * (x - 1) * (y - 1); }
       break;
     case trsml:
-      for (int x = r0_nx(), y = r0_ny(), x_b = wr0_nx(); x >= 0 && y >= 0; x--, y--)
+      for (int x = r0_nx(), y = r0_ny(), x_b = wr0_nx(); x > 0 && y > 0; x--, y--)
       { accum += 2 * (y - 1) * x_b; }
       break;
     case trsmr:
-      for (int x = r0_nx(), y = r0_ny(), y_b = wr0_ny();  x >= 0 && y >= 0; x--, y--)
-      { accum += (2 * (x - 1) + 1) * y_b; }
+      for (int x = r0_nx(), y = r0_ny(), y_b = wr0_ny();  x > 0 && y > 0; x--, y--)
+      { accum += y_b + 2 * (x - 1) * y_b; }
       break;
     case gemm:
-      accum = 2 * wr0_nx();
-      accum *= wr0_ny();
-      accum *= r0_nx();
+      accum = wr0_nx() * wr0_ny();
+      accum *= 2 * r0_nx();
       break;
     case pivot:
       break;

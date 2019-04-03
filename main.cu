@@ -5,7 +5,7 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 template <class T> __host__ int test0()
 {
-  const int n = 32, levels = 0, dim = 512;
+  const int n = 16, levels = 0, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -22,23 +22,22 @@ template <class T> __host__ int test0()
 
   const int blocks = (n > 16) ? n * 2 : 32, threads = 1024;
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **)&ih, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **)&ih, dim * dim * sizeof(T), main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
 
   cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
-  delete ih;
 
   if (error == cudaSuccess)
   {
+    delete ih;
     dev_dense <T> *b = a -> convertToDense() -> restoreLU();
     a -> loadTestMatrix(levels, n, dim);
     dev_dense <T> *c = a -> convertToDense();
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
-    delete b, c;
+    delete a, b, c;
   }
-  delete a;
 
   cudaStreamDestroy(main_stream);
   cudaDeviceReset();

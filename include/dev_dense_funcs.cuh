@@ -4,6 +4,17 @@
 
 #include <pspl.cuh>
 
+/* A convinient call to copy from shared memory to global or vice versa. */
+template <class T> __device__ void matrixCopy (const T * from, T * to, const int nx, const int ny, const int ld_from, const int ld_to)
+{
+  for (int i = thread_rank(); i < nx * ny; i += block_dim())
+  {
+    const int row = i / nx, col = i - row * nx;
+    to[row * ld_to + col] = from[row * ld_from + col];
+  }
+  __syncthreads();
+}
+
 /* Scalar of a matrix of ny by nx. */
 template <class T> __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int ny, const int ld)
 {
@@ -44,6 +55,17 @@ template <class T> __device__ void blockDenseGemm (T * M, const T * A, const T *
     for (int j = 0; j < k; j++)
     { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
     M[row * ld_m + col] -= accum;
+  }
+  __syncthreads();
+}
+
+/* An overloaded version gemm that uses alpha = -1, beta = 1 and k = 1. */
+template <class T> __device__ void blockDenseGemm_K1 (T * M, const T * A, const T * B, const int m, const int n, const int ld_m, const int ld_a, const int ld_b)
+{
+  for (int i = thread_rank(); i < m * n; i += block_dim())
+  {
+    const int row = i / n, col = i - row * n;
+    M[row * ld_m + col] -= A[row * ld_a] * B[col];
   }
   __syncthreads();
 }
@@ -171,7 +193,6 @@ __device__ void resetPivot(int *p, const int n)
   }
 }
 
-/* Pivoted LU decomposition of matrix of ny by nx. */
 template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
 {
   if (p != nullptr) { resetPivot(p, ny); }
@@ -180,28 +201,42 @@ template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const i
   {
     if (p != nullptr)
     {
-      const int target = i + blockAllFindRowPivot <T> (&M[i * ld + i], ny - i, ld);
+      const int target = i + blockAllFindRowPivot <T>(&M[i * ld + i], ny - i, ld);
 
       if (target != i)
       {
-        blockSwapNSeqElements <T> (&M[target * ld], &M[i * ld], nx);
-        if (thread_rank() == 0) 
-        { int t = p[target]; p[target] = p[i]; p[i] = t; }
+        blockSwapNSeqElements <T>(&M[target * ld], &M[i * ld], nx);
+        if (thread_rank() == 0)
+        {
+          int t = p[target]; p[target] = p[i]; p[i] = t;
+        }
         __syncthreads();
       }
     }
 
-    blockDenseScalar <T> (1.0 / M[i * ld + i], &M[(i + 1) * ld + i], 1, ny - (i + 1), ld);
+    blockDenseScalar <T>(1.0 / M[i * ld + i], &M[(i + 1) * ld + i], 1, ny - (i + 1), ld);
 
-    blockDenseGemm <T> (&M[(i + 1) * ld + (i + 1)], &M[(i + 1) * ld + i], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), 1, ld, ld, ld);
+    blockDenseGemm_K1 <T> (&M[(i + 1) * ld + (i + 1)], &M[(i + 1) * ld + i], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, ld, ld);
   }
+}
+
+/* Pivoted LU decomposition of matrix of ny by nx. */
+template <class T> __device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
+{
+  extern __shared__ T M_shm[];
+
+  matrixCopy <T> (M, &M_shm[0], nx, ny, ld, nx);
+
+  blockDenseGetrf <T> (&M_shm[0], nx, ny, nx, p);
+
+  matrixCopy <T> (&M_shm[0], M, nx, ny, nx, ld);
 }
 
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
 template <class T> __device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
   for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
-  { blockDenseGemm <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_b - (i + 1), nx_b, 1, ld_b, ld_l, ld_b); }
+  { blockDenseGemm_K1 <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_b - (i + 1), nx_b, ld_b, ld_l, ld_b); }
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
@@ -211,7 +246,7 @@ template <class T> __device__ void blockDenseTrsmR (T * B, const T * U, const in
   {
     blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
     if (nx_b - i > 1)
-    { blockDenseGemm <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), 1, ld_b, ld_b, ld_u); }
+    { blockDenseGemm_K1 <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), ld_b, ld_b, ld_u); }
   }
 }
 
