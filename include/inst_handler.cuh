@@ -6,6 +6,8 @@
 template <class T> class inst_handler
 {
 private:
+  unsigned long long int fops;
+
   int inst_length;
   int ** insts;
   int ** dep;
@@ -23,6 +25,7 @@ public:
 
   __host__ inst_handler (const h_ops_dag * dag, const dev_hierarchical <T> *h, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
   {
+    fops = dag -> getFops();
     inst_length = dag -> getLength();
 
     cudaMallocManaged(&insts, inst_length * sizeof(int *), cudaMemAttachGlobal);
@@ -327,16 +330,17 @@ public:
       }
     }
 
-    printf("\n");
+    printf("Total Float Ops: %llu\n\n", fops);
 
     for (int i = 0; i < inst_length; i++)
     {
-      for (int j = 1; j <= dep[i][0]; j++)
+      if (dep[i][0] > 0)
       {
-        printf("Dependency: from %d to %d.\n", i, dep[i][j]);
+        for (int j = 1; j <= dep[i][0]; j++)
+        { printf("(%d -> %d) ", i, dep[i][j]); }
+        printf("\n\n");
       }
-      printf("Inst %d Output Total: %d dependencies.\n", i, dep[i][0]);
-      printf("Inst %d Input  Total: %d dependencies.\n\n", i, dep_counts[i]);
+      printf("Inst %d: [%d Output] [%d Input] dependencies.\n\n", i, dep[i][0], dep_counts[i]);
     }
   }
 
@@ -345,17 +349,12 @@ public:
   __device__ int inst_fetch_right_looking (const int look_ahead_offset = 0)
   {
     __shared__ int inst_shm;
-    __shared__ int inst_ready_shm;
 
     if (thread_rank() == 0)
     {
       inst_shm = -1;
-      int i = inst_ready;
-      while (i < inst_length && status[i] == -1)
-      { i++; }
-      inst_ready_shm = i;
+      int i = inst_ready + look_ahead_offset;
 
-      i += look_ahead_offset;
       while (i < inst_length && inst_shm == -1)
       {
         if (dep_counts[i] == 0 && status[i] == 0)
@@ -366,7 +365,7 @@ public:
         i++;
       }
 
-      i = inst_ready_shm;
+      i = inst_ready;
       int n = i + look_ahead_offset; n = (n > inst_length) ? inst_length : n;
       while (i < n && inst_shm == -1)
       {
@@ -379,47 +378,6 @@ public:
       }
     }
     __syncthreads();
-    inst_ready = inst_ready_shm;
-    return inst_shm;
-  }
-
-    __device__ int inst_fetch_left_looking (const int look_ahead_offset = 0)
-  {
-    __shared__ int inst_shm;
-    __shared__ int inst_ready_shm;
-
-    if (thread_rank() == 0)
-    {
-      inst_shm = -1;
-      int i = inst_ready;
-      while (i < inst_length && status[i] == -1)
-      { i++; }
-      inst_ready_shm = i;
-
-      i += look_ahead_offset - 1; i = (i >= inst_length) ? inst_length - 1 : i;
-      while (i >= inst_ready_shm && inst_shm == -1)
-      {
-        if (dep_counts[i] == 0 && status[i] == 0)
-        {
-          if (atomicAdd(&status[i], 1) == 0) 
-          { inst_shm = i; }
-        }
-        i--;
-      }
-
-      i = inst_ready_shm + look_ahead_offset;
-      while (i < inst_length && inst_shm == -1)
-      {
-        if (dep_counts[i] == 0 && status[i] == 0)
-        {
-          if (atomicAdd(&status[i], 1) == 0) 
-          { inst_shm = i; }
-        }
-        i++;
-      }
-    }
-    __syncthreads();
-    inst_ready = inst_ready_shm;
     return inst_shm;
   }
 
@@ -436,23 +394,23 @@ public:
       case nop: break;
 
       case getrf: 
-        blockDenseGetrf(m1, inst[3], inst[4], inst[5], p); 
+        blockDenseGetrf_shm <T, 512> (m1, inst[3], inst[4], inst[5], p); 
         break;
         
       case trsml:
-        blockDenseTrsmL(m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
         break;
 
       case trsmr:
-        blockDenseTrsmR(m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmR_shm <T, 512> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
         break;
 
       case gemm:
-        blockDenseGemm(m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
+        blockDenseGemm_Cshm_RM <T, 4096> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
         break;
 
       case pivot:
-        blockApplyPivot(m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
+        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
         break;
 
       }
@@ -475,35 +433,34 @@ public:
     }
   }
 
-  __device__ void inst_wait (const long long int count)
+  __device__ void inst_adjust_window()
   {
+    __shared__ int inst_ready_shm;
+
     if (thread_rank() == 0)
     {
-      long long int last = clock64();
-      long long int lapse = 0;
-      while (lapse < count)
-      {
-        const long long int stamp = clock64();
-        const long long int interval = stamp - last;
-        lapse += (interval > 0) ? interval : 0;
-        last = stamp;
-      }
+      int i = inst_ready;
+      while (i < inst_length && status[i] == -1)
+      { i++; }
+      inst_ready_shm = i;
     }
     __syncthreads();
+
+    inst_ready = inst_ready_shm;
   }
 
-  __device__ void run()
+  __device__ void run (const int look_ahead_offset)
   {
     while (inst_ready < inst_length)
     {
       int i;
       if (block_rank() % 2 == 0)
-      { i = inst_fetch_right_looking(32); }
+      { i = inst_fetch_right_looking(look_ahead_offset); }
       else
-      { i = inst_fetch_left_looking(32); }
+      { i = inst_fetch_right_looking(0); }
       inst_execute(i);
       inst_commit(i);
-      inst_wait(1000);
+      inst_adjust_window();
     }
   }
 

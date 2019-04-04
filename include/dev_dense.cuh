@@ -22,19 +22,24 @@ public:
     nx = x;
     ny = y;
     ld = (x > d) ? x : d;
-
-    cudaMallocManaged (&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
-    cudaMemset (elements, 0, ld * ny * sizeof(T));
-    
     pivoted = alloc_pivot;
-    if (pivoted)
-    {
-      cudaMallocManaged (&pivot, ny * sizeof(int), cudaMemAttachGlobal);
-      cudaMemset (pivot, 0, ny * sizeof(int));
+
+    if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) != cudaSuccess)
+    { 
+      fprintf(stderr, "Error Allocating Dense: %s\n\n", cudaGetErrorString(cudaGetLastError()));
+      elements = nullptr;
+      pivot = nullptr;
+    }
+    else if (pivoted && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) != cudaSuccess)
+    { 
+      fprintf(stderr, "Error Allocating Dense Pivot: %s\n\n", cudaGetErrorString(cudaGetLastError()));
+      pivoted = false;
+      pivot = nullptr;
     }
     else
-    { pivot = nullptr; }
-
+    {
+      cudaMemset(elements, 0, ld * ny * sizeof(T));
+    }
   }
 
   __host__ dev_dense (const int x, const int y, const T * A, const int ld_a, const int d = 0, const bool alloc_pivot = false)
@@ -42,18 +47,24 @@ public:
     nx = x;
     ny = y;
     ld = (x > d) ? x : d;
-
-    cudaMallocManaged (&elements, ld * ny * sizeof(T), cudaMemAttachGlobal);
-    loadArray (A, x, y, ld_a);
-
     pivoted = alloc_pivot;
-    if (pivoted)
+
+    if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) != cudaSuccess)
     {
-      cudaMallocManaged (&pivot, ny * sizeof(int), cudaMemAttachGlobal);
-      cudaMemset (pivot, 0, ny * sizeof(int));
+      fprintf(stderr, "Error Allocating Dense: %s\n\n", cudaGetErrorString(cudaGetLastError()));
+      elements = nullptr;
+      pivot = nullptr;
+    }
+    else if (pivoted && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) != cudaSuccess)
+    {
+      fprintf(stderr, "Error Allocating Dense Pivot: %s\n\n", cudaGetErrorString(cudaGetLastError()));
+      pivoted = false;
+      pivot = nullptr;
     }
     else
-    { pivot = nullptr; }
+    {
+      loadArray(A, x, y, ld_a);
+    }
   }
 
   __host__ ~dev_dense ()
@@ -124,13 +135,15 @@ public:
     printf("\n");
   }
 
-  __host__ void loadTestMatrix()
+  __host__ void loadTestMatrix(const int x_start = 0, const int y_start = 0)
   {
-    for(int x = 0; x < nx; x++)
+    for(int i = 0; i < ny; i++)
     {
-      for(int y = 0; y < ny; y++)
+      const int y = y_start + i;
+      for(int j = 0; j < nx; j++)
       {
-        elements[y * ld + x] = (T) (1.0 / ((x > y) ? x - y + 1 : y - x + 1));
+        const int x = x_start + j;
+        elements[i * ld + j] = (T) (1.0 / (1.0 + ((x > y) ? x - y : y - x)));
       }
     }
   }
@@ -170,6 +183,19 @@ public:
         {
           (C -> elements)[m * (B -> nx) + n] += elements[m * ld + k] * (B -> elements)[k * (B -> ld) + n];
         }
+      }
+    }
+    return C;
+  }
+
+  __host__ dev_dense <T> * transpose() const
+  {
+    dev_dense <T> *C = new dev_dense <T> (ny, nx);
+    for (int m = 0; m < ny; m++)
+    {
+      for (int n = 0; n < nx; n++)
+      {
+        (C -> elements)[n * nx + m] = elements[m * ld + n];
       }
     }
     return C;

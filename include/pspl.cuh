@@ -23,6 +23,8 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
+#define MAX_WARPS 32
+
 enum mark_t{ start, end };
 
 enum element_t { empty, dense, low_rank, hierarchical };
@@ -33,23 +35,26 @@ enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot };
 
 enum relation_t { diff_matrix, no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained };
 
-__device__ int thread_rank()
+__device__ inline int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
 
-__device__ int block_dim()
+__device__ inline int block_dim()
 { return blockDim.z * blockDim.y * blockDim.x; }
 
-__device__ int block_rank()
+__device__ inline int block_rank()
 { return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
 
-__device__ int grid_dim()
+__device__ inline int grid_dim()
 { return gridDim.z * gridDim.y * gridDim.x; }
 
-__device__ int warp_rank()
+__device__ inline int warp_rank()
 { return thread_rank() / warpSize; }
 
-__device__ int lane_rank()
+__device__ inline int lane_rank()
 { return thread_rank() - warpSize * warp_rank(); }
+
+__device__ inline int num_warps()
+{ return (block_dim() + warpSize - 1) / warpSize; }
 
 #include <timer.cuh>
 
@@ -57,6 +62,7 @@ __device__ int lane_rank()
 #include <dev_dense_funcs.cuh>
 
 #include <dev_low_rank.cuh>
+#include <svd.cuh>
 
 class h_index;
 class h_ops_tree;
@@ -72,5 +78,6 @@ template <class T> class dev_h_element;
 #include <dev_hierarchical_element.cuh>
 
 #include <inst_handler.cuh>
+#include <inst_scheduler.cuh>
 
 #endif

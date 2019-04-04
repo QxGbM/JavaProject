@@ -32,23 +32,6 @@ public:
     delete[] ns;
   }
 
-  __host__ void print () const
-  {
-    printf("-- ");
-    if (levels == 0) printf("root, ");
-    for(int i = 0; i < levels; i++)
-    { printf("level %d: %d, ", i, ns[i]); }
-    printf("offset %d. --\n", offset);
-  }
-
-  __host__ void printShort () const
-  {
-    printf("[%d", levels);
-    for(int i = 0; i < levels; i++)
-    { printf("%d", ns[i]); }
-    printf(" (%d)]", offset);
-  }
-
   __host__ int getLevels() const { return levels; }
 
   __host__ int getIndex(const int level) const { return ns[level]; }
@@ -102,8 +85,27 @@ public:
 
   __host__ h_index * clone() const
   {
-    h_index * i = new h_index (levels, ns, offset, matrix);
-    return i;
+    if (this == nullptr) 
+    { return nullptr; }
+    else
+    { return new h_index(levels, ns, offset, matrix); }
+  }
+
+  __host__ void print() const
+  {
+    printf("-- ");
+    if (levels == 0) printf("root, ");
+    for (int i = 0; i < levels; i++)
+    { printf("level %d: %d, ", i, ns[i]); }
+    printf("offset %d. --\n", offset);
+  }
+
+  __host__ void printShort() const
+  {
+    printf("[%d", levels);
+    for (int i = 0; i < levels; i++)
+    { printf("%d", ns[i]); }
+    printf(" (%d)]", offset);
   }
 
 };

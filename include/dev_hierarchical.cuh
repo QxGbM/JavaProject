@@ -391,28 +391,30 @@ public:
     delete root;
   }
 
-  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int seed = 0)
+  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int x_start = 0, const int y_start = 0)
   {
-    if (seed > 0) { srand(seed); }
-    for (int y = 0; y < ny; y++)
+    for (int y = 0, y_offset = 0; y < ny; y++)
     {
-      for (int x = 0; x < nx; x++)
+      for (int x = 0, x_offset = 0; x < nx; x++)
       {
         if (x == y && levels > 0)
         { 
           dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
-          e -> loadTestMatrix(levels - 1, dim, block_size); 
+          e -> loadTestMatrix(levels - 1, dim, block_size, x_offset, y_offset); 
           setElement(e, hierarchical, x, y);
+          x_offset += e -> getNx();
         }
         else
         {
           int l = block_size, cl = levels; 
           while (cl > 0) { l *= dim; cl--; }
           dev_dense <T> *e = new dev_dense <T> (l, l);
-          e -> loadRandomMatrix(-10, 10);
+          e -> loadTestMatrix(x_offset, y_offset);
           setElement(e, dense, x, y);
+          x_offset += e -> getNx();
         }
       }
+      y_offset += elements[y * nx].getNy();
     }
 
   }
