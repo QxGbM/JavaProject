@@ -381,42 +381,6 @@ public:
     return inst_shm;
   }
 
-    __device__ int inst_fetch_left_looking (const int look_ahead_offset = 0)
-  {
-    __shared__ int inst_shm;
-
-    if (thread_rank() == 0)
-    {
-      inst_shm = -1;
-      int i = inst_ready + look_ahead_offset - 1; 
-      i = (i >= inst_length) ? inst_length - 1 : i;
-
-      while (i >= inst_ready && inst_shm == -1)
-      {
-        if (dep_counts[i] == 0 && status[i] == 0)
-        {
-          if (atomicAdd(&status[i], 1) == 0) 
-          { inst_shm = i; }
-        }
-        i--;
-      }
-
-      i = inst_ready + look_ahead_offset;
-      while (i < inst_length && inst_shm == -1)
-      {
-        if (dep_counts[i] == 0 && status[i] == 0)
-        {
-          if (atomicAdd(&status[i], 1) == 0) 
-          { inst_shm = i; }
-        }
-        i++;
-      }
-    }
-    __syncthreads();
-
-    return inst_shm;
-  }
-
   __device__ void inst_execute (const int inst_num)
   {
     if (inst_num >= 0)
@@ -434,7 +398,7 @@ public:
         break;
         
       case trsml:
-        blockDenseTrsmL (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
         break;
 
       case trsmr:
@@ -442,11 +406,11 @@ public:
         break;
 
       case gemm:
-        blockDenseGemm_shm <T, 4096> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
+        blockDenseGemm_Cshm_RM <T, 4096> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
         break;
 
       case pivot:
-        blockApplyPivot (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
+        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
         break;
 
       }
@@ -485,15 +449,15 @@ public:
     inst_ready = inst_ready_shm;
   }
 
-  __device__ void run()
+  __device__ void run (const int look_ahead_offset)
   {
     while (inst_ready < inst_length)
     {
-      int i = inst_fetch_right_looking(0);
-      /*if (block_rank() % 2 == 0)
-      { i = inst_fetch_right_looking(32); }
+      int i;
+      if (block_rank() % 2 == 0)
+      { i = inst_fetch_right_looking(look_ahead_offset); }
       else
-      { i = inst_fetch_left_looking(32); }*/
+      { i = inst_fetch_right_looking(0); }
       inst_execute(i);
       inst_commit(i);
       inst_adjust_window();

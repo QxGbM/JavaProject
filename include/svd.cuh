@@ -149,6 +149,8 @@ __global__ void svd_kernel(double * A, double * VT, const int nx, const int ny, 
 
 int test1 () 
 {
+  cudaSetDevice(0);
+  cudaDeviceReset();
 
   const int nx = 16, ny = 16;
   

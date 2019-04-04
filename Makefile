@@ -1,8 +1,6 @@
 .SUFFIXES: .cu
 
-#USE_MKL = TRUE
-
-NVCC = /usr/local/cuda-10.0/bin/nvcc 
+NVCC = nvcc 
 NVCC += -ccbin g++ -std=c++11 -m64
 
 HOME_DIR = ./
@@ -28,6 +26,8 @@ NVCCFLAGS += $(ARCH)
 
 LDFLAGS = -lstdc++ -lm -lcuda -lcudart 
 LDFLAGS += -L/usr/lib/x86_64-linux-gnu $(ARCH)
+
+#USE_MKL = TRUE
 
 ifdef USE_MKL
 
