@@ -91,111 +91,91 @@ template <class T> __device__ void blockDenseGemm_K1_RM (T * M, const T * A, con
   }
 }
 
-/* Find the index of the largest absolute value element in matrix[0], matrix[ld], ... matrix[(n-1) * ld]. */
-template <class T> __device__ int blockAllFindRowPivot (const T * M, const int n, const int ld, T * shm_max, int * shm_index)
+/* Find the index of the largest absolute value element across the warp. Returns lane number [0, 31]. */
+template <class T> __device__ int warpReduceMax_Index (const T max_in)
 {
-  const int warp_id = warp_rank();
-  const int lane_id = lane_rank();
+  T max = max_in; int max_lane = lane_rank();
 
-  int index = 0;
-  T max = 0;
+  for (int mask = warpSize / 2; mask > 0; mask /= 2)
+  {
+    const T s_max = __shfl_xor_sync (0xffffffff, max, mask, warpSize);
+    const int s_lane = __shfl_xor_sync (0xffffffff, max_lane, mask, warpSize);
+    if (s_max > max || (s_max == max && s_lane < max_lane))
+    { max = s_max; max_lane = s_lane; }
+  }
 
-  /* Load all row entries in warps: Each warp can handle more than 1 warpsize of data or no data. */
+  return max_lane;
+}
+
+/* Find the index of the largest absolute value element in matrix[0], matrix[1], ... matrix[n-1]. Returns [0, n-1]. */
+template <class T> __device__ int blockReduceMax_Index (const T * M, const int n, int * shm)
+{
+  T max = 0; int index = 0;
+  
   for (int i = thread_rank(); i < n; i += block_dim())
   {
-    const T value = abs(M[i * ld]);
+    const T value = abs (M[i]);
     if (value > max)
     { max = value; index = i; }
   }
 
-  /* Reduction in all warps. No need to explicitly sync because warp shfl implies synchronization. */
-  for (int mask = warpSize / 2; mask > 0; mask /= 2)
+  if (lane_rank() == warpReduceMax_Index(max))
+  { shm[warp_rank()] = index; }
+  __syncthreads();
+
+  if (num_warps() > 1 && warp_rank() == 0)
   {
-    const T s_max = __shfl_xor_sync(0xffffffff, max, mask, warpSize);
-    const int s_index = __shfl_xor_sync(0xffffffff, index, mask, warpSize);
-    if (s_max > max)
-    { max = s_max; index = s_index; }
-  }
-
-  /* The first lane of each warp writes into their corresponding shared memory slot. */
-  if (lane_id == 0) { shm_max[warp_id] = max; shm_index[warp_id] = index; }
-
-  /* Sync here to make sure shared mem is properly initialized, and reductions in all warps are completed. */
-  __syncthreads(); 
-
-  /* Do the final reduction in the first warp, if there are more than 1 warp. */
-  if (block_dim() > warpSize && warp_id == 0)
-  {
-    for (int i = lane_id; i < num_warps(); i += warpSize)
+    max = 0; index = 0;
+    for (int i = lane_rank(); i < num_warps(); i += warpSize)
     {
-      const T value = shm_max[i];
+      const T value = abs (M[ shm[i] ]);
       if (value > max)
-      { max = value; index = shm_index[i]; }
+      { max = value; index = shm[i]; }
     }
 
-    for (int mask = warpSize / 2; mask > 0; mask /= 2)
-    {
-      const T s_max = __shfl_xor_sync(0xffffffff, max, mask, warpSize);
-      const int s_index = __shfl_xor_sync(0xffffffff, index, mask, warpSize);
-      /* Uses more strict comparison to resolve ties. */
-      if (s_max > max || (s_max == max && s_index < index))
-      { max = s_max; index = s_index; }
-    }
-
-    if (lane_id == 0)
-    {
-      shm_max[lane_id] = max;
-      shm_index[lane_id] = index;
-    }
+    if (lane_rank() == warpReduceMax_Index(max))
+    { shm[0] = index; }
   }
 
-  /* Sync here to stop other warps and waits for warp 0. */
   __syncthreads(); 
 
-  return shm_index[0];
+  return shm[0];
 }
 
 /* Exchange row1[0] with row2[0], row1[1] with row2[1], ... row1[n-1] with row2[n-1]. */
-template <class T> __device__ void blockSwapNSeqElements(T *row1, T *row2, const int n)
+template <class T> __device__ void blockSwapRows (T * row1, T * row2, const int n)
 {
-  /* Using a group of threads to exchange all elements in row with target row. */
-  const int thread_id = thread_rank();
-  const int block_size = block_dim();
-
-  /* swapping n elements in two rows. */
-  for (int i = thread_id; i < n; i += block_size) 
+  for (int i = thread_rank(); i < n; i += block_dim())
   { const T t = row1[i]; row1[i] = row2[i]; row2[i] = t; }
 }
 
-/* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. */
-template <class T> __device__ void blockApplyPivot(T * M, const int * p, const int nx, const int ny, const int ld, const bool recover)
+/* Exchange col1[0] with col2[0], col1[1] with col2[1], ... col1[n-1] with col2[n-1]. */
+template <class T> __device__ void blockSwapColumns (T * col1, T * col2, const int n, const int ld)
 {
-  for (int i = 0; i < ny; i++)
-  {
-    __shared__ bool smallest_row_in_cycle;
-    if (thread_rank() == 0)
-    {
-      smallest_row_in_cycle = true;
-      int swapping_with = p[i];
+  for (int i = thread_rank(); i < n; i += block_dim())
+  { const T t = col1[i * ld]; col1[i * ld] = col2[i * ld]; col2[i * ld] = t; }
+}
 
-      while (smallest_row_in_cycle && swapping_with != i)
-      {
-        if (swapping_with < i) { smallest_row_in_cycle = false; }
-        swapping_with = p[swapping_with];
-      }
+/* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. Utilizes L1. */
+template <class T, int shm_size> __device__ void blockApplyPivot (T * M, const int * p, const int nx, const int ny, const int ld, const bool recover)
+{
+  __shared__ T shm[shm_size];
+  const int step_size = shm_size / ny;
+
+  for (int n = 0; n < nx; n += step_size)
+  {
+    const int cols = (nx - n > step_size) ? step_size : nx - n;
+    for (int i = thread_rank(); i < cols * ny; i++)
+    {
+      const int row = i / cols, col = i - row * cols, target = p[row];
+      if (recover)
+      { shm[target * cols + col] = M[row * ld + n + col]; }
+      else
+      { shm[row * cols + col] = M[target * ld + n + col]; }
     }
     __syncthreads();
 
-    if (smallest_row_in_cycle)
-    {
-      int source_row = i, swapping_with = p[i];
-      while (swapping_with != i)
-      {
-        blockSwapNSeqElements <T> (&M[source_row * ld], &M[swapping_with * ld], nx);
-        source_row = recover ? i : swapping_with;
-        swapping_with = p[swapping_with];
-      }
-    }
+    matrixCopy(&shm[0], &M[n], cols, ny, cols, ld);
     __syncthreads();
   }
 }
@@ -207,19 +187,6 @@ __device__ void resetPivot (int *p, const int n)
   { p[i] = i; }
 }
 
-/* LU decomposition of matrix of ny by nx. */
-template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const int ny, const int ld)
-{
-  for (int i = 0; i < nx && i < ny; i++)
-  {
-    blockDenseScalar <T> (1.0 / M[i * ld + i], &M[(i + 1) * ld + i], 1, ny - (i + 1), ld);
-    __syncthreads();
-
-    blockDenseGemm_K1_RM <T> (&M[(i + 1) * ld + (i + 1)], &M[(i + 1) * ld + i], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, ld);
-    __syncthreads();
-  }
-}
-
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
 template <class T, int shm_size> __device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
 {
@@ -229,27 +196,31 @@ template <class T, int shm_size> __device__ void blockDenseGetrf_shm (T * M, con
 
   for (int i = 0; i < nx && i < ny; i++)
   {
+    matrixCopy <T> (&M[i * ld + i], &shm[0], 1, ny - i, ld, 1);
+    __syncthreads();
+
     if (p != nullptr)
     {
-      const int target = i + blockAllFindRowPivot <T> (&M[i * ld + i], ny - i, ld, (T *) &shm[0], (int *) &shm[shm_size / 2]);
+      const int target = i + blockReduceMax_Index <T> (&shm[0], ny - i, (int *) &shm[ny - i]);
 
       if (target != i)
       {
-        blockSwapNSeqElements <T> (&M[target * ld], &M[i * ld], nx);
+        blockSwapRows(&M[target * ld], &M[i * ld], nx);
         if (thread_rank() == 0)
-        { int t = p[target]; p[target] = p[i]; p[i] = t; }
-        __syncthreads();
+        { 
+          int t0 = p[target]; p[target] = p[i]; p[i] = t0;
+          T t1 = shm[0]; shm[0] = shm[target - i]; shm[target - i] = t1;
+        }
       }
+      __syncthreads();
     }
 
-    matrixCopy <T> (&M[(i + 1) * ld + i], &shm[0], 1, ny - (i + 1), ld, 1);
-
-    blockVectorScalar <T> (1.0 / M[i * ld + i], &shm[0], ny - (i + 1));
+    blockVectorScalar <T> (1.0 / shm[0], &shm[1], ny - (i + 1));
     __syncthreads();
 
-    blockDenseGemm_K1_RM <T> (&M[(i + 1) * ld + (i + 1)], &shm[0], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, 1);
+    blockDenseGemm_K1_RM <T> (&M[(i + 1) * ld + (i + 1)], &shm[1], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, 1);
 
-    matrixCopy <T> (&shm[0], &M[(i + 1) * ld + i], 1, ny - (i + 1), 1, ld);
+    matrixCopy <T> (&shm[0], &M[i * ld + i], 1, ny - i, 1, ld);
     __syncthreads();
   }
 }
@@ -264,22 +235,7 @@ template <class T> __device__ void blockDenseTrsmL (T * B, const T * L, const in
   }
 }
 
-/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-template <class T> __device__ void blockDenseTrsmR (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
-{
-  for (int i = 0; i < nx_b && i < ny_u; i++)
-  {
-    blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
-    __syncthreads();
-    if (nx_b > i + 1)
-    { 
-      blockDenseGemm_K1_RM <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), ld_b, ld_b); 
-      __syncthreads();
-    }
-  }
-}
-
-/* TRSMR that utilizes L1 cache. */
+/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. Utilizes L1 cache. */
 template <class T, int shm_size> __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
   __shared__ T shm[shm_size];

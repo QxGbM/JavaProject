@@ -1,17 +1,7 @@
-#ifndef _SVD_CUH
-#define _SVD_CUH
+#ifndef _DEV_LOW_RANK_FUNCS_CUH
+#define _DEV_LOW_RANK_FUNCS_CUH
 
 #include <pspl.cuh>
-
-template <class T> __device__ void blockSwapColumns (T * col1, T * col2, const int ny, const int ld)
-{
-  for (int i = thread_rank(); i < ny; i += block_dim())
-  {
-    const T t = col1[i * ld]; 
-    col1[i * ld] = col2[i * ld]; 
-    col2[i * ld] = t;
-  }
-}
 
 template <class T> __device__ void blockRotateColumns (T * col1, T * col2, const int ny, const int ld, const double sine, const double cosine)
 {
@@ -137,57 +127,12 @@ template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, c
         { iter = true; }
       }
     }
+
+    __syncthreads();
   }
   return iter_counter;
 }
 
-__global__ void svd_kernel(double * A, double * VT, const int nx, const int ny, const int ld_a, const int ld_v)
-{
-  int i = blockJacobiSVD <double> (A, VT, nx, ny, ld_a, ld_v, 1.0e-14, 100);
-  if (thread_rank() == 0) { printf("iters: %d\n", i); }
-}
 
-int test1 () 
-{
-  cudaSetDevice(0);
-  cudaDeviceReset();
-
-  const int nx = 16, ny = 16;
-  
-  dev_dense <double> *d_VT, *d_A;
-
-  d_A = new dev_dense <double> (nx, ny);
-  d_A -> loadTestMatrix(20);
-
-  d_VT = new dev_dense <double> (nx, nx);
-  //d_VT -> loadIdentityMatrix();
-
-  double *A = d_A -> getElements();
-  double *VT = d_VT -> getElements();
-
-  timer myTimer = timer();
-
-  myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024>>> (A, VT, nx, ny, nx, nx);
-  myTimer.newEvent("SVD", end);
-
-  myTimer.dumpAllEvents_Sync();
-
-  for (int i = 0; i < nx; i++)
-  {
-    double s = 0.0;
-    for (int j = 0; j < ny; j++)
-    { s += A[j * nx + i] * A[j * nx + i]; }
-
-    s = sqrt(s);
-    printf("%d: %e\n", i, s);
-  }
-
-  dev_dense <double> *c = d_A -> matrixMultiplication(d_VT -> transpose());
-  d_A -> loadTestMatrix(20);
-  printf("Rel. L2 Error: %e\n\n", c -> L2Error(d_A));
-
-  return 0;
-}
 
 #endif

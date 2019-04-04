@@ -410,7 +410,7 @@ public:
         break;
 
       case pivot:
-        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
+        blockApplyPivot <T, 512> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
         break;
 
       }

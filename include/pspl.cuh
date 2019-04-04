@@ -62,7 +62,7 @@ __device__ inline int num_warps()
 #include <dev_dense_funcs.cuh>
 
 #include <dev_low_rank.cuh>
-#include <svd.cuh>
+#include <dev_low_rank_funcs.cuh>
 
 class h_index;
 class h_ops_tree;

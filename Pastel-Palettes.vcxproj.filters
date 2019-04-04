@@ -12,8 +12,8 @@
     <ClInclude Include="include\dev_hierarchical_index.cuh" />
     <ClInclude Include="include\dev_hierarchical_element.cuh" />
     <ClInclude Include="include\dev_hierarchical_ops_dag.cuh" />
-    <ClInclude Include="include\svd.cuh" />
     <ClInclude Include="include\inst_scheduler.cuh" />
+    <ClInclude Include="include\dev_low_rank_funcs.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
