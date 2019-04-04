@@ -5,7 +5,7 @@ template <class T> __global__ void kernel(inst_handler <T> ih) { ih.run(); }
 
 template <class T> __host__ int test0()
 {
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 32, levels = 0, dim = 256;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -14,16 +14,20 @@ template <class T> __host__ int test0()
   h_ops_dag *d = new h_ops_dag (a -> generateOps_GETRF());
 
   inst_handler <T> *ih = new inst_handler <T> (d, a);
-  ih->print();
-  delete d;
 
   timer myTimer = timer();
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
+
+  if (sizeof(T) == 8) 
+  {
+    printf("shared mem double precision.\n"); 
+    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+  }
   
-  const int blocks = (n > 16) ? n * 2 : 32, threads = 1024;
+  const int blocks = (n > 8) ? n * 4 : 32, threads = 1024;
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **)&ih, dim * dim * sizeof(T), main_stream);
+  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **)&ih, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
@@ -31,13 +35,13 @@ template <class T> __host__ int test0()
 
   if (error == cudaSuccess)
   {
-    delete ih;
     dev_dense <T> *b = a -> convertToDense() -> restoreLU();
     a -> loadTestMatrix(levels, n, dim);
     dev_dense <T> *c = a -> convertToDense();
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
     delete a, b, c;
   }
+  delete d, ih;
 
   cudaStreamDestroy(main_stream);
   cudaDeviceReset();
@@ -47,7 +51,7 @@ template <class T> __host__ int test0()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  test0 <float> ();
   //test1();
 
   return 0;

@@ -12,7 +12,13 @@ template <class T> __device__ void matrixCopy (const T * from, T * to, const int
     const int row = i / nx, col = i - row * nx;
     to[row * ld_to + col] = from[row * ld_from + col];
   }
-  __syncthreads();
+}
+
+/* Scalar of a vector of length n. */
+template <class T> __device__ void blockVectorScalar(const T scale, T * V, const int n)
+{
+  for (int i = thread_rank(); i < n; i += block_dim())
+  { V[i] = (scale == 0) ? 0 : V[i] * scale; }
 }
 
 /* Scalar of a matrix of ny by nx. */
@@ -23,7 +29,6 @@ template <class T> __device__ void blockDenseScalar (const T scale, T * M, const
     const int row = i / nx, col = i - row * nx;
     M[row * ld + col] = (scale == 0) ? 0 : M[row * ld + col] * scale;
   }
-  __syncthreads();
 }
 
 /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
@@ -42,7 +47,6 @@ template <class T> __device__ void blockDenseGemm (const double alpha, const dou
     }
     M[row * ld_m + col] = old + accum;
   }
-  __syncthreads();
 }
 
 /* An overloaded version gemm that uses alpha = -1 and beta = 1. */
@@ -56,18 +60,34 @@ template <class T> __device__ void blockDenseGemm (T * M, const T * A, const T *
     { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
     M[row * ld_m + col] -= accum;
   }
-  __syncthreads();
+}
+
+template <class T, int shm_size> __device__ void blockDenseGemm_shm (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+{
+  __shared__ T shm[shm_size];
+  const int step_size = shm_size / k;
+
+#pragma unroll
+  for (int col = 0; col < n; col += step_size)
+  {
+    const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
+    
+    matrixCopy <T> (&B[col], &shm[0], num_cols, k, ld_b, num_cols);
+    __syncthreads();
+
+    blockDenseGemm <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
+    __syncthreads();
+  }
 }
 
 /* An overloaded version gemm that uses alpha = -1, beta = 1 and k = 1. */
-template <class T> __device__ void blockDenseGemm_K1 (T * M, const T * A, const T * B, const int m, const int n, const int ld_m, const int ld_a, const int ld_b)
+template <class T> __device__ void blockDenseGemm_K1 (T * M, const T * A, const T * B, const int m, const int n, const int ld_m, const int ld_a)
 {
   for (int i = thread_rank(); i < m * n; i += block_dim())
   {
     const int row = i / n, col = i - row * n;
     M[row * ld_m + col] -= A[row * ld_a] * B[col];
   }
-  __syncthreads();
 }
 
 /* Find the index of the largest absolute value element in matrix[0], matrix[ld], ... matrix[(n-1) * ld]. */
@@ -185,12 +205,8 @@ template <class T> __device__ void blockApplyPivot(T * M, const int * p, const i
 /* Set pivot[0] = 0, pivot[1] = 1, ... pivot[n-1] = n-1. */
 __device__ void resetPivot(int *p, const int n)
 {
-  const int thread_id = thread_rank();
-  const int block_size = block_dim();
-  for (int i = thread_id; i < n; i += block_size)
-  {
-    p[i] = i;
-  }
+  for (int i = thread_rank(); i < n; i += block_dim())
+  { p[i] = i; }
 }
 
 template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
@@ -207,36 +223,61 @@ template <class T> __device__ void blockDenseGetrf (T * M, const int nx, const i
       {
         blockSwapNSeqElements <T>(&M[target * ld], &M[i * ld], nx);
         if (thread_rank() == 0)
-        {
-          int t = p[target]; p[target] = p[i]; p[i] = t;
-        }
+        { int t = p[target]; p[target] = p[i]; p[i] = t; }
         __syncthreads();
       }
     }
 
     blockDenseScalar <T>(1.0 / M[i * ld + i], &M[(i + 1) * ld + i], 1, ny - (i + 1), ld);
+    __syncthreads();
 
-    blockDenseGemm_K1 <T> (&M[(i + 1) * ld + (i + 1)], &M[(i + 1) * ld + i], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, ld, ld);
+    blockDenseGemm_K1 <T> (&M[(i + 1) * ld + (i + 1)], &M[(i + 1) * ld + i], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, ld);
+    __syncthreads();
   }
 }
 
 /* Pivoted LU decomposition of matrix of ny by nx. */
-template <class T> __device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
+template <class T, int shm_size> __device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
 {
-  extern __shared__ T M_shm[];
+  if (p != nullptr) { resetPivot(p, ny); }
 
-  matrixCopy <T> (M, &M_shm[0], nx, ny, ld, nx);
+  __shared__ T shm[shm_size];
 
-  blockDenseGetrf <T> (&M_shm[0], nx, ny, nx, p);
+  for (int i = 0; i < nx && i < ny; i++)
+  {
+    if (p != nullptr)
+    {
+      const int target = i + blockAllFindRowPivot <T> (&M[i * ld + i], ny - i, ld);
 
-  matrixCopy <T> (&M_shm[0], M, nx, ny, nx, ld);
+      if (target != i)
+      {
+        blockSwapNSeqElements <T> (&M[target * ld], &M[i * ld], nx);
+        if (thread_rank() == 0)
+        { int t = p[target]; p[target] = p[i]; p[i] = t; }
+        __syncthreads();
+      }
+    }
+
+    matrixCopy <T> (&M[(i + 1) * ld + i], &shm[0], 1, ny - (i + 1), ld, 1);
+
+    blockVectorScalar <T> (1.0 / M[i * ld + i], &shm[0], ny - (i + 1));
+    __syncthreads();
+
+    blockDenseGemm_K1 <T> (&M[(i + 1) * ld + (i + 1)], &shm[0], &M[i * ld + (i + 1)], ny - (i + 1), nx - (i + 1), ld, 1);
+
+    matrixCopy <T> (&shm[0], &M[(i + 1) * ld + i], 1, ny - (i + 1), 1, ld);
+    __syncthreads();
+  }
 }
 
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
 template <class T> __device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
-  for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
-  { blockDenseGemm_K1 <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_b - (i + 1), nx_b, ld_b, ld_l, ld_b); }
+  for (int i = 0; i < nx_b && i < nx_l && i + 1 < ny_b; i++)
+  { 
+    blockDenseGemm_K1 <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_b - (i + 1), nx_b, ld_b, ld_l);
+    __syncthreads();
+  }
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
@@ -245,8 +286,31 @@ template <class T> __device__ void blockDenseTrsmR (T * B, const T * U, const in
   for (int i = 0; i < nx_b && i < ny_u; i++)
   {
     blockDenseScalar <T> (1.0 / U[i * ld_u + i], &B[i], 1, ny_b, ld_b);
-    if (nx_b - i > 1)
-    { blockDenseGemm_K1 <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), ld_b, ld_b, ld_u); }
+    __syncthreads();
+    if (nx_b > i + 1)
+    { 
+      blockDenseGemm_K1 <T> (&B[i + 1], &B[i], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), ld_b, ld_b); 
+      __syncthreads();
+    }
+  }
+}
+
+template <class T, int shm_size> __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+{
+  __shared__ T shm[shm_size];
+
+  for (int i = 0; i < nx_b && i < ny_u; i++)
+  {
+    matrixCopy <T> (&B[i], &shm[0], 1, ny_b, ld_b, 1);
+
+    blockVectorScalar <T> (1.0 / U[i * ld_u + i], &shm[0], ny_b);
+    __syncthreads();
+
+    if (nx_b > i + 1)
+    { blockDenseGemm_K1 <T> (&B[i + 1], &shm[0], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), ld_b, 1); }
+
+    matrixCopy <T> (&shm[0], &B[i], 1, ny_b, 1, ld_b);
+    __syncthreads();
   }
 }
 

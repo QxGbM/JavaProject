@@ -430,23 +430,23 @@ public:
       case nop: break;
 
       case getrf: 
-        blockDenseGetrf_shm (m1, inst[3], inst[4], inst[5], p); 
+        blockDenseGetrf_shm <T, 512> (m1, inst[3], inst[4], inst[5], p); 
         break;
         
       case trsml:
-        blockDenseTrsmL(m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmL (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
         break;
 
       case trsmr:
-        blockDenseTrsmR(m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmR_shm <T, 512> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
         break;
 
       case gemm:
-        blockDenseGemm(m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
+        blockDenseGemm_shm <T, 4096> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
         break;
 
       case pivot:
-        blockApplyPivot(m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
+        blockApplyPivot (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
         break;
 
       }

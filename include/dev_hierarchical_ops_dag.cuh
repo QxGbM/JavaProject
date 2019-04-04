@@ -101,7 +101,6 @@ public:
     }
 
     fops = ops -> getFops_All();
-
   }
 
   __host__ ~h_ops_dag ()
