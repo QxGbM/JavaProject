@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 16, levels = 0, dim = 256;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -57,7 +57,8 @@ template <class T> __host__ int test0()
 
 __global__ void svd_kernel(double * A, double * VT, const int nx, const int ny, const int ld_a, const int ld_v)
 {
-  int i = blockJacobiSVD <double>(A, VT, nx, ny, ld_a, ld_v, 1.0e-14, 100);
+  __shared__ double shm[256];
+  int i = blockJacobiSVD <double> (A, VT, nx, ny, ld_a, ld_v, 1.0e-14, 100, &shm[0]);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -154,9 +155,9 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  //test0 <double> ();
   test1();
-  test2();
+  //test2();
 
   return 0;
 }

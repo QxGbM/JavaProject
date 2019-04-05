@@ -20,53 +20,52 @@ template <class T> __device__ T warpAllReduceSum (T value)
   return value;
 }
 
-template <class T> __device__ T blockAllReduceSum (T value)
+template <class T> __device__ T blockAllReduceSum (T value, T * shm)
 {
-  value = warpAllReduceSum(value);
+  value = warpAllReduceSum <T> (value);
 
-  __shared__ T warp_sum[MAX_WARPS];
   if (lane_rank() == 0)
-  { warp_sum[warp_rank()] = value; }
+  { shm[warp_rank()] = value; }
   __syncthreads();
 
   if (block_dim() > warpSize && warp_rank() == 0)
   {
     value = 0;
     for (int i = lane_rank(); i < num_warps(); i += warpSize)
-    { value += warp_sum[i]; }
+    { value += shm[i]; }
 
-    value = warpAllReduceSum(value);
+    value = warpAllReduceSum <T> (value);
     if (lane_rank() == 0)
-    { warp_sum[0] = value; }
+    { shm[0] = value; }
   }
   __syncthreads();
 
-  return warp_sum[0];
+  return shm[0];
 }
 
-template <class T> __device__ T blockVectorMultiplication (const T * vec, const int length, const int ld)
+template <class T> __device__ T blockVectorMultiplication (const T * vec, const int length, const int ld, T * shm)
 {
   T thread_sum = 0;
   for (int i = thread_rank(); i < length; i += block_dim())
   { thread_sum += vec[i * ld] * vec[i * ld]; }
 
-  return blockAllReduceSum(thread_sum);
+  return blockAllReduceSum <T> (thread_sum, shm);
 }
 
-template <class T> __device__ T blockVectorMultiplication (const T * vec1, const T * vec2, const int length, const int ld_1, const int ld_2)
+template <class T> __device__ T blockVectorMultiplication (const T * vec1, const T * vec2, const int length, const int ld_1, const int ld_2, T * shm)
 {
   T thread_sum = 0;
   for (int i = thread_rank(); i < length; i += block_dim())
   { thread_sum += vec1[i * ld_1] * vec2[i * ld_2]; }
 
-  return blockAllReduceSum(thread_sum);
+  return blockAllReduceSum <T> (thread_sum, shm);
 }
 
-template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const int col_i, const int col_j)
+template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const int col_i, const int col_j, T * shm)
 {
-  const T s_ii = blockVectorMultiplication <T> (&A[col_i], ny, ld_a);
-  const T s_jj = blockVectorMultiplication <T> (&A[col_j], ny, ld_a);
-  const T s_ij = blockVectorMultiplication <T> (&A[col_i], &A[col_j], ny, ld_a, ld_a);
+  const T s_ii = blockVectorMultiplication <T> (&A[col_i], ny, ld_a, &shm[0]);
+  const T s_jj = blockVectorMultiplication <T> (&A[col_j], ny, ld_a, &shm[num_warps()]);
+  const T s_ij = blockVectorMultiplication <T> (&A[col_i], &A[col_j], ny, ld_a, ld_a, &shm[2 * num_warps()]);
 
   if (s_ii > s_jj)
   {
@@ -74,24 +73,24 @@ template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int
     blockSwapColumns <T> (&VT[col_i], &VT[col_j], nx, ld_v);
   }
 
-  __shared__ double sine, cosine, conv;
+  double * shm_double = (double *) &shm[3 * num_warps()];
   if (thread_rank() == 0)
   {
     const double torque = (double) ((s_jj - s_ii) / (2.0 * s_ij));
     const int sign_torque = (int) (torque >= 0.0) * 2 - 1;
     const double abs_torque = sign_torque * torque;
     const double tangent = sign_torque / (abs_torque + sqrt(1.0 + torque * torque));
-    cosine = 1.0 / (sqrt(1.0 + tangent * tangent));
-    sine = cosine * tangent;
-    conv = (s_ij > 0) ? (double) s_ij : (double) -s_ij;
+    shm_double[2] = 1.0 / (sqrt(1.0 + tangent * tangent));
+    shm_double[1] = shm_double[2] * tangent;
+    shm_double[0] = (s_ij > 0) ? (double) s_ij : (double) -s_ij;
   }
   __syncthreads();
 
-  blockRotateColumns <T> (&A[col_i], &A[col_j], ny, ld_a, sine, cosine);
-  blockRotateColumns <T> (&VT[col_i], &VT[col_j], nx, ld_v, sine, cosine);
+  blockRotateColumns <T> (&A[col_i], &A[col_j], ny, ld_a, shm_double[1], shm_double[2]);
+  blockRotateColumns <T> (&VT[col_i], &VT[col_j], nx, ld_v, shm_double[1], shm_double[2]);
   __syncthreads();
 
-  return conv;
+  return shm_double[0];
 }
 
 template <class T> __device__ void resetVT (T * VT, const int n, const int ld)
@@ -103,34 +102,45 @@ template <class T> __device__ void resetVT (T * VT, const int n, const int ld)
   }
 }
 
-template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const double epi, const int iter_limit)
+template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const double epi, const int iter_limit, T * shm)
 {
-  __shared__ bool iter;
-  __shared__ int iter_counter;
-
   resetVT (VT, nx, ld_v);
+  int * iter = (int *) &shm[0], * loop_counter = (int *) &shm[1];
   if (thread_rank() == 0) 
-  { iter_counter = 0; iter = true; }
+  { *iter = 1; *loop_counter = 0; }
   __syncthreads();
 
-  while (iter && iter_counter < iter_limit)
+  while (*iter && *loop_counter < iter_limit)
   {
     if (thread_rank() == 0)
-    { iter = false; iter_counter ++; }
+    { *iter = 0; (*loop_counter) ++; }
 
     for (int i = 1; i < nx; i++)
     {
       for (int j = 0; j < i; j++)
       {
-        const double conv = blockJacobiRotate <T> (A, VT, nx, ny, ld_a, ld_v, i, j);
+        const double conv = blockJacobiRotate <T> (A, VT, nx, ny, ld_a, ld_v, i, j, &shm[2]);
         if (thread_rank() == 0 && conv > epi)
-        { iter = true; }
+        { *iter = 1; }
       }
     }
 
     __syncthreads();
   }
-  return iter_counter;
+  return *loop_counter;
+}
+
+template <class T> __device__ double sumSquaredDifference (const T * A, const T * B, const int nx, const int ny, const int ld_a, const int ld_b, T * shm)
+{
+  double thread_sum = 0.;
+  for (int i = thread_rank(); i < nx * ny; i += block_dim())
+  { 
+    const int row = i / nx, col = i - row * nx;
+    const double diff = A[row * ld_a + col] * B[row * ld_b + col];
+    thread_sum += diff * diff; 
+  }
+
+  return blockAllReduceSum <double> (thread_sum, (double *) shm);
 }
 
 
