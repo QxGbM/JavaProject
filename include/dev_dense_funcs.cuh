@@ -4,8 +4,9 @@
 
 #include <pspl.cuh>
 
+template <class T>
 /* A convinient call to copy from shared memory to global or vice versa. */
-template <class T> __device__ void matrixCopy (const T * from, T * to, const int nx, const int ny, const int ld_from, const int ld_to)
+__device__ void matrixCopy (const T * from, T * to, const int nx, const int ny, const int ld_from, const int ld_to)
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
@@ -14,15 +15,17 @@ template <class T> __device__ void matrixCopy (const T * from, T * to, const int
   }
 }
 
+template <class T> 
 /* Scalar of a vector of length n. */
-template <class T> __device__ void blockVectorScalar(const T scale, T * V, const int n)
+__device__ void blockVectorScalar(const T scale, T * V, const int n)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { V[i] = (scale == 0) ? 0 : V[i] * scale; }
 }
 
+template <class T> 
 /* Scalar of a matrix of ny by nx. */
-template <class T> __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int ny, const int ld)
+__device__ void blockDenseScalar (const T scale, T * M, const int nx, const int ny, const int ld)
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   { 
@@ -31,26 +34,9 @@ template <class T> __device__ void blockDenseScalar (const T scale, T * M, const
   }
 }
 
-/* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = alpha * A * B + beta * old_matrix. */
-template <class T> __device__ void blockDenseGemm (const double alpha, const double beta, T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
-{
-  for (int i = thread_rank(); i < m * n; i += block_dim())
-  { 
-    const int row = i / n, col = i - row * n;
-    const T old = (beta == 0) ? 0 : beta * M[row * ld_m + col];
-    T accum = 0;
-    if (alpha != 0)
-    {
-      for (int j = 0; j < k; j++)
-      { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
-      accum *= alpha;
-    }
-    M[row * ld_m + col] = old + accum;
-  }
-}
-
-/* An overloaded version gemm that uses alpha = -1 and beta = 1. Scanning row major. */
-template <class T> __device__ void blockDenseGemm_RM (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+template <class T> 
+/* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = old_matrix - A * B. Scanning row major. */
+__device__ void blockDenseGemm_RM (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
 {
   for (int i = thread_rank(); i < m * n; i += block_dim())
   {
@@ -63,9 +49,9 @@ template <class T> __device__ void blockDenseGemm_RM (T * M, const T * A, const 
 }
 
 /* An overloaded version gemm that uses alpha = -1 and beta = 1. Caches columns in L1, scanning row major. */
-template <class T, int shm_size> __device__ void blockDenseGemm_Cshm_RM (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+template <class T> 
+__device__ void blockDenseGemm_Cshm_RM (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, T * shm, const int shm_size)
 {
-  __shared__ T shm[shm_size];
   const int step_size = shm_size / k;
 
 #pragma unroll
@@ -81,8 +67,9 @@ template <class T, int shm_size> __device__ void blockDenseGemm_Cshm_RM (T * M, 
   }
 }
 
+template <class T> 
 /* An overloaded version gemm that uses alpha = -1, beta = 1 and k = 1, scanning in row major. */
-template <class T> __device__ void blockDenseGemm_K1_RM (T * M, const T * A, const T * B, const int m, const int n, const int ld_m, const int ld_a)
+__device__ void blockDenseGemm_K1_RM (T * M, const T * A, const T * B, const int m, const int n, const int ld_m, const int ld_a)
 {
   for (int i = thread_rank(); i < m * n; i += block_dim())
   {
@@ -91,8 +78,9 @@ template <class T> __device__ void blockDenseGemm_K1_RM (T * M, const T * A, con
   }
 }
 
+template <class T> 
 /* Find the index of the largest absolute value element across the warp. Returns lane number [0, 31]. */
-template <class T> __device__ int warpReduceMax_Index (const T max_in)
+__device__ int warpReduceMax_Index (const T max_in)
 {
   T max = max_in; int max_lane = lane_rank();
 
@@ -107,8 +95,9 @@ template <class T> __device__ int warpReduceMax_Index (const T max_in)
   return max_lane;
 }
 
+template <class T> 
 /* Find the index of the largest absolute value element in matrix[0], matrix[1], ... matrix[n-1]. Returns [0, n-1]. */
-template <class T> __device__ int blockReduceMax_Index (const T * M, const int n, int * shm)
+__device__ int blockReduceMax_Index (const T * M, const int n, int * shm)
 {
   T max = 0; int index = 0;
   
@@ -142,24 +131,26 @@ template <class T> __device__ int blockReduceMax_Index (const T * M, const int n
   return shm[0];
 }
 
+template <class T> 
 /* Exchange row1[0] with row2[0], row1[1] with row2[1], ... row1[n-1] with row2[n-1]. */
-template <class T> __device__ void blockSwapRows (T * row1, T * row2, const int n)
+__device__ void blockSwapRows (T * row1, T * row2, const int n)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { const T t = row1[i]; row1[i] = row2[i]; row2[i] = t; }
 }
 
+template <class T> 
 /* Exchange col1[0] with col2[0], col1[1] with col2[1], ... col1[n-1] with col2[n-1]. */
-template <class T> __device__ void blockSwapColumns (T * col1, T * col2, const int n, const int ld)
+__device__ void blockSwapColumns (T * col1, T * col2, const int n, const int ld)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { const T t = col1[i * ld]; col1[i * ld] = col2[i * ld]; col2[i * ld] = t; }
 }
 
+template <class T> 
 /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. Utilizes L1. */
-template <class T, int shm_size> __device__ void blockApplyPivot (T * M, const int * p, const int nx, const int ny, const int ld, const bool recover)
+__device__ void blockApplyPivot (T * M, const int * p, const int nx, const int ny, const int ld, const bool recover, T * shm, const int shm_size)
 {
-  __shared__ T shm[shm_size];
   const int step_size = shm_size / ny;
 
   for (int n = 0; n < nx; n += step_size)
@@ -187,12 +178,11 @@ __device__ void resetPivot (int *p, const int n)
   { p[i] = i; }
 }
 
+template <class T> 
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-template <class T, int shm_size> __device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p = nullptr)
+__device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p, T * shm, const int shm_size)
 {
   if (p != nullptr) { resetPivot(p, ny); }
-
-  __shared__ T shm[shm_size];
 
   for (int i = 0; i < nx && i < ny; i++)
   {
@@ -225,8 +215,9 @@ template <class T, int shm_size> __device__ void blockDenseGetrf_shm (T * M, con
   }
 }
 
+template <class T>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-template <class T> __device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
+__device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
   for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
   { 
@@ -235,10 +226,10 @@ template <class T> __device__ void blockDenseTrsmL (T * B, const T * L, const in
   }
 }
 
+template <class T>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. Utilizes L1 cache. */
-template <class T, int shm_size> __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+ __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * shm, const int shm_size)
 {
-  __shared__ T shm[shm_size];
 
   for (int i = 0; i < nx_b && i < ny_u; i++)
   {

@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 256;
+  const int n = 16, levels = 0, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -35,7 +35,7 @@ template <class T> __host__ int test0()
   int look_ahead_offset = 64;
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <T>, blocks, threads, new void *[2]{ ih, &look_ahead_offset }, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[2]{ ih, &look_ahead_offset }, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
@@ -109,12 +109,14 @@ int test1()
 
 __global__ void partial_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
-  blockDenseGetrf_shm <double, 1024> (matrix, nx, ny, ld, pivot);
+  __shared__ double shm[4096];
+  blockDenseGetrf_shm <double> (matrix, nx, ny, ld, pivot, &shm[0], 4096);
 }
 
 __global__ void recover_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
-  blockApplyPivot <double, 512> (matrix, pivot, nx, ny, ld, true);
+  __shared__ double shm[4096];
+  blockApplyPivot <double> (matrix, pivot, nx, ny, ld, true, &shm[0], 4096);
 }
 
 __host__ int test2()
@@ -155,8 +157,8 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
-  test1();
+  test0 <double> ();
+  //test1();
   //test2();
 
   return 0;

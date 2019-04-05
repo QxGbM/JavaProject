@@ -383,6 +383,7 @@ public:
 
   __device__ void inst_execute (const int inst_num)
   {
+    __shared__ T shm[4096];
     if (inst_num >= 0)
     {
       const int *inst = insts[inst_num];
@@ -394,7 +395,7 @@ public:
       case nop: break;
 
       case getrf: 
-        blockDenseGetrf_shm <T, 512> (m1, inst[3], inst[4], inst[5], p); 
+        blockDenseGetrf_shm <T> (m1, inst[3], inst[4], inst[5], p, &shm[0], 4096);
         break;
         
       case trsml:
@@ -402,15 +403,15 @@ public:
         break;
 
       case trsmr:
-        blockDenseTrsmR_shm <T, 512> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmR_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], &shm[0], 4096);
         break;
 
       case gemm:
-        blockDenseGemm_Cshm_RM <T, 4096> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
+        blockDenseGemm_Cshm_RM <T> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9], &shm[0], 4096);
         break;
 
       case pivot:
-        blockApplyPivot <T, 512> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
+        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6], &shm[0], 4096);
         break;
 
       }
