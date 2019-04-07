@@ -130,6 +130,21 @@ template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, c
   return *loop_counter;
 }
 
+template <class T> __device__ void normalizeU (T * U, T * S, const int nx, const int ny, const int ld_u, const int ld_s)
+{
+  for (int i = thread_rank(); i < nx; i += block_dim())
+  {
+    T accum = 0;
+    for (int j = 0; j < ny; j++)
+    { accum += U[j * ld_u + i] * U[j * ld_u + i]; }
+    accum = sqrt(accum);
+    for (int j = 0; j < ny; j++)
+    { U[j * ld_u + i] /= accum; }
+    S[i * ld_s + i] = accum;
+  }
+
+}
+
 template <class T> __device__ double sumSquaredDifference (const T * A, const T * B, const int nx, const int ny, const int ld_a, const int ld_b, T * shm)
 {
   double thread_sum = 0.;

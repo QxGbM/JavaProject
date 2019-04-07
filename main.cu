@@ -58,10 +58,11 @@ template <class T> __host__ int test0()
   return 0;
 }
 
-__global__ void svd_kernel(double * A, double * VT, const int nx, const int ny, const int ld_a, const int ld_v)
+__global__ void svd_kernel (double * U, double *S, double * VT, const int nx, const int ny, const int rank)
 {
   __shared__ double shm[256];
-  int i = blockJacobiSVD <double> (A, VT, nx, ny, ld_a, ld_v, 1.0e-14, 100, &shm[0]);
+  int i = blockJacobiSVD <double> (U, VT, nx, ny, rank, rank, 1.0e-14, 100, &shm[0]);
+  normalizeU(U, S, nx, ny, rank, rank);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -72,40 +73,25 @@ int test1()
 
   const int nx = 16, ny = 16;
 
-  dev_dense <double> *d_VT, *d_A;
+  dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
-  d_A = new dev_dense <double>(nx, ny);
-  d_A->loadTestMatrix(20);
-
-  d_VT = new dev_dense <double>(nx, nx);
-  //d_VT -> loadIdentityMatrix();
-
-  double *A = d_A->getElements();
-  double *VT = d_VT->getElements();
+  A -> getU() -> loadTestMatrix(20);
 
   timer myTimer = timer();
 
   myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024 >>> (A, VT, nx, ny, nx, nx);
+  svd_kernel <<<1, 1024 >>> (A -> getElementsU(), A -> getElementsS(), A->getElementsVT(), nx, ny, A -> getRank());
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
 
-  for (int i = 0; i < nx; i++)
-  {
-    double s = 0.0;
-    for (int j = 0; j < ny; j++)
-    {
-      s += A[j * nx + i] * A[j * nx + i];
-    }
+  A->print();
 
-    s = sqrt(s);
-    printf("%d: %e\n", i, s);
-  }
+  dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
+  c->loadTestMatrix(20);
+  printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
 
-  dev_dense <double> *c = d_A->matrixMultiplication(d_VT->transpose());
-  d_A->loadTestMatrix(20);
-  printf("Rel. L2 Error: %e\n\n", c->L2Error(d_A));
+  delete A, b, c;
 
   return 0;
 }
@@ -161,8 +147,8 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
-  //test1();
+  //test0 <double> ();
+  test1();
   //test2();
 
   return 0;
