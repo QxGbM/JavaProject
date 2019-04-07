@@ -393,7 +393,7 @@ public:
       case nop: break;
 
       case getrf: 
-        blockDenseGetrf_shm <T> (m1, inst[3], inst[4], inst[5], p, shm, shm_size);
+        blockDenseGetrf_shm <T> (m1, inst[3], inst[4], inst[5], p, shm);
         break;
         
       case trsml:
@@ -401,7 +401,7 @@ public:
         break;
 
       case trsmr:
-        blockDenseTrsmR_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm, shm_size);
+        blockDenseTrsmR_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
         break;
 
       case gemm:

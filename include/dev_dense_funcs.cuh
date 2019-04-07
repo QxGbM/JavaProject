@@ -180,7 +180,7 @@ __device__ void resetPivot (int *p, const int n)
 
 template <class T> 
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p, T * shm, const int shm_size)
+__device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p, T * shm)
 {
   if (p != nullptr) { resetPivot(p, ny); }
 
@@ -228,7 +228,7 @@ __device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int n
 
 template <class T>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. Utilizes L1 cache. */
- __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * shm, const int shm_size)
+ __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * shm)
 {
 
   for (int i = 0; i < nx_b && i < ny_u; i++)

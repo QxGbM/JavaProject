@@ -11,10 +11,11 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 32, levels = 0, dim = 256;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
+  //a->print();
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
   h_ops_dag *d = new h_ops_dag (a -> generateOps_GETRF());
@@ -32,7 +33,7 @@ template <class T> __host__ int test0()
   }
   
   const int blocks = 64, threads = 1024;
-  int look_ahead_offset = 64;
+  int look_ahead_offset = 32;
 
   myTimer.newEvent("GETRF", start, main_stream);
   cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[2]{ ih, &look_ahead_offset }, 0, main_stream);
@@ -46,8 +47,10 @@ template <class T> __host__ int test0()
   {
     dev_dense <T> *b = a -> convertToDense() -> restoreLU();
     a -> loadTestMatrix(levels, n, dim);
+    //a->print();
     dev_dense <T> *c = a -> convertToDense();
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
+
     delete a, b, c;
   }
 
@@ -110,7 +113,7 @@ int test1()
 __global__ void partial_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[4096];
-  blockDenseGetrf_shm <double> (matrix, nx, ny, ld, pivot, &shm[0], 4096);
+  blockDenseGetrf_shm <double> (matrix, nx, ny, ld, pivot, &shm[0]);
 }
 
 __global__ void recover_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
@@ -123,10 +126,11 @@ __host__ int test2()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
-  const int nx = 256, ny = 128;
+  const int nx = 4, ny = 4;
 
   dev_dense <double> *a = new dev_dense <double> (nx, ny, nx, true);
   a -> loadRandomMatrix(-10, 10, 999);
+  a -> print();
 
   timer myTimer = timer();
 
@@ -135,7 +139,7 @@ __host__ int test2()
   myTimer.newEvent("pivot", end);
   cudaDeviceSynchronize();
 
-
+  a->print();
   dev_dense <double> *b = a -> restoreLU();
 
   myTimer.newEvent("pivot recovery", start);
