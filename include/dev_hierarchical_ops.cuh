@@ -6,7 +6,7 @@
 
 class h_ops
 {
-private:
+protected:
 
   operation_t op_type;
   h_index *wr;
@@ -239,24 +239,58 @@ public:
 
     printf(" [fp-ops: %llu]\n", getFops());
   }
+
+  __host__ h_ops * clone() const
+  {
+    switch (op_type)
+    {
+    case nop:
+      return new h_ops ();
+    case getrf: case pivot:
+      return new h_ops (getrf, &wr[0], dims[0], dims[1], lds[0]);
+    case trsml: case trsmr:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
+    case gemm:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2]);
+    default:
+      return nullptr;
+    }
+  }
   
 };
 
-class h_ops_tree 
+class h_ops_tree : public h_ops
 {
 private:
-
-  h_ops op;
 
   h_ops_tree * next;
   h_ops_tree * child;
 
 public:
 
-  __host__ h_ops_tree (const h_ops * op_in)
+  __host__ h_ops_tree (const operation_t op_in = nop) : h_ops (op_in)
   {
-    op = * op_in;
+    next = nullptr;
+    child = nullptr;
+  }
 
+  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const int nx, const int ny, const int ld) : 
+    h_ops (op_in, M, nx, ny, ld)
+  {
+    next = nullptr;
+    child = nullptr;
+  }
+
+  __host__ h_ops_tree (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, const int ld_b, const int ld_m) :
+    h_ops (op_in, B, M, nx_b, ny_b, dim_m, ld_b, ld_m)
+  {
+    next = nullptr;
+    child = nullptr;
+  }
+
+  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b) :
+    h_ops (op_in, M, A, B, m, n, k, ld_m, ld_a, ld_b)
+  {
     next = nullptr;
     child = nullptr;
   }
@@ -265,6 +299,11 @@ public:
   {
     delete child;
     delete next;
+  }
+
+  __host__ h_ops_tree * getNext () const
+  {
+    return next;
   }
 
   __host__ void hookup_next (h_ops_tree *tree)
@@ -296,29 +335,35 @@ public:
     return length;
   }
 
-  __host__ void flatten (h_ops * ops_list) const
+  __host__ h_ops_tree * clone() const
   {
-    if (child == nullptr) 
-    { 
-      ops_list[0] = op;
-      if (next != nullptr)
-      { next -> flatten (&ops_list[1]);}
-    }
-    else
+    switch (op_type)
     {
-      child -> flatten (ops_list);
-      if (next != nullptr)
-      {
-        int l_child = child -> length();
-        next -> flatten (&ops_list[l_child]);
-      }
+    case nop:
+      return new h_ops_tree();
+    case getrf: case pivot:
+      return new h_ops_tree(getrf, &wr[0], dims[0], dims[1], lds[0]);
+    case trsml: case trsmr:
+      return new h_ops_tree(op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
+    case gemm:
+      return new h_ops_tree(op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2]);
+    default:
+      return nullptr;
     }
+  }
+
+  __host__ h_ops_tree * flatten () const
+  {
+    h_ops_tree * list = (child == nullptr) ? clone() : child -> flatten();
+    if (next != nullptr)
+    { list -> hookup_next (next -> flatten()); }
+    return list;
   }
 
   __host__ unsigned long long int getFops() const
   {
     if (child == nullptr)
-    { return op.getFops(); }
+    { return h_ops::getFops(); }
     else
     { return child -> getFops_All(); }
   }
@@ -337,7 +382,7 @@ public:
 
     if (child == nullptr) { printf("%d: ", op_id); }
 
-    op.print();
+    h_ops::print();
 
     if (child != nullptr) { child -> print(op_id, indent + 1); }
 

@@ -69,27 +69,29 @@ class h_ops_dag
 private:
 
   int length;
-  h_ops * ops_list;
-  dependency_linked_list ** deps_graph;
   unsigned long long int fops;
+  h_ops_tree * ops_list;
+  dependency_linked_list ** deps_graph;
+
 
 public:
 
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
-    length = ops -> length();
-
-    ops_list = new h_ops [length];
+    ops_list = ops -> flatten();
+    fops = ops_list -> getFops_All();
+    length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
 
-    ops -> flatten(ops_list);
     memset(deps_graph, 0, length * sizeof(dependency_linked_list *));
 
-    for (int i = 0; i < length; i++)
+    int i = 1;
+    for (h_ops_tree * to = ops_list -> getNext(); i < length; to = to -> getNext(), i++)
     {
-      for (int j = 0; j < i; j++)
+      int j = 0;
+      for (h_ops_tree * from = ops_list; j < i; from = from -> getNext(), j++)
       {
-        dependency_t dep = ops_list[i].checkDependencyFrom(&ops_list[j]);
+        dependency_t dep = to -> checkDependencyFrom(from);
         if (dep > no_dep)
         {
           if (deps_graph[j] == nullptr)
@@ -100,15 +102,15 @@ public:
       }
     }
 
-    fops = ops -> getFops_All();
   }
 
   __host__ ~h_ops_dag ()
   {
     for (int i = 0; i < length; i++)
     { delete deps_graph[i]; }
-    delete[] ops_list;
     delete[] deps_graph;
+
+    delete ops_list;
 
     printf("-- DAG destroyed. --\n\n");
   }
@@ -120,7 +122,9 @@ public:
 
   __host__ h_ops * getOps (const int i) const
   {
-    return &ops_list[i];
+    h_ops_tree * op = ops_list;
+    for (int n = 0; n < i && op != nullptr; n++, op = op -> getNext()) {}
+    return op;
   }
 
   __host__ dependency_t getDep (const int from, const int to) const
@@ -164,10 +168,11 @@ public:
 
   __host__ void print() const
   {
-    for (int i = 0; i < length; i++)
+    h_ops_tree * to = ops_list;
+    for (int i = 0; i < length; i++, to = to -> getNext())
     {
       printf("Inst %d: ", i);
-      ops_list[i].print();
+      to -> h_ops::print();
       for (int j = 0; j < i; j++)
       {
         dependency_t dep = getDep(j, i);

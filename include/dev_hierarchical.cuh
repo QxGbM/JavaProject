@@ -127,7 +127,7 @@ public:
   __host__ const h_ops_tree * generateOps_GETRF () const
   {
     const h_index * root = getRootIndex();
-    h_ops_tree * ops = new h_ops_tree( new h_ops(getrf, root, getNx(), getNy(), 0) ), * tree = generateOps_GETRF(root);
+    h_ops_tree * ops = new h_ops_tree(getrf, root, getNx(), getNy(), 0), * tree = generateOps_GETRF(root);
     ops -> hookup_child(tree);
     delete root;
     return ops;

@@ -11,16 +11,20 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 16, levels = 2, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
   //a->print();
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
-  h_ops_dag *d = new h_ops_dag (a -> generateOps_GETRF());
+  const h_ops_tree *tree = a -> generateOps_GETRF();
+
+  h_ops_dag *d = new h_ops_dag (tree);
+  delete tree;
 
   inst_handler <T> * ih = new inst_handler <T> (d, a);
+  delete d;
 
   timer myTimer = timer();
   cudaStream_t main_stream;
@@ -41,7 +45,7 @@ template <class T> __host__ int test0()
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
   cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
-  delete d, ih;
+  delete ih;
 
   if (error == cudaSuccess)
   {
@@ -148,7 +152,7 @@ __host__ int test2()
 int main(int argc, char **argv)
 {
   test0 <double> ();
-  test1();
+  //test1();
   //test2();
 
   return 0;
