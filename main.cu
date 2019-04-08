@@ -15,7 +15,6 @@ template <class T> __host__ int test0()
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
-  //a->print();
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
   const h_ops_tree *tree = a -> generateOps_GETRF();
@@ -37,7 +36,7 @@ template <class T> __host__ int test0()
   }
   
   const int blocks = 64, threads = 1024;
-  int look_ahead_offset = 32;
+  int look_ahead_offset = 64;
 
   myTimer.newEvent("GETRF", start, main_stream);
   cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[2]{ ih, &look_ahead_offset }, 0, main_stream);
@@ -49,10 +48,9 @@ template <class T> __host__ int test0()
 
   if (error == cudaSuccess)
   {
-    dev_dense <T> *b = a -> convertToDense() -> restoreLU();
-    a -> loadTestMatrix(levels, n, dim);
-    //a->print();
-    dev_dense <T> *c = a -> convertToDense();
+    dev_dense <T> *b = a->convertToDense() -> restoreLU();
+    dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
+    c -> loadTestMatrix();
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
 
     delete a, b, c;

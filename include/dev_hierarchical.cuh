@@ -97,24 +97,35 @@ public:
     return 0;
   }
 
+  __host__ T getElement (const int x_in, const int y_in) const
+  {
+    int y = 0, x = 0, r = 0, c = 0;
+
+    while (y < ny && x < nx)
+    {
+      int rs = elements[y * nx + x].getNy(), cs = elements[y * nx + x].getNx();
+      if (r + rs <= y_in)
+      { r += rs; y++; }
+      else if (c + cs <= x_in)
+      { c += cs; x++; }
+      else
+      { return elements[y * nx + x].getElement(x_in - c, y_in - r); }
+    }
+
+    return 0;
+  }
+
   __host__ dev_dense <T> * convertToDense() const
   {
     const int nx_d = getNx(), ny_d = getNy();
     if (nx_d > 0 && ny_d > 0)
     {
       dev_dense <T> * d = new dev_dense <T> (nx_d, ny_d);
-      for (int y = 0, row = 0; y < ny; y++)
+      T * elements = d -> getElements();
+      for (int y = 0; y < ny_d; y++)
       {
-        int rows;
-        for (int x = 0, col = 0; x < nx; x++)
-        {
-          const dev_dense <T> * e = elements[y * nx + x].convertToDense();
-          rows = e -> getNy(); int cols = e -> getNx();
-          d -> loadArray(e -> getElements(), cols, rows, cols, col, row);
-          col += cols;
-          delete e;
-        }
-        row += rows;
+        for (int x = 0; x < nx_d; x++)
+        { elements[y * nx_d + x] = getElement(x, y); }
       }
       return d;
     }

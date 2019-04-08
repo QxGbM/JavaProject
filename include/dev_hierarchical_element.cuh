@@ -108,6 +108,28 @@ public:
     return 0;
   }
 
+  __host__ T getElement(const int x_in, const int y_in) const
+  {
+    const dev_dense <T> *d = getElementDense();
+    const dev_low_rank <T> *lr = getElementLowRank();
+    const dev_hierarchical <T> *h = getElementHierarchical();
+
+    if (d != nullptr)
+    {
+      return (d -> getElements(y_in * (d -> getLd()) + x_in))[0];
+    }
+    if (lr != nullptr)
+    {
+      
+    }
+    if (h != nullptr)
+    {
+      return h -> getElement(x_in, y_in);
+    }
+
+    return 0;
+  }
+
   __host__ dev_dense <T> * convertToDense() const
   {
     const dev_dense <T> *d = getElementDense();
@@ -120,7 +142,7 @@ public:
     }
     if (lr != nullptr)
     {
-      // TODO
+      return lr -> convertToDense();
     }
     if (h != nullptr)
     {
