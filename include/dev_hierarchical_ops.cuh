@@ -331,7 +331,7 @@ public:
   {
     int length = length_child();
     for (h_ops_tree *ptr = next; ptr != nullptr; ptr = ptr -> next)
-    { length += next -> length_child(); }
+    { length += ptr -> length_child(); }
     return length;
   }
 

@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 2, dim = 64;
+  const int n = 3, levels = 2, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
