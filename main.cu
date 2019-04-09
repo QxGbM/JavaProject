@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 3, levels = 2, dim = 64;
+  const int n = 16, levels = 0, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -145,6 +145,46 @@ __host__ int test2()
 
   return 0;
 }
+
+__global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double *d, const int m, const int n, const int k, const int l, const int o,
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d)
+  {
+    __shared__ double shm[6144];
+    blockDenseGemm_3x_Cshm_RM_Set <double> (mat, a, b, c, m, n, k, l, ld_m, ld_a, ld_b, ld_c, &shm[0], 6144);
+  }
+  
+  __host__ int test3()
+  {
+    const int m = 16, n = 16, k = 256, l = 32, o = m;
+    dev_dense <double> *mat = new dev_dense<double>(n, m);
+    dev_dense <double> *a = new dev_dense<double>(k, m);
+    dev_dense <double> *b = new dev_dense<double>(l, k);
+    dev_dense <double> *c = new dev_dense<double>(o, l);
+    dev_dense <double> *d = new dev_dense<double>(n, o);
+  
+    a->loadRandomMatrix(-10, 10);
+    b->loadRandomMatrix(-10, 10);
+    c->loadRandomMatrix(-10, 10);
+    d->loadRandomMatrix(-10, 10);
+  
+    timer myTimer = timer();
+  
+    myTimer.newEvent("gemm", start);
+    gemm_kernel <<<1, 1024, 0, 0 >>> (mat->getElements(), a->getElements(), b->getElements(), c->getElements(), d->getElements(),
+      m, n, k, l, o, mat->getLd(), a->getLd(), b->getLd(), c->getLd(), d->getLd());
+    myTimer.newEvent("gemm", end);
+  
+    myTimer.printStatus();
+    myTimer.dumpAllEvents_Sync();
+    mat->print();
+  
+    dev_dense <double> *e = a->matrixMultiplication(b) ->matrixMultiplication(c);// ->matrixMultiplication(d);
+    printf("Rel. L2 Error: %e\n\n", e->L2Error(mat));
+    e->print();
+  
+    delete mat, a, b, c, d, e;
+    return 0;
+  }
 
 
 int main(int argc, char **argv)

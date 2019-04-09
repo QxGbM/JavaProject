@@ -34,24 +34,10 @@ __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int 
   }
 }
 
-
-template <class T>
-/* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = A * B. Scanning row major. */
-__device__ void blockDenseGemm_RM_Set (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
-{
-  for (int i = thread_rank(); i < m * n; i += block_dim())
-  {
-    const int row = i / n, col = i - row * n;
-    T accum = 0;
-    for (int j = 0; j < k; j++)
-    { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
-    M[row * ld_m + col] = accum;
-  }
-}
-
 template <class T> 
 /* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = old_matrix - A * B. Scanning row major. */
-__device__ void blockDenseGemm_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
+__device__ void blockDenseGemm_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int k, 
+  const int ld_m, const int ld_a, const int ld_b)
 {
   for (int i = thread_rank(); i < m * n; i += block_dim())
   {
@@ -63,9 +49,25 @@ __device__ void blockDenseGemm_RM_Sub (T * M, const T * A, const T * B, const in
   }
 }
 
+template <class T>
+/* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = A * B. Scanning row major. */
+__device__ void blockDenseGemm_RM_Set(T * M, const T * A, const T * B, const int m, const int n, const int k,
+  const int ld_m, const int ld_a, const int ld_b)
+{
+  for (int i = thread_rank(); i < m * n; i += block_dim())
+  {
+    const int row = i / n, col = i - row * n;
+    T accum = 0;
+    for (int j = 0; j < k; j++)
+    { accum += A[row * ld_a + j] * B[j * ld_b + col]; }
+    M[row * ld_m + col] = accum;
+  }
+}
+
 /* An overloaded version gemm that uses alpha = -1 and beta = 1. Caches columns in L1, scanning row major. */
 template <class T> 
-__device__ void blockDenseGemm_Cshm_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, T * shm, const int shm_size)
+__device__ void blockDenseGemm_Cshm_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int k, 
+  const int ld_m, const int ld_a, const int ld_b, T * shm, const int shm_size)
 {
   const int step_size = shm_size / k;
 
@@ -82,6 +84,26 @@ __device__ void blockDenseGemm_Cshm_RM_Sub (T * M, const T * A, const T * B, con
   }
 }
 
+template <class T>
+/* A has dimension m * k, B has dimension k * n, matrix has dimension m * n. matrix = A * B. Scanning row major. */
+__device__ void blockDenseGemm_Cshm_RM_Set (T * M, const T * A, const T * B, const int m, const int n, const int k,
+  const int ld_m, const int ld_a, const int ld_b, T * shm, const int shm_size)
+{
+  const int step_size = shm_size / k;
+
+#pragma unroll
+  for (int col = 0; col < n; col += step_size)
+  {
+    const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
+
+    matrixCopy <T>(&B[col], &shm[0], num_cols, k, ld_b, num_cols);
+    __syncthreads();
+
+    blockDenseGemm_RM_Set <T>(&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
+    __syncthreads();
+  }
+}
+
 template <class T> 
 /* An overloaded version gemm that uses alpha = -1, beta = 1 and k = 1, scanning in row major. */
 __device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int ld_m, const int ld_a)
@@ -93,18 +115,18 @@ __device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const
   }
 }
 
-
 template <class T>
-__device__ void blockDenseGemm_3x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, T * shm, const int shm_size)
+__device__ void blockDenseGemm_3x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const int m, const int n, const int k, const int l, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, T * shm, const int shm_size)
 {
-  const int step_size = shm_size / k;
+  const int step_size = shm_size / (2 * k);
 
 #pragma unroll
   for (int col = 0; col < n; col += step_size)
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
     
-    blockDenseGemm_RM_Set <T> (&shm[0], B, &C[col], k, num_cols, l, num_cols, ld_b, ld_c);
+    blockDenseGemm_Cshm_RM_Set <T> (&shm[0], B, C, k, num_cols, l, num_cols, ld_b, ld_c, &shm[shm_size / 2], shm_size / 2);
     __syncthreads();
 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
@@ -113,16 +135,17 @@ __device__ void blockDenseGemm_3x_Cshm_RM_Sub (T * M, const T * A, const T * B, 
 }
 
 template <class T>
-__device__ void blockDenseGemm_3x_Cshm_RM_Set (T * M, const T * A, const T * B, const T * C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, T * shm, const int shm_size)
+__device__ void blockDenseGemm_3x_Cshm_RM_Set (T * M, const T * A, const T * B, const T * C, const int m, const int n, const int k, const int l, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, T * shm, const int shm_size)
 {
-  const int step_size = shm_size / k;
+  const int step_size = shm_size / (2 * k);
 
 #pragma unroll
   for (int col = 0; col < n; col += step_size)
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    blockDenseGemm_RM_Set <T> (&shm[0], B, &C[col], k, num_cols, l, num_cols, ld_b, ld_c);
+    blockDenseGemm_Cshm_RM_Set <T> (&shm[0], B, C, k, num_cols, l, num_cols, ld_b, ld_c, &shm[shm_size / 2], shm_size / 2);
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
@@ -131,7 +154,8 @@ __device__ void blockDenseGemm_3x_Cshm_RM_Set (T * M, const T * A, const T * B, 
 }
 
 template <class T>
-__device__ void blockDenseGemm_4x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const T * D, const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, T * shm, const int shm_size)
+__device__ void blockDenseGemm_4x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const T * D, const int m, const int n, const int k, const int l, const int o, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, T * shm, const int shm_size)
 {
   const int step_size = shm_size / (2 * k);
 
@@ -149,7 +173,8 @@ __device__ void blockDenseGemm_4x_Cshm_RM_Sub (T * M, const T * A, const T * B, 
 }
 
 template <class T>
-__device__ void blockDenseGemm_4x_Cshm_RM_Set (T * M, const T * A, const T * B, const T * C, const T * D, const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, T * shm, const int shm_size)
+__device__ void blockDenseGemm_4x_Cshm_RM_Set (T * M, const T * A, const T * B, const T * C, const T * D, const int m, const int n, const int k, const int l, const int o, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, T * shm, const int shm_size)
 {
   const int step_size = shm_size / (2 * k);
 
