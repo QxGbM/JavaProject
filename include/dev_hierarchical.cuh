@@ -262,6 +262,29 @@ public:
     return ops;
   }
 
+  __host__ h_ops_tree * generateOps_TRSML_B (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
+  {
+    h_ops_tree * ops = nullptr;
+    int offset = index_b -> getOffset();
+    for (int i = 0; i < ny; i++)
+    {
+      const h_index *index_bi = index_b -> child(-1, offset);
+      for (int j = 0; j < nx; j++)
+      {
+        const h_index *index_j = self -> child(i * nx + j);
+        h_ops_tree * ops_j = elements[i * nx + j].generateOps_TRSML_B (index_j, B, index_bi);
+        if (ops == nullptr)
+        { ops = ops_j; }
+        else
+        { ops -> hookup_next(ops_j); }
+      }
+      delete index_bi;
+      offset += elements[i * nx].getNy() * (B -> getLd() + 1);
+    }
+    
+    return ops;
+  }
+
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     h_ops_tree * ops = nullptr;

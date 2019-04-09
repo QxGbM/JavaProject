@@ -157,14 +157,14 @@ template <class T>
 __device__ void blockDenseGemm_4x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const T * D, const int m, const int n, const int k, const int l, const int o, 
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, T * shm, const int shm_size)
 {
-  const int step_size = shm_size / (2 * k);
+  const int step_size = shm_size / (3 * k);
 
 #pragma unroll
   for (int col = 0; col < n; col += step_size)
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, &D[col], k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 2], shm_size / 2);
+    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, &D[col], k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 3], 2 * shm_size / 3);
     __syncthreads();
 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
@@ -176,14 +176,14 @@ template <class T>
 __device__ void blockDenseGemm_4x_Cshm_RM_Set (T * M, const T * A, const T * B, const T * C, const T * D, const int m, const int n, const int k, const int l, const int o, 
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, T * shm, const int shm_size)
 {
-  const int step_size = shm_size / (2 * k);
+  const int step_size = shm_size / (3 * k);
 
 #pragma unroll
   for (int col = 0; col < n; col += step_size)
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, &D[col], k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 2], shm_size / 2);
+    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, &D[col], k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 3], 2 * shm_size / 3);
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);

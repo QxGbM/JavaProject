@@ -137,23 +137,21 @@ public:
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    {
-      return new dev_dense <T> (d -> getNx(), d -> getNy(), d -> getElements(), d -> getLd());
-    }
+    { return new dev_dense <T> (d -> getNx(), d -> getNy(), d -> getElements(), d -> getLd()); }
     if (lr != nullptr)
-    {
-      return lr -> convertToDense();
-    }
+    { return lr -> convertToDense(); }
     if (h != nullptr)
-    {
-      return h -> convertToDense();
-    }
+    { return h -> convertToDense(); }
 
     return nullptr;
   }
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index *self) const
   {
+    const dev_low_rank<T> *lr = getElementLowRank();
+    if (lr != nullptr)
+    { printf("A low-rank block cannot be LU decomposed.\n"); return nullptr; }
+
     h_ops_tree * ops = new h_ops_tree(getrf, self, getNx(), getNy(), getLd());
     const dev_hierarchical <T> *h = getElementHierarchical();
     if (h != nullptr) 
@@ -166,15 +164,28 @@ public:
     if (B -> getNy() != getNy()) 
     { printf("Unmatched Dimension for TRSML.\n"); return nullptr; }
 
-    h_ops_tree * ops = new h_ops_tree(trsml, index_b, self, B -> getNx(), getNy(), getNx(), B -> getLd(), getLd());
+    const dev_low_rank<T> *lr = getElementLowRank(), *lr_b = B -> getElementLowRank();
+    if (lr != nullptr)
+    { printf("A low-rank block cannot be used for lower triangular solve.\n"); return nullptr; }
+
     const dev_hierarchical <T> *h = getElementHierarchical(), *h_b = B -> getElementHierarchical();
-    const dev_dense <T> *d_b = B -> getElementDense();
+    const dev_dense<T> *d = getElementDense(), *d_b = B -> getElementDense();
+    h_ops_tree * ops = new h_ops_tree(trsml, index_b, self, B -> getNx(), getNy(), getNx(), B -> getLd(), getLd());
     if (h != nullptr) 
     { 
       if (h_b != nullptr)
       { ops -> hookup_child (h -> generateOps_TRSML(self, h_b, index_b)); }
       if (d_b != nullptr)
       { ops -> hookup_child (h -> generateOps_TRSML(self, d_b, index_b)); }
+      if (lr_b != nullptr)
+      { ops -> hookup_child (h -> generateOps_TRSML(self, lr_b -> getU(), index_b)); }
+    }
+    if (d != nullptr)
+    {
+      if (h_b != nullptr)
+      { ops -> hookup_child (h_b -> generateOps_TRSML_B(index_b, d, self)); }
+      if (lr_b != nullptr)
+      { ops -> hookup_child (new h_ops_tree(trsml, index_b, self, B -> getRank(), getNy(), getNx(), B -> getRank(), getLd())); }
     }
     return ops;
   }

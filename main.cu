@@ -155,7 +155,7 @@ __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double
   
   __host__ int test3()
   {
-    const int m = 16, n = 16, k = 256, l = 32, o = 32;
+    const int m = 1024, n = 1024, k = 512, l = 512, o = 512;
     dev_dense <double> *mat = new dev_dense<double>(n, m);
     dev_dense <double> *a = new dev_dense<double>(k, m);
     dev_dense <double> *b = new dev_dense<double>(l, k);
