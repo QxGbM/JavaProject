@@ -126,7 +126,7 @@ __device__ void blockDenseGemm_3x_Cshm_RM_Sub (T * M, const T * A, const T * B, 
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
     
-    blockDenseGemm_Cshm_RM_Set <T> (&shm[0], B, C, k, num_cols, l, num_cols, ld_b, ld_c, &shm[shm_size / 2], shm_size / 2);
+    blockDenseGemm_Cshm_RM_Set <T> (&shm[0], B, &C[col], k, num_cols, l, num_cols, ld_b, ld_c, &shm[shm_size / 2], shm_size / 2);
     __syncthreads();
 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
@@ -145,7 +145,7 @@ __device__ void blockDenseGemm_3x_Cshm_RM_Set (T * M, const T * A, const T * B, 
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    blockDenseGemm_Cshm_RM_Set <T> (&shm[0], B, C, k, num_cols, l, num_cols, ld_b, ld_c, &shm[shm_size / 2], shm_size / 2);
+    blockDenseGemm_Cshm_RM_Set <T> (&shm[0], B, &C[col], k, num_cols, l, num_cols, ld_b, ld_c, &shm[shm_size / 2], shm_size / 2);
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
@@ -164,7 +164,7 @@ __device__ void blockDenseGemm_4x_Cshm_RM_Sub (T * M, const T * A, const T * B, 
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, D, k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 2], shm_size / 2);
+    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, &D[col], k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 2], shm_size / 2);
     __syncthreads();
 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);
@@ -183,7 +183,7 @@ __device__ void blockDenseGemm_4x_Cshm_RM_Set (T * M, const T * A, const T * B, 
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, D, k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 2], shm_size / 2);
+    blockDenseGemm_3x_Cshm_RM_Set <T> (&shm[0], B, C, &D[col], k, num_cols, l, o, num_cols, ld_b, ld_c, ld_d, &shm[shm_size / 2], shm_size / 2);
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols);

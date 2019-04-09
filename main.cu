@@ -150,12 +150,12 @@ __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d)
   {
     __shared__ double shm[6144];
-    blockDenseGemm_3x_Cshm_RM_Set <double> (mat, a, b, c, m, n, k, l, ld_m, ld_a, ld_b, ld_c, &shm[0], 6144);
+    blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, &shm[0], 6144);
   }
   
   __host__ int test3()
   {
-    const int m = 16, n = 16, k = 256, l = 32, o = m;
+    const int m = 16, n = 16, k = 256, l = 32, o = 32;
     dev_dense <double> *mat = new dev_dense<double>(n, m);
     dev_dense <double> *a = new dev_dense<double>(k, m);
     dev_dense <double> *b = new dev_dense<double>(l, k);
@@ -176,11 +176,9 @@ __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double
   
     myTimer.printStatus();
     myTimer.dumpAllEvents_Sync();
-    mat->print();
   
-    dev_dense <double> *e = a->matrixMultiplication(b) ->matrixMultiplication(c);// ->matrixMultiplication(d);
+    dev_dense <double> *e = a->matrixMultiplication(b) ->matrixMultiplication(c) ->matrixMultiplication(d);
     printf("Rel. L2 Error: %e\n\n", e->L2Error(mat));
-    e->print();
   
     delete mat, a, b, c, d, e;
     return 0;
@@ -189,9 +187,11 @@ __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  //test0 <double> ();
   //test1();
   //test2();
+
+  test3();
 
   return 0;
 }
