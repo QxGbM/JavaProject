@@ -44,17 +44,21 @@ template <class T> __host__ int test0()
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
   cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
-  delete ih;
 
   if (error == cudaSuccess)
   {
-    dev_dense <T> *b = a->convertToDense() -> restoreLU();
+    dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
+    delete b;
     dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
     c -> loadTestMatrix();
-    printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
+    printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
 
-    delete a, b, c;
+    delete b_;
+    delete c;
   }
+  delete ih;
+  delete a;
+
 
   cudaStreamDestroy(main_stream);
   return 0;
@@ -82,7 +86,7 @@ int test1()
   timer myTimer = timer();
 
   myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024 >>> (A -> getElementsU(), A -> getElementsS(), A->getElementsVT(), nx, ny, A -> getRank());
+  svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A->getOffsetS()), A->getElements(A->getOffsetVT()), nx, ny, A -> getRank());
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
@@ -148,50 +152,71 @@ __host__ int test2()
 
 __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double *d, const int m, const int n, const int k, const int l, const int o,
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d)
-  {
-    __shared__ double shm[6144];
-    blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, &shm[0], 6144);
-  }
+{
+  __shared__ double shm[6144];
+  blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, &shm[0], 6144);
+}
   
-  __host__ int test3()
-  {
-    const int m = 1024, n = 1024, k = 512, l = 512, o = 512;
-    dev_dense <double> *mat = new dev_dense<double>(n, m);
-    dev_dense <double> *a = new dev_dense<double>(k, m);
-    dev_dense <double> *b = new dev_dense<double>(l, k);
-    dev_dense <double> *c = new dev_dense<double>(o, l);
-    dev_dense <double> *d = new dev_dense<double>(n, o);
+__host__ int test3()
+{
+  cudaSetDevice(0);
+  cudaDeviceReset();
+
+  const int m = 1024, n = 1024, k = 512, l = 512, o = 512;
+  dev_dense <double> *mat = new dev_dense<double>(n, m);
+  dev_dense <double> *a = new dev_dense<double>(k, m);
+  dev_dense <double> *b = new dev_dense<double>(l, k);
+  dev_dense <double> *c = new dev_dense<double>(o, l);
+  dev_dense <double> *d = new dev_dense<double>(n, o);
   
-    a->loadRandomMatrix(-10, 10);
-    b->loadRandomMatrix(-10, 10);
-    c->loadRandomMatrix(-10, 10);
-    d->loadRandomMatrix(-10, 10);
+  a->loadRandomMatrix(-10, 10);
+  b->loadRandomMatrix(-10, 10);
+  c->loadRandomMatrix(-10, 10);
+  d->loadRandomMatrix(-10, 10);
   
-    timer myTimer = timer();
+  timer myTimer = timer();
   
-    myTimer.newEvent("gemm", start);
-    gemm_kernel <<<1, 1024, 0, 0 >>> (mat->getElements(), a->getElements(), b->getElements(), c->getElements(), d->getElements(),
-      m, n, k, l, o, mat->getLd(), a->getLd(), b->getLd(), c->getLd(), d->getLd());
-    myTimer.newEvent("gemm", end);
+  myTimer.newEvent("gemm", start);
+  gemm_kernel <<<1, 1024, 0, 0 >>> (mat->getElements(), a->getElements(), b->getElements(), c->getElements(), d->getElements(),
+    m, n, k, l, o, mat->getLd(), a->getLd(), b->getLd(), c->getLd(), d->getLd());
+  myTimer.newEvent("gemm", end);
   
-    myTimer.printStatus();
-    myTimer.dumpAllEvents_Sync();
+  myTimer.printStatus();
+  myTimer.dumpAllEvents_Sync();
   
-    dev_dense <double> *e = a->matrixMultiplication(b) ->matrixMultiplication(c) ->matrixMultiplication(d);
-    printf("Rel. L2 Error: %e\n\n", e->L2Error(mat));
+  dev_dense <double> *e = a->matrixMultiplication(b) ->matrixMultiplication(c) ->matrixMultiplication(d);
+  printf("Rel. L2 Error: %e\n\n", e->L2Error(mat));
   
-    delete mat, a, b, c, d, e;
-    return 0;
-  }
+  delete mat, a, b, c, d, e;
+  return 0;
+}
+
+template <class T> __host__ int test4()
+{
+  cudaSetDevice(0);
+  cudaDeviceReset();
+
+  const int n = 2, levels = 1, dim = 4, rank = 4;
+
+  dev_hierarchical <T> *a = new dev_hierarchical <T>(n, n);
+  a->loadTestMatrix2 (levels, n, dim, rank);
+
+  const h_ops_tree *tree = a -> generateOps_GETRF();
+  tree->print();
+
+  delete tree;
+
+  delete a;
+  return 0;
+}
 
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
+  test0 <double> ();
   //test1();
   //test2();
-
-  test3();
-
+  //test3();
+  //test4<double>();
   return 0;
 }

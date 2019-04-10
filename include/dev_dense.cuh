@@ -70,8 +70,19 @@ public:
   __host__ ~dev_dense ()
   {
     cudaFree(elements);
-    cudaFree(pivot);
+    if (pivoted)
+    { cudaFree(pivot); }
   }
+
+  __host__ inline int getNx () const { return nx; }
+
+  __host__ inline int getNy () const { return ny; }
+
+  __host__ inline int getLd () const { return ld; }
+
+  __host__ inline T * getElements (const int offset = 0) const { return &elements[offset]; }
+
+  __host__ inline int * getPivot () const { return pivot; }
 
   __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
   {
@@ -82,31 +93,6 @@ public:
         elements[y * ld + x] = A[y_a * ld_a + x_a];
       }
     }
-  }
-
-  __host__ int getNx () const
-  {
-    return nx;
-  }
-
-  __host__ int getNy () const
-  {
-    return ny;
-  }
-
-  __host__ int getLd () const
-  {
-    return ld;
-  }
-
-  __host__ T * getElements (const int offset = 0) const
-  {
-    return &elements[offset];
-  }
-
-  __host__ int * getPivot () const
-  {
-    return pivot;
   }
 
   __host__ void print () const
@@ -237,6 +223,20 @@ public:
     return LU;
   }
 
+  __host__ double sqrSum() const
+  {
+    double sum = 0.0;
+    for (int x = 0; x < nx; x++)
+    {
+      for (int y = 0; y < ny; y++)
+      {
+        double t = (double)elements[y * ld + x];
+        sum += t * t;
+      }
+    }
+    return sum;
+  }
+
   __host__ double L2Error (const dev_dense <T> *matrix) const
   {
     double norm = 0.0;
@@ -244,18 +244,11 @@ public:
     {
       for(int y = 0; y < ny; y++)
       {
-        double t = 0.0;
-        if (matrix != nullptr) 
-        { t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]); }
-        else 
-        { t = (double) elements[y * ld + x]; }
+        double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);;
         norm += t * t;
       }
     }
-    if (matrix != nullptr) 
-    { return sqrt(norm / L2Error(nullptr)); }
-    else 
-    { return norm; }
+    return sqrt(norm / sqrSum());
   }
 
 };

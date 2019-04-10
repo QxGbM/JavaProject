@@ -32,42 +32,48 @@ public:
 
   __host__ ~dev_low_rank ()
   {
-    delete U, S, VT;
+    delete U;
+    delete S; 
+    delete VT;
   }
 
-  __host__ int getRank () const
-  {
-    return rank;
-  }
+  __host__ inline int getRank () const { return rank; }
 
-  __host__ dev_dense <T> * getU () const
-  {
-    return U;
-  }
+  __host__ inline dev_dense <T> * getU () const { return U; }
 
-  __host__ dev_dense <T> * getS () const
-  {
-    return S;
-  }
+  __host__ inline dev_dense <T> * getS () const { return S; }
 
-  __host__ dev_dense <T> * getVT () const
-  {
-    return VT;
-  }
+  __host__ inline dev_dense <T> * getVT () const { return VT; }
 
-  __host__ T * getElementsU (const int offset = 0) const
-  {
-    return U -> getElements(offset);
-  }
+  __host__ inline int getOffsetU() const { return 0; }
 
-  __host__ T * getElementsS (const int offset = 0) const
-  {
-    return S -> getElements(offset);
-  }
+  __host__ inline int getNx_U() const { return U -> getNx(); }
 
-  __host__ T * getElementsVT (const int offset = 0) const
-  {
-    return VT -> getElements(offset);
+  __host__ inline int getNy_U() const { return U -> getNy(); }
+
+  __host__ inline int getLd_U() const { return U -> getLd(); }
+
+  __host__ inline int getOffsetS() const { return getNy_U() * getLd_U(); }
+
+  __host__ inline int getNx_S() const { return S -> getNx(); }
+
+  __host__ inline int getNy_S() const { return S -> getNy(); }
+
+  __host__ inline int getLd_S() const { return S -> getLd(); }
+
+  __host__ inline int getOffsetVT() const { return getNy_U() * getLd_U() + getNy_S() * getLd_S(); }
+
+  __host__ inline int getNx_VT() const { return VT -> getNx(); }
+
+  __host__ inline int getNy_VT() const { return VT -> getNy(); }
+
+  __host__ inline int getLd_VT() const { return VT -> getLd(); }
+
+  __host__ inline T * getElements (const int offset = 0) const 
+  { 
+    return offset >= getOffsetVT() ? 
+    VT -> getElements(offset - getOffsetVT()) : 
+    (offset >= getOffsetS() ? S -> getElements(offset - getOffsetS()) : U -> getElements(offset)); 
   }
 
   __host__ void print() const
@@ -83,7 +89,8 @@ public:
     dev_dense<T> * t0 = U -> matrixMultiplication(S);
     dev_dense<T> * t1 = VT -> transpose();
     dev_dense<T> * t2 = t0 -> matrixMultiplication(t1);
-    delete t0, t1;
+    delete t0;
+    delete t1;
     return t2;
   }
 

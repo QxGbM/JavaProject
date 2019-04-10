@@ -75,9 +75,7 @@ public:
     {
       int n = 0;
       for (int i = 0; i < nx; i++)
-      {
-        n += elements[i].getNx();
-      }
+      { n += elements[i].getNx(); }
       return n;
     }
     return 0;
@@ -89,9 +87,7 @@ public:
     {
       int n = 0;
       for (int i = 0; i < ny; i++)
-      {
-        n += elements[i * nx].getNy();
-      }
+      { n += elements[i * nx].getNy(); }
       return n;
     }
     return 0;
@@ -138,7 +134,7 @@ public:
   __host__ const h_ops_tree * generateOps_GETRF () const
   {
     const h_index * root = getRootIndex();
-    h_ops_tree * ops = new h_ops_tree(getrf, root, getNx(), getNy(), 0), * tree = generateOps_GETRF(root);
+    h_ops_tree * ops = new h_ops_tree(getrf, root, getNx(), getNy(), 0, false), * tree = generateOps_GETRF(root);
     ops -> hookup_child(tree);
     delete root;
     return ops;
@@ -176,7 +172,7 @@ public:
         {
           const h_index * index_j = self -> child(j * nx + i), * index_k = self -> child(i * nx + k), * index_m = self -> child(j * nx + k);
           h_ops_tree * ops_m = elements[j * nx + k].generateOps_GEMM(index_m, &elements[j * nx + i], index_j, &elements[i * nx + k], index_k);
-          delete index_j, index_k, index_m;
+          delete index_j; delete index_k; delete index_m;
           ops_i -> hookup_next(ops_m);
         }
       }
@@ -209,7 +205,7 @@ public:
         {
           const h_index * index_k = self -> child(k * nx + i), * index_bk = index_b -> child(k * (B -> nx) + j);
           h_ops_tree * ops_k = (B -> elements[k * (B -> nx) + j]).generateOps_GEMM(index_bk, &elements[k * nx + i], index_k, &(B -> elements)[i * (B -> nx) + j], index_bj);
-          delete index_k, index_bk;
+          delete index_k; delete index_bk;
           ops_j -> hookup_next(ops_k);
         }
 
@@ -246,7 +242,7 @@ public:
       {
         const h_index * index_j = self -> child(j * nx + i), *index_bj = index_b -> child(-1, offset);
         h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_A(B, index_bj, index_j, B, index_bi);
-        delete index_j, index_bj;
+        delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNy() * B -> getLd();
         ops_i -> hookup_next(ops_j);
       }
@@ -268,7 +264,7 @@ public:
     int offset = index_b -> getOffset();
     for (int i = 0; i < ny; i++)
     {
-      const h_index *index_bi = index_b -> child(-1, offset);
+      const h_index *index_bi = index_b -> child (-1, offset);
       for (int j = 0; j < nx; j++)
       {
         const h_index *index_j = self -> child(i * nx + j);
@@ -279,6 +275,26 @@ public:
         { ops -> hookup_next(ops_j); }
       }
       delete index_bi;
+
+      int offset_iter = offset + elements[i * nx].getNy() * (B -> getLd());
+      for (int j = i + 1; j < ny; j++)
+      {
+        const h_index *index_bj = index_b -> child(-1, offset_iter);
+        h_ops_tree * ops_j = nullptr;
+        for (int k = 0; k < nx; k++)
+        {
+          const h_index *index_jk = self -> child(j * nx + k);
+          const h_index *index_ik = self -> child(i * nx + k);
+          h_ops_tree * ops_k = elements[j * nx + k].generateOps_GEMM (index_jk, B, index_bj, &elements[i * nx + k], index_ik);
+          delete index_jk; delete index_ik;
+          if (ops == nullptr)
+          { ops_j = ops_k; }
+          else
+          { ops_j -> hookup_next(ops_k); }
+        }
+        delete index_bj;
+        ops -> hookup_next(ops_j);
+      }
       offset += elements[i * nx].getNy() * (B -> getLd() + 1);
     }
     
@@ -305,7 +321,7 @@ public:
         {
           const h_index * index_k = self -> child(i * nx + k), *index_bk = index_b -> child(j * (B -> nx) + k);
           h_ops_tree * ops_k = (B -> elements[j * (B -> nx) + k]).generateOps_GEMM(index_bk, &(B->elements)[j * (B -> nx) + i], index_bj, &elements[i * nx + k], index_k);
-          delete index_k, index_bk;
+          delete index_k; delete index_bk;
           ops_j -> hookup_next(ops_k);
         }
 
@@ -342,7 +358,7 @@ public:
       {
         const h_index * index_j = self -> child(i * nx + j), *index_bj = index_b -> child(-1, offset);
         h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_B(B, index_bj, B, index_bi, index_j);
-        delete index_j, index_bj;
+        delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNy();
         ops_i -> hookup_next(ops_j);
       }
@@ -353,7 +369,7 @@ public:
       if (ops == nullptr)
       { ops = ops_i; }
       else
-      { ops->hookup_next(ops_i); }
+      { ops -> hookup_next(ops_i); }
     }
     return ops;
   }
@@ -375,7 +391,7 @@ public:
         const h_index * index_m = self -> child(i * nx + j), * index_bj = index_b -> child(-1, offset_b);
         h_ops_tree * ops_m = elements[i * nx + j].generateOps_GEMM(index_m, A, index_ai, B, index_bj);
 
-        delete index_m, index_bj;
+        delete index_m; delete index_bj;
         offset_b += elements[i * nx + j].getNx();
 
         if (ops == nullptr)
@@ -449,6 +465,39 @@ public:
         }
       }
       y_offset += elements[y * nx].getNy();
+    }
+
+  }
+
+  __host__ void loadTestMatrix2 (const int levels, const int dim, const int block_size, const int rank)
+  {
+    for (int y = 0; y < ny; y++)
+    {
+      for (int x = 0; x < nx; x++)
+      {
+        if (x == y && levels > 0)
+        {
+          dev_hierarchical <T> *e = new dev_hierarchical <T>(dim, dim);
+          e -> loadTestMatrix2(levels - 1, dim, block_size, rank);
+          setElement(e, hierarchical, x, y);
+        }
+        else
+        {
+          int l = block_size, cl = levels;
+          while (cl > 0) { l *= dim; cl--; }
+          if (levels > 0)
+          {
+            dev_low_rank <T> *e = new dev_low_rank <T> (l, l, rank);
+            setElement(e, low_rank, x, y);
+          }
+          else
+          {
+            dev_dense <T> *e = new dev_dense <T> (l, l);
+            setElement(e, dense, x, y);
+          }
+
+        }
+      }
     }
 
   }
