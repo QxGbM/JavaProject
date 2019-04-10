@@ -245,7 +245,7 @@ public:
       break;
     }
 
-    printf(" [fp-ops: %llu]\n", getFops());
+    printf("{fp-ops: %llu}\n", getFops());
   }
 
   __host__ h_ops * clone() const

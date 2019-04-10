@@ -397,7 +397,7 @@ public:
         break;
         
       case trsml:
-        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
         break;
 
       case trsmr:
@@ -405,7 +405,7 @@ public:
         break;
 
       case gemm:
-        blockDenseGemm_Cshm_RM_Sub <T> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9], shm, shm_size);
+        blockDenseGemm_Cshm_RM_Sub <T> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9], false, false, shm, shm_size);
         break;
 
       case pivot:

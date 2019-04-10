@@ -154,7 +154,7 @@ __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d)
 {
   __shared__ double shm[6144];
-  blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, &shm[0], 6144);
+  blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, false, false, false, false, &shm[0], 6144);
 }
   
 __host__ int test3()
@@ -196,12 +196,12 @@ template <class T> __host__ int test4()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 1, dim = 4, rank = 4;
+  const int n = 2, levels = 1, dim = 4, rank = 2;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T>(n, n);
   a->loadTestMatrix2 (levels, n, dim, rank);
 
-  const h_ops_tree *tree = a -> generateOps_GETRF();
+  const h_ops_tree *tree = a -> generateOps_GETRF(true);
   tree->print();
 
   delete tree;
