@@ -95,6 +95,54 @@ public:
     }
   }
 
+  __host__ void resize (const int ld_in, const int ny_in)
+  {
+    resizeColumn (ld_in);
+    resizeRow (ny_in);
+  }
+
+  __host__ void resizeColumn (const int ld_in)
+  {
+    if (ld_in > 0 && ld_in != ld)
+    {
+      T * e = nullptr;
+      cudaMallocManaged (&e, ld_in * ny * sizeof(T), cudaMemAttachGlobal);
+      for (int y = 0; y < ny; y++)
+      {
+        for (int x = 0; x < nx && x < ld_in; x++)
+        { e[y * ld_in + x] = elements[y * ld + x]; }
+      }
+      cudaFree(elements);
+      ld = ld_in;
+      nx = (nx > ld) ? ld : nx;
+      elements = e;
+    }
+  }
+
+  __host__ void resizeRow (const int ny_in)
+  {
+    if (ny_in > 0 && ny_in != ny)
+    {
+      T * e = nullptr;
+      cudaMallocManaged (&e, ld * ny_in * sizeof(T), cudaMemAttachGlobal);
+      for (int y = 0; y < ny_in && y < ny; y++)
+      {
+        for (int x = 0; x < nx; x++)
+        { e[y * ld + x] = elements[y * ld + x]; }
+      }
+      if (pivoted)
+      {
+        int * p = nullptr;
+        cudaMallocManaged (&p, ny_in * sizeof(int), cudaMemAttachGlobal);
+        cudaFree(pivot);
+        pivot = p;
+      }
+      cudaFree(elements);
+      ny = ny_in;
+      elements = e;
+    }
+  }
+
   __host__ void print () const
   {
     printf("-- %d x %d | ld: %d --\n", ny, nx, ld);

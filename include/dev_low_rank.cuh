@@ -76,6 +76,30 @@ public:
     (offset >= getOffsetS() ? S -> getElements(offset - getOffsetS()) : U -> getElements(offset)); 
   }
 
+  __host__ void adjustRank (const int rank_in)
+  {
+    if (rank_in > 0 && rank_in != rank)
+    {
+      U -> resize (rank_in, ny);
+      S -> resize (rank_in, rank_in);
+      VT -> resize (rank_in, nx);
+      rank = rank_in;
+    }
+  }
+
+  __host__ void compress (double epi)
+  {
+    int r = (nx > ny) ? ny : nx;
+    for (int i = 0; i < rank && r > i; i++)
+    {
+      if ((S -> getElements(i * rank + i))[0] < epi) 
+      { r = i; }
+    }
+    
+    if (r < rank)
+    { adjustRank(r); }
+  }
+
   __host__ void print() const
   {
     printf("\n-- Low Rank: %d x %d, rank %d --\n", nx, ny, rank);

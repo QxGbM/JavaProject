@@ -161,8 +161,8 @@ public:
     switch (op_from -> op_type)
     {
     case gemm: r1_from = true;
-    case trsml: case trsmr: r0_from = true;
-    case getrf: case pivot: wr0_from = true;
+    case trsml: case trsmr: case pivot: r0_from = true;
+    case getrf: wr0_from = true;
     case nop: break;
     }
 
@@ -171,8 +171,8 @@ public:
     switch (op_type)
     {
     case gemm: r1_to = true;
-    case trsml: case trsmr: r0_to = true;
-    case getrf: case pivot: wr0_to = true;
+    case trsml: case trsmr: case pivot: r0_to = true;
+    case getrf: wr0_to = true;
     case nop: break;
     }
 

@@ -69,7 +69,7 @@ __global__ void svd_kernel (double * U, double *S, double * VT, const int nx, co
 {
   __shared__ double shm[256];
   int i = blockJacobiSVD <double> (U, VT, nx, ny, rank, rank, 1.0e-14, 100, &shm[0]);
-  normalizeU(U, S, nx, ny, rank, rank);
+  normalizeU (U, S, nx, ny, rank, rank);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -91,14 +91,14 @@ int test1()
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
-
+  A->compress(1.e-8);
   A->print();
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
   c->loadTestMatrix(20);
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
 
-  delete A, b, c;
+  delete A; delete b; delete c;
 
   return 0;
 }
@@ -215,9 +215,9 @@ template <class T> __host__ int test4()
 int main(int argc, char **argv)
 {
   //test0 <double> ();
-  //test1();
+  test1();
   //test2();
   //test3();
-  test4<double>();
+  //test4<double>();
   return 0;
 }
