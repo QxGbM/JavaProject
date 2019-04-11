@@ -51,6 +51,20 @@ __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int 
   }
 }
 
+template <class T>
+__device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const int m, const int n,
+  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm)
+{
+  matrixCopy_fromRM <T> (B, &shm[0], b_T ? 1 : n, b_T ? n : 1, ld_b, n, b_T);
+  __syncthreads();
+
+  for (int i = thread_rank(); i < m * n; i += block_dim())
+  {
+    const int row = i / n, col = i - row * n;
+    M[row * ld_m + col] -= (a_T ? A[row] : A[row * ld_a]) * shm[col];
+  }
+}
+
 template <class T> 
 __device__ void blockDenseGemm_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int k, 
   const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
@@ -114,20 +128,6 @@ __device__ void blockDenseGemm_Cshm_RM_Set (T * M, const T * A, const T * B, con
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
     __syncthreads();
-  }
-}
-
-template <class T> 
-__device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, 
-  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm)
-{
-  matrixCopy_fromRM <T> (B, &shm[0], b_T ? 1 : n, b_T ? n : 1, ld_b, n, b_T);
-  __syncthreads();
-
-  for (int i = thread_rank(); i < m * n; i += block_dim())
-  {
-    const int row = i / n, col = i - row * n;
-    M[row * ld_m + col] -= (a_T ? A[row] : A[row * ld_a]) * shm[col];
   }
 }
 

@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 3, levels = 2, dim = 64;
+  const int n = 2, levels = 2, dim = 128;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -20,6 +20,7 @@ template <class T> __host__ int test0()
   const h_ops_tree *tree = a -> generateOps_GETRF();
 
   h_ops_dag *d = new h_ops_dag (tree);
+  d->print();
   delete tree;
 
   inst_handler <T> * ih = new inst_handler <T> (d, a);
@@ -201,7 +202,7 @@ template <class T> __host__ int test4()
   dev_hierarchical <T> *a = new dev_hierarchical <T>(n, n);
   a->loadTestMatrix2 (levels, n, dim, rank);
 
-  const h_ops_tree *tree = a -> generateOps_GETRF(true);
+  const h_ops_tree *tree = a -> generateOps_GETRF();
   tree->print();
 
   delete tree;
@@ -213,10 +214,10 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  //test0 <double> ();
   //test1();
   //test2();
   //test3();
-  //test4<double>();
+  test4<double>();
   return 0;
 }
