@@ -31,7 +31,7 @@ enum element_t { empty, dense, low_rank, hierarchical };
 
 enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
-enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot };
+enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot, trsml_lr, trsmr_lr, gemm4, gemm6 };
 
 enum relation_t { diff_matrix, no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained };
 

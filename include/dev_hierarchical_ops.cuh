@@ -39,7 +39,8 @@ public:
     ts = new int[0]{};
   }
 
-  __host__ h_ops (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, const int ld_b, const int ld_m)
+  __host__ h_ops (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, 
+    const int ld_b, const int ld_m)
   {
     if (op_in != trsml && op_in != trsmr) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
@@ -50,7 +51,8 @@ public:
     ts = new int[0]{};
   }
 
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool A_T, const bool B_T)
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, 
+    const int ld_m, const int ld_a, const int ld_b, const bool A_T, const bool B_T)
   {
     if (op_in != gemm) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
@@ -59,6 +61,45 @@ public:
     dims = new int[3]{ m, n, k };
     lds = new int[3]{ ld_m, ld_a, ld_b };
     ts = new int[2]{ (int) A_T, (int) B_T };
+  }
+
+  __host__ h_ops (const operation_t op_in, const h_index * S, const h_index * UV, const h_index * M, const int rank_b, const int dim_b, const int dim_m, 
+    const int ld_s, const int ld_uv, const int ld_m, const bool uv_T)
+  {
+    if (op_in != trsml_lr && op_in != trsmr_lr) { printf("Operation argument unmatched.\n"); }
+    op_type = op_in;
+    wr = new h_index[1]{ *(S -> clone()) };
+    r = new h_index[2]{ *(UV -> clone()), *(M -> clone()) };
+    dims = new int[3]{ rank_b, dim_b, dim_m };
+    lds = new int[3]{ ld_s, ld_uv, ld_m };
+    ts = new int[1]{ (int) uv_T };
+  }
+
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C, const h_index * D,
+    const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d,
+    const bool a_T, const bool b_T, const bool c_T, const bool d_T)
+  {
+    if (op_in != gemm4) { printf("Operation argument unmatched.\n"); }
+    op_type = op_in;
+    wr = new h_index[1]{ *(M -> clone()) };
+    r = new h_index[4]{ *(A -> clone()), *(B -> clone()), *(C -> clone()), *(D -> clone()) };
+    dims = new int[5]{ m, n, k, l, o };
+    lds = new int[5]{ ld_m, ld_a, ld_b, ld_c, ld_d };
+    ts = new int[4]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T };
+  }
+
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C, const h_index * D, 
+    const h_index * E, const h_index * F, const int m, const int n, const int k, const int l, const int o, const int p, const int q,
+    const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const int ld_e, const int ld_f,
+    const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T, const bool f_T)
+  {
+    if (op_in != gemm6) { printf("Operation argument unmatched.\n"); }
+    op_type = op_in;
+    wr = new h_index[1]{ *(M -> clone()) };
+    r = new h_index[6]{ *(A -> clone()), *(B -> clone()), *(C -> clone()), *(D -> clone()), *(E -> clone()), *(F -> clone()) };
+    dims = new int[7]{ m, n, k, l, o, p, q };
+    lds = new int[7]{ ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, ld_f };
+    ts = new int[6]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T, (int) e_T, (int) f_T };
   }
 
   __host__ ~h_ops ()
