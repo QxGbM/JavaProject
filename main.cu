@@ -154,7 +154,7 @@ __global__ void gemm_kernel(double *mat, double *a, double *b, double *c, double
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d)
 {
   __shared__ double shm[6144];
-  blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, false, false, false, false, &shm[0], 6144);
+  blockDenseGemm_4x_Cshm_RM_Set <double> (mat, a, b, c, d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, true, true, true, true, &shm[0], 6144);
 }
   
 __host__ int test3()
@@ -162,17 +162,18 @@ __host__ int test3()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int m = 1024, n = 1024, k = 512, l = 512, o = 512;
+  const int m = 1000, n = 1016, k = 998, l = 1020, o = 1024;
   dev_dense <double> *mat = new dev_dense<double>(n, m);
-  dev_dense <double> *a = new dev_dense<double>(k, m);
-  dev_dense <double> *b = new dev_dense<double>(l, k);
-  dev_dense <double> *c = new dev_dense<double>(o, l);
-  dev_dense <double> *d = new dev_dense<double>(n, o);
+  dev_dense <double> *a = new dev_dense<double>(m, k);
+  dev_dense <double> *b = new dev_dense<double>(k, l);
+  dev_dense <double> *c = new dev_dense<double>(l, o);
+  dev_dense <double> *d = new dev_dense<double>(o, n);
   
   a->loadRandomMatrix(-10, 10);
   b->loadRandomMatrix(-10, 10);
   c->loadRandomMatrix(-10, 10);
   d->loadRandomMatrix(-10, 10);
+
   
   timer myTimer = timer();
   
@@ -184,10 +185,11 @@ __host__ int test3()
   myTimer.printStatus();
   myTimer.dumpAllEvents_Sync();
   
-  dev_dense <double> *e = a->matrixMultiplication(b) ->matrixMultiplication(c) ->matrixMultiplication(d);
+  dev_dense <double> *e = a->transpose()->matrixMultiplication(b->transpose()) ->matrixMultiplication(c->transpose())->matrixMultiplication(d->transpose());
   printf("Rel. L2 Error: %e\n\n", e->L2Error(mat));
   
-  delete mat, a, b, c, d, e;
+  delete mat;
+  delete a; delete b; delete c; delete d; delete e;
   return 0;
 }
 
@@ -213,10 +215,10 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  //test0 <double> ();
   //test1();
   //test2();
-  //test3();
+  test3();
   //test4<double>();
   return 0;
 }

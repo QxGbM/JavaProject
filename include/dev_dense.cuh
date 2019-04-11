@@ -167,7 +167,7 @@ public:
       {
         for(int k = 0; k < nx; k++)
         {
-          (C -> elements)[m * (B -> nx) + n] += elements[m * ld + k] * (B -> elements)[k * (B -> ld) + n];
+          (C -> elements)[m * (C -> ld) + n] += elements[m * ld + k] * (B -> elements)[k * (B -> ld) + n];
         }
       }
     }
@@ -181,7 +181,7 @@ public:
     {
       for (int n = 0; n < nx; n++)
       {
-        (C -> elements)[n * nx + m] = elements[m * ld + n];
+        (C -> elements)[n * (C -> ld) + m] = elements[m * ld + n];
       }
     }
     return C;
@@ -244,7 +244,7 @@ public:
     {
       for(int y = 0; y < ny; y++)
       {
-        double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);;
+        double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
         norm += t * t;
       }
     }
