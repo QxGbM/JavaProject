@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 3, levels = 2, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -104,25 +104,24 @@ int test1()
 
 __global__ void partial_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
-  __shared__ double shm[4096];
+  __shared__ double shm[6144];
   blockDenseGetrf_shm <double> (matrix, nx, ny, ld, pivot, &shm[0]);
 }
 
 __global__ void recover_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
-  __shared__ double shm[4096];
-  blockApplyPivot <double> (matrix, pivot, nx, ny, ld, true, &shm[0], 4096);
+  __shared__ double shm[6144];
+  blockApplyPivot <double> (matrix, pivot, nx, ny, ld, true, &shm[0], 6144);
 }
 
 __host__ int test2()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
-  const int nx = 4, ny = 4;
+  const int nx = 512, ny = 512;
 
   dev_dense <double> *a = new dev_dense <double> (nx, ny, nx, true);
   a -> loadRandomMatrix(-10, 10, 999);
-  a -> print();
 
   timer myTimer = timer();
 
@@ -131,7 +130,6 @@ __host__ int test2()
   myTimer.newEvent("pivot", end);
   cudaDeviceSynchronize();
 
-  a->print();
   dev_dense <double> *b = a -> restoreLU();
 
   myTimer.newEvent("pivot recovery", start);
@@ -215,10 +213,10 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
+  test0 <double> ();
   //test1();
   //test2();
-  test3();
+  //test3();
   //test4<double>();
   return 0;
 }
