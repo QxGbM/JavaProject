@@ -18,9 +18,10 @@ template <class T> __host__ int test0()
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
   const h_ops_tree *tree = a -> generateOps_GETRF();
+  //tree->print();
 
   h_ops_dag *d = new h_ops_dag (tree);
-  d->print();
+  //d->print();
   delete tree;
 
   inst_handler <T> * ih = new inst_handler <T> (d, a);
@@ -65,11 +66,10 @@ template <class T> __host__ int test0()
   return 0;
 }
 
-__global__ void svd_kernel (double * U, double *S, double * VT, const int nx, const int ny, const int rank)
+__global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
 {
   __shared__ double shm[256];
-  int i = blockJacobiSVD <double> (U, VT, nx, ny, rank, rank, 1.0e-14, 100, &shm[0]);
-  normalizeU (U, S, nx, ny, rank, rank);
+  int i = blockJacobiSVD <double> (U, VT, nx, ny, ld_u, ld_v, 1.0e-14, 100, &shm[0]);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -82,16 +82,16 @@ int test1()
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
-  A -> getU() -> loadTestMatrix(20);
+  A -> getUxS() -> loadTestMatrix(20);
 
   timer myTimer = timer();
 
   myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A->getOffsetS()), A->getElements(A->getOffsetVT()), nx, ny, A -> getRank());
+  svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A -> getOffset_VT()), nx, ny, A -> getLd_UxS(), A -> getLd_VT());
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
-  A->compress(1.e-8);
+  A->adjustRank(6);
   A->print();
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
@@ -214,8 +214,8 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
-  test1();
+  test0 <double> ();
+  //test1();
   //test2();
   //test3();
   //test4<double>();

@@ -18,4 +18,8 @@
   <ItemGroup>
     <CudaCompile Include="main.cu" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="docs\README.md" />
+    <None Include="Makefile" />
+  </ItemGroup>
 </Project>
