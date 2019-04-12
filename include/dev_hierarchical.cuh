@@ -409,7 +409,9 @@ public:
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     h_ops_tree * ops = nullptr;
-    int offset = index_b -> getOffset();
+    int offset = index_b -> getOffset(), offset_vt = B -> getOffset_VT();
+    if (offset < offset_vt) 
+    { offset += offset_vt; }
 
     for (int i = 0; i < nx && i < ny; i++)
     {
@@ -421,7 +423,7 @@ public:
       for (int j = i + 1; j < nx; j++)
       {
         const h_index * index_j = self -> child(i * nx + j), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_B (B -> getVT(), index_bj, B -> getVT(), index_bi, false, index_j, true);
+        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_MT_B (B -> getVT(), index_bj, B -> getVT(), index_bi, true, index_j, false);
         delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNx() * B -> getLd_VT();
         ops_i -> hookup_next(ops_j);

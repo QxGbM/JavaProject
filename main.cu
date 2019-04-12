@@ -17,6 +17,10 @@ template <class T> __host__ int test0()
   a -> loadTestMatrix(levels, n, dim);
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
+  dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
+  c -> loadTestMatrix();
+  printf("Converted to Dense.\n");
+
   const h_ops_tree *tree = a -> generateOps_GETRF();
   //tree->print();
 
@@ -51,15 +55,14 @@ template <class T> __host__ int test0()
   {
     dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
     delete b;
-    dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
-    c -> loadTestMatrix();
+
     printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
 
     delete b_;
-    delete c;
   }
   delete ih;
   delete a;
+  delete c;
 
 
   cudaStreamDestroy(main_stream);
@@ -197,9 +200,9 @@ template <class T> __host__ int test4()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 1, dim = 4, rank = 2;
+  const int n = 3, levels = 1, dim = 4, rank = 2;
 
-  dev_hierarchical <T> *a = new dev_hierarchical <T>(n, n);
+  dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a->loadTestMatrix2 (levels, n, dim, rank);
 
   const h_ops_tree *tree = a -> generateOps_GETRF();
@@ -214,10 +217,10 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  //test0 <double> ();
   //test1();
   //test2();
   //test3();
-  //test4<double>();
+  test4<double>();
   return 0;
 }
