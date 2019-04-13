@@ -409,23 +409,21 @@ public:
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     h_ops_tree * ops = nullptr;
-    int offset = index_b -> getOffset(), offset_vt = B -> getOffset_VT();
-    if (offset < offset_vt) 
-    { offset += offset_vt; }
+    int offset = index_b -> getOffset();
 
     for (int i = 0; i < nx && i < ny; i++)
     {
       const h_index * index_i = self -> child(i * nx + i), *index_bi = index_b -> child(-1, offset);
       h_ops_tree * ops_i = elements[i * nx + i].generateOps_TRSMR (index_i, B, index_bi);
-      const int next_offset = (offset += elements[i * nx + i].getNx() * B -> getLd_VT());
+      const int next_offset = (offset += elements[i * nx + i].getNx());
       delete index_i;
 
       for (int j = i + 1; j < nx; j++)
       {
         const h_index * index_j = self -> child(i * nx + j), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_MT_B (B -> getVT(), index_bj, B -> getVT(), index_bi, true, index_j, false);
+        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_B (B, index_bj, B, index_bi, false, index_j, false);
         delete index_j; delete index_bj;
-        offset += elements[j * nx + i].getNx() * B -> getLd_VT();
+        offset += elements[j * nx + i].getNx();
         ops_i -> hookup_next(ops_j);
       }
 
@@ -443,8 +441,6 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
   {
     h_ops_tree * ops = nullptr;
-    if ((A_T ? A -> getNy() : A -> getNx()) != (B_T ? B -> getNx() : B -> getNy())) 
-    { printf("Unmatched Dimensions in H-GEMM.\n"); return nullptr; }
 
     int offset_a = index_a -> getOffset();
     for (int i = 0; i < ny; i++)
@@ -552,19 +548,19 @@ public:
         {
           int l = block_size, cl = levels;
           while (cl > 0) { l *= dim; cl--; }
-          if (levels > 0)
+          if (x == y)
+          {
+            dev_dense <T> *e = new dev_dense <T> (l, l);
+            e -> loadTestMatrix (x_offset, y_offset);
+            setElement(e, dense, x, y);
+            x_offset += e -> getNx();
+          }
+          else
           {
             dev_low_rank <T> *e = new dev_low_rank <T> (l, l);
             e -> loadTestMatrix (x_offset, y_offset);
             e -> adjustRank(rank);
             setElement(e, low_rank, x, y);
-            x_offset += e -> getNx();
-          }
-          else
-          {
-            dev_dense <T> *e = new dev_dense <T> (l, l);
-            e -> loadTestMatrix (x_offset, y_offset);
-            setElement(e, dense, x, y);
             x_offset += e -> getNx();
           }
         }

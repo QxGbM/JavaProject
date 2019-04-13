@@ -49,13 +49,17 @@ public:
 
   __host__ inline int getLd_UxS() const { return UxS -> getLd(); }
 
-  __host__ inline int getOffset_VT() const { return getNy_UxS() * getLd_UxS(); }
-
   __host__ inline int getNx_VT() const { return VT -> getNx(); }
 
   __host__ inline int getNy_VT() const { return VT -> getNy(); }
 
   __host__ inline int getLd_VT() const { return VT -> getLd(); }
+
+  __host__ inline int getOffset_UxS (const int dense_offset = 0) const
+  { return dense_offset / nx * rank; }
+
+  __host__ inline int getOffset_VT (const int dense_offset = 0) const 
+  { return dense_offset % nx + getNy_UxS() * getLd_UxS(); }
 
   __host__ inline T * getElements (const int offset = 0) const 
   { 

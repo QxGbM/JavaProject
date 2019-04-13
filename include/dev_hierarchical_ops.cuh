@@ -54,7 +54,7 @@ public:
   __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, 
     const int ld_m, const int ld_a, const int ld_b, const bool A_T, const bool B_T)
   {
-    if (op_in != gemm && op_in != gemm_mt) { printf("Operation argument unmatched.\n"); }
+    if (op_in != gemm) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
     wr = new h_index[1]{ *(M -> clone()) };
     r = new h_index[2]{ *(A -> clone()), *(B -> clone()) };
@@ -271,7 +271,7 @@ public:
       for (unsigned long long int x = dims[0], y = dims[2], y_b = dims[1];  x > 0 && y > 0; x--, y--)
       { accum += y_b + 2 * (x - 1) * y_b; }
       break;
-    case gemm: case gemm_mt:
+    case gemm:
       accum = dims[0];
       accum *= dims[1];
       accum *= dims[2];
@@ -350,12 +350,6 @@ public:
       wr[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
       r[0].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[0], lds[1]);
       break;
-    case gemm_mt: 
-      printf("GEMM-MT "); 
-      wr[0].printShort(); printf("T (%d x %d by %d) ", dims[0], dims[1], lds[0]);
-      r[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[0], dims[2], lds[1]);
-      r[1].printShort(); if (ts[1]) { printf("T"); } printf(" (%d x %d by %d) ", dims[2], dims[1], lds[2]);
-      break;
     case gemm3:
       printf("GEMM3 ");
       wr[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[1], lds[0]);
@@ -395,7 +389,7 @@ public:
       return new h_ops (op_type, &wr[0], dims[0], dims[1], lds[0]);
     case trsml: case trsmr:
       return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
-    case gemm: case gemm_mt:
+    case gemm:
       return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
     case pivot:
       return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[2], lds[0], (bool)ts[0]);
@@ -548,7 +542,7 @@ public:
       return new h_ops_tree (op_type, &wr[0], dims[0], dims[1], lds[0]);
     case trsml: case trsmr:
       return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
-    case gemm: case gemm_mt:
+    case gemm:
       return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
     case pivot:
       return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[2], lds[0], (bool)ts[0]);
