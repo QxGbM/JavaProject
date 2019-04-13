@@ -226,15 +226,15 @@ public:
     {
       const h_index * index_i = self -> child(i * nx + i), * index_bi = index_b -> child(-1, offset);
       h_ops_tree * ops_i = elements[i * nx + i].generateOps_TRSML (index_i, B, index_bi);
-      const int next_offset = (offset += elements[i * nx + i].getNy() * B -> getLd_UxS());
+      const int next_offset = (offset += elements[i * nx + i].getNy() * B -> getNx());
       delete index_i;
 
       for (int j = i + 1; j < ny; j++)
       {
         const h_index * index_j = self -> child(j * nx + i), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_A (B -> getUxS(), index_bj, index_j, false, B -> getUxS(), index_bi, false);
+        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_A (B, index_bj, index_j, false, B, index_bi, false);
         delete index_j; delete index_bj;
-        offset += elements[j * nx + i].getNy() * B -> getLd_UxS();
+        offset += elements[j * nx + i].getNy() * B -> getNx();
         ops_i -> hookup_next(ops_j);
       }
 
