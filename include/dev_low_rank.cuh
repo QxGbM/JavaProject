@@ -56,10 +56,10 @@ public:
   __host__ inline int getLd_VT() const { return VT -> getLd(); }
 
   __host__ inline int getOffset_UxS (const int dense_offset = 0) const
-  { return dense_offset / nx * rank; }
+  { return rank * (dense_offset / nx); }
 
   __host__ inline int getOffset_VT (const int dense_offset = 0) const 
-  { return dense_offset % nx + getNy_UxS() * getLd_UxS(); }
+  { return rank * (dense_offset % nx) + getNy_UxS() * getLd_UxS(); }
 
   __host__ inline T * getElements (const int offset = 0) const 
   { 

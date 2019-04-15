@@ -477,27 +477,33 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *index_m, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
   {
     const dev_low_rank <T> *lr = getElementLowRank();
-    const h_index * index_vt_a = index_a -> child (-1, A -> getOffset_VT());
-    const h_index * index_vt_b = index_b -> child (-1, B -> getOffset_VT());
+	const h_index * index_us_a = index_a -> child_UxS(A), * index_vt_a = index_a -> child_VT(A);
+    const h_index * index_us_b = index_b -> child_UxS(B), * index_vt_b = index_b -> child_VT(B);
+	h_ops_tree * ops = nullptr;
+
     if (lr != nullptr)
     {
-      const h_index * index_vt = index_b -> child (-1, lr -> getOffset_VT());
-      h_ops_tree * ops = new h_ops_tree (gemm5, index_m, index_a, index_vt_a, index_b, index_vt_b, index_vt, 
+      const h_index * index_us_m = index_m -> child_UxS(lr), * index_vt_m = index_m -> child_VT (lr);
+      ops = new h_ops_tree (gemm5, index_us_m, index_us_a, index_vt_a, index_us_b, index_vt_b, index_vt_m, 
         getNy(), lr -> getRank(), A -> getRank(), A -> getNx(), B -> getRank(), getNx(),
         lr -> getRank(), A -> getRank(), A -> getRank(), B -> getRank(), B -> getRank(), lr -> getRank(), A_T, !A_T, B_T, !B_T, false);
-      delete index_vt;
-      return ops;
+	  delete index_us_m; delete index_vt_m;
     }
+	else
+	{
+      ops = new h_ops_tree (gemm4, index_m, index_us_a, index_vt_a, index_us_b, index_vt_b, 
+        getNy(), getNx(), A -> getRank(), A -> getNx(), B -> getRank(),
+        getLd(), A -> getRank(), A -> getRank(), B -> getRank(), B -> getRank(), A_T, !A_T, B_T, !B_T);
 
-    h_ops_tree * ops = new h_ops_tree (gemm4, index_m, index_a, index_vt_a, index_b, index_vt_b, 
-      getNy(), getNx(), A -> getRank(), A -> getNx(), B -> getRank(),
-      getLd(), A -> getRank(), A -> getRank(), B -> getRank(), B -> getRank(), A_T, !A_T, B_T, !B_T);
-    delete index_vt_a;
-    delete index_vt_b;
-    const dev_hierarchical <T> *h = getElementHierarchical();
-    if (h != nullptr)
-    {  }
-    return ops;
+      const dev_hierarchical <T> *h = getElementHierarchical();
+      if (h != nullptr)
+      { ops -> hookup_child (h -> generateOps_GEMM (index_m, A, index_a, A_T, B, index_b, B_T)); }
+	}
+
+	delete index_us_a; delete index_vt_a;
+	delete index_us_b; delete index_vt_b;
+
+	return ops;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *index_m, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const

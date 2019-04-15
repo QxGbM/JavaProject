@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 3, levels = 2, dim = 32;
+  const int n = 2, levels = 2, dim = 32;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -164,7 +164,7 @@ __host__ int test3()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int m = 1000, n = 1016, k = 998, l = 1020, o = 1024;
+  const int m = 500, n = 616, k = 348, l = 457, o = 777;
   dev_dense <double> *mat = new dev_dense<double>(n, m);
   dev_dense <double> *a = new dev_dense<double>(m, k);
   dev_dense <double> *b = new dev_dense<double>(k, l);
@@ -200,7 +200,7 @@ template <class T> __host__ int test4()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 4, rank = 2;
+  const int n = 2, levels = 1, dim = 4, rank = 2;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a->loadTestMatrix2 (levels, n, dim, rank);
@@ -217,10 +217,10 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
-  //test1();
-  //test2();
-  //test3();
+  test0 <double> ();
+  test1();
+  test2();
+  test3();
   test4<double>();
   return 0;
 }

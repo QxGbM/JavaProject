@@ -468,6 +468,36 @@ public:
     return ops;
   }
 
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
+  {
+    h_ops_tree * ops = nullptr;
+
+    int offset_a = index_a -> getOffset();
+    for (int i = 0; i < ny; i++)
+    {
+      const h_index * index_ai = index_a -> child(-1, offset_a);
+      int offset_b = index_b -> getOffset();
+
+      for (int j = 0; j < nx; j++)
+      {
+        const h_index * index_m = self -> child(i * nx + j), * index_bj = index_b -> child(-1, offset_b);
+        h_ops_tree * ops_m = elements[i * nx + j].generateOps_GEMM(index_m, A, index_ai, A_T, B, index_bj, B_T);
+
+        delete index_m; delete index_bj;
+        offset_b += elements[i * nx + j].getNx();
+
+        if (ops == nullptr)
+        { ops = ops_m; }
+        else
+        { ops -> hookup_next(ops_m); }
+      }
+
+      delete index_ai;
+      offset_a += elements[i * nx].getNy() * A -> getNx();
+    }
+    return ops;
+  }
+
   __host__ T * lookup (const h_index * index, const int level_self = 0) const
   {
     if (index == nullptr || index -> getLevels() <= level_self)
