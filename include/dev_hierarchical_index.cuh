@@ -92,12 +92,27 @@ public:
     return child(-1, lr -> getOffset_VT(offset));
   }
 
-  __host__ h_index * clone() const
+  __host__ h_index * clone () const
   {
     if (this == nullptr) 
     { return nullptr; }
     else
     { return new h_index(levels, ns, offset, matrix); }
+  }
+
+  __host__ void cloneTo (h_index * index) const
+  {
+    if (index != nullptr && this != nullptr)
+    {
+      index -> levels = levels;
+
+      index -> ns = new int [levels];
+      for (int i = 0; i < levels; i++) 
+      { (index -> ns)[i] = ns[i]; }
+
+      index -> offset = offset;
+      index -> matrix = matrix;
+    }
   }
 
   __host__ void print() const

@@ -34,7 +34,7 @@ public:
   __host__ void setElement (void * M, const element_t type, const int x, const int y) 
   {
     if (x < nx && y < ny)
-    { elements[y * nx + x] = * new dev_h_element <T>(M, type); }
+    { elements[y * nx + x].setElement(M, type); }
   }
 
   __host__ h_index * getRootIndex () const

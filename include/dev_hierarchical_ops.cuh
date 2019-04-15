@@ -21,8 +21,10 @@ public:
   {
     if (op_in != nop) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[0];
-    r = new h_index[0];
+
+    wr = new h_index[0]{};
+    r = new h_index[0]{};
+
     dims = new int[0];
     lds = new int[0];
     ts = new int[0];
@@ -32,8 +34,11 @@ public:
   {
     if (op_in != getrf) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[0];
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[0]{};
+
     dims = new int[2]{ nx, ny };
     lds = new int[1]{ ld };
     ts = new int[0]{};
@@ -44,8 +49,12 @@ public:
   {
     if (op_in != trsml && op_in != trsmr) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(B -> clone()) };
-    r = new h_index[1]{ *(M -> clone()) };
+
+    wr = new h_index[1]{};
+    B -> cloneTo(&wr[0]);
+    r = new h_index[1]{};
+    M -> cloneTo(&r[0]);
+
     dims = new int[3]{ nx_b, ny_b, dim_m };
     lds = new int[2]{ ld_b, ld_m };
     ts = new int[0]{};
@@ -56,8 +65,13 @@ public:
   {
     if (op_in != gemm) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[2]{ *(A -> clone()), *(B -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[2]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+
     dims = new int[3]{ m, n, k };
     lds = new int[3]{ ld_m, ld_a, ld_b };
     ts = new int[2]{ (int) A_T, (int) B_T };
@@ -67,8 +81,12 @@ public:
   {
     if (op_in != pivot) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[1]{ *(P -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[1]{};
+    P -> cloneTo(&r[0]);
+
     dims = new int[2]{ nx, ny };
     lds = new int[1]{ ld };
     ts = new int[1]{ (int) p_T };
@@ -79,8 +97,12 @@ public:
   {
     if (op_in != trsml_lr && op_in != trsmr_lr) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(LR -> clone()) };
-    r = new h_index[1]{ *(M -> clone()) };
+
+    wr = new h_index[1]{};
+    LR -> cloneTo(&wr[0]);
+    r = new h_index[1]{};
+    M -> cloneTo(&r[0]);
+
     dims = new int[3]{ nx_lr, ny_lr, dim_m };
     lds = new int[2]{ ld_lr, ld_m };
     ts = new int[1]{ (int) lr_T };
@@ -92,8 +114,14 @@ public:
   {
     if (op_in != gemm3) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[3]{ *(A -> clone()), *(B -> clone()), *(C -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[3]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+    C -> cloneTo(&r[2]);
+
     dims = new int[4]{ m, n, k, l };
     lds = new int[4]{ ld_m, ld_a, ld_b, ld_c };
     ts = new int[3]{ (int) a_T, (int) b_T, (int) c_T };
@@ -105,8 +133,15 @@ public:
   {
     if (op_in != gemm4) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[4]{ *(A -> clone()), *(B -> clone()), *(C -> clone()), *(D -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[4]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+    C -> cloneTo(&r[2]);
+    D -> cloneTo(&r[3]);
+
     dims = new int[5]{ m, n, k, l, o };
     lds = new int[5]{ ld_m, ld_a, ld_b, ld_c, ld_d };
     ts = new int[4]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T };
@@ -119,8 +154,16 @@ public:
   {
     if (op_in != gemm5) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[5]{ *(A -> clone()), *(B -> clone()), *(C -> clone()), *(D -> clone()), *(E -> clone())};
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[5]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+    C -> cloneTo(&r[2]);
+    D -> cloneTo(&r[3]);
+    E -> cloneTo(&r[4]);
+
     dims = new int[6]{ m, n, k, l, o, p };
     lds = new int[6]{ ld_m, ld_a, ld_b, ld_c, ld_d, ld_e };
     ts = new int[5]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T, (int) e_T };
@@ -128,8 +171,9 @@ public:
 
   __host__ ~h_ops ()
   {
-    delete[] r;
     delete[] wr;
+    delete[] r;
+
     delete[] dims;
     delete[] lds;
     delete[] ts;
