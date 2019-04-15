@@ -41,7 +41,7 @@ template <class T> __host__ int test0()
     cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   }
   
-  const int blocks = 64, threads = 1024;
+  const int blocks = 16, threads = 1024;
   int look_ahead_offset = 64;
 
   myTimer.newEvent("GETRF", start, main_stream);
@@ -218,9 +218,9 @@ template <class T> __host__ int test4()
 int main(int argc, char **argv)
 {
   test0 <double> ();
-  test1();
-  test2();
-  test3();
-  test4<double>();
+  //test1();
+  //test2();
+  //test3();
+  //test4<double>();
   return 0;
 }

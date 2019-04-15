@@ -397,11 +397,13 @@ public:
         break;
         
       case trsml:
-        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
+        blockDenseTrsmL_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
+        //blockDenseTrsmL_lr_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], false, shm);
         break;
 
       case trsmr:
         blockDenseTrsmR_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
+        //blockDenseTrsmR_lr_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], false, shm);
         break;
 
       case gemm:
