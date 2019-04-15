@@ -25,3 +25,27 @@ QxGbM, qxm28@case.edu
 阶层矩阵(Hierarchical)：树型结构矩阵，叶节点为完整或低阶矩阵。中间结点不保存数据。
 
 lu分解：一个矩阵变成l * u的形式，l是下三角矩阵（对角线右上输入全0，对角线输入全1），u是上三角（对角线左下输入全0）。这个分解可以用来解Ax=y
+
+# Behavior
+
+GETRF D -> D is LU decomposed.
+
+GETRF LR -> not allowed.
+
+GETRF H -> { GETRF H|i,i; TRSML H|i,k H|i,i; TRSMR H|j,i H|i,i; GEMM H|j,k H|j,i H|i,k; GETRF H|i+1,i+1 ... }
+
+TRSM D L/U(D) -> Overwrites D with L^-1 x D.
+
+TRSM _ L/U(LR) -> not allowed.
+
+TRSM H L/U(H) -> { TRSML H|i L|i,i; GEMM H|i+1 L|j,i H|i, TRSML H|i+1 L|i+1,i+1; ... }
+
+TRSM D L/U(H) -> Partition D to match with H
+
+TRSM LR L/U(_) -> L: TRSML UxS L; R: TRSMR V U;
+
+GEMM D M1 M2 -> D = D - M1 x M2
+
+GEMM LR M1 M2 -> US = US - M1 x M2 x VT
+
+GEMM H M1 M2 -> { GEMM H|i,j M1|i M2|j }

@@ -31,7 +31,7 @@ enum element_t { empty, dense, low_rank, hierarchical };
 
 enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
-enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot };
+enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot, trsml_lr, trsmr_lr, gemm3, gemm4, gemm5 };
 
 enum relation_t { diff_matrix, no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained };
 
@@ -62,7 +62,7 @@ __device__ inline int num_warps()
 #include <dev_dense_funcs.cuh>
 
 #include <dev_low_rank.cuh>
-#include <svd.cuh>
+#include <dev_low_rank_funcs.cuh>
 
 class h_index;
 class h_ops_tree;

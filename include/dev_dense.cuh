@@ -70,8 +70,19 @@ public:
   __host__ ~dev_dense ()
   {
     cudaFree(elements);
-    cudaFree(pivot);
+    if (pivoted)
+    { cudaFree(pivot); }
   }
+
+  __host__ inline int getNx () const { return nx; }
+
+  __host__ inline int getNy () const { return ny; }
+
+  __host__ inline int getLd () const { return ld; }
+
+  __host__ inline T * getElements (const int offset = 0) const { return &elements[offset]; }
+
+  __host__ inline int * getPivot () const { return pivot; }
 
   __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
   {
@@ -84,29 +95,52 @@ public:
     }
   }
 
-  __host__ int getNx () const
+  __host__ void resize (const int ld_in, const int ny_in)
   {
-    return nx;
+    resizeColumn (ld_in);
+    resizeRow (ny_in);
   }
 
-  __host__ int getNy () const
+  __host__ void resizeColumn (const int ld_in)
   {
-    return ny;
+    if (ld_in > 0 && ld_in != ld)
+    {
+      T * e = nullptr;
+      cudaMallocManaged (&e, ld_in * ny * sizeof(T), cudaMemAttachGlobal);
+      for (int y = 0; y < ny; y++)
+      {
+        for (int x = 0; x < nx && x < ld_in; x++)
+        { e[y * ld_in + x] = elements[y * ld + x]; }
+      }
+      cudaFree(elements);
+      ld = ld_in;
+      nx = (nx > ld) ? ld : nx;
+      elements = e;
+    }
   }
 
-  __host__ int getLd () const
+  __host__ void resizeRow (const int ny_in)
   {
-    return ld;
-  }
-
-  __host__ T * getElements (const int offset = 0) const
-  {
-    return &elements[offset];
-  }
-
-  __host__ int * getPivot () const
-  {
-    return pivot;
+    if (ny_in > 0 && ny_in != ny)
+    {
+      T * e = nullptr;
+      cudaMallocManaged (&e, ld * ny_in * sizeof(T), cudaMemAttachGlobal);
+      for (int y = 0; y < ny_in && y < ny; y++)
+      {
+        for (int x = 0; x < nx; x++)
+        { e[y * ld + x] = elements[y * ld + x]; }
+      }
+      if (pivoted)
+      {
+        int * p = nullptr;
+        cudaMallocManaged (&p, ny_in * sizeof(int), cudaMemAttachGlobal);
+        cudaFree(pivot);
+        pivot = p;
+      }
+      cudaFree(elements);
+      ny = ny_in;
+      elements = e;
+    }
   }
 
   __host__ void print () const
@@ -181,7 +215,7 @@ public:
       {
         for(int k = 0; k < nx; k++)
         {
-          (C -> elements)[m * (B -> nx) + n] += elements[m * ld + k] * (B -> elements)[k * (B -> ld) + n];
+          (C -> elements)[m * (C -> ld) + n] += elements[m * ld + k] * (B -> elements)[k * (B -> ld) + n];
         }
       }
     }
@@ -195,7 +229,7 @@ public:
     {
       for (int n = 0; n < nx; n++)
       {
-        (C -> elements)[n * nx + m] = elements[m * ld + n];
+        (C -> elements)[n * (C -> ld) + m] = elements[m * ld + n];
       }
     }
     return C;
@@ -237,6 +271,20 @@ public:
     return LU;
   }
 
+  __host__ double sqrSum() const
+  {
+    double sum = 0.0;
+    for (int x = 0; x < nx; x++)
+    {
+      for (int y = 0; y < ny; y++)
+      {
+        double t = (double)elements[y * ld + x];
+        sum += t * t;
+      }
+    }
+    return sum;
+  }
+
   __host__ double L2Error (const dev_dense <T> *matrix) const
   {
     double norm = 0.0;
@@ -244,18 +292,11 @@ public:
     {
       for(int y = 0; y < ny; y++)
       {
-        double t = 0.0;
-        if (matrix != nullptr) 
-        { t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]); }
-        else 
-        { t = (double) elements[y * ld + x]; }
+        double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
         norm += t * t;
       }
     }
-    if (matrix != nullptr) 
-    { return sqrt(norm / L2Error(nullptr)); }
-    else 
-    { return norm; }
+    return sqrt(norm / sqrSum());
   }
 
 };

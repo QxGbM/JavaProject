@@ -80,7 +80,16 @@ public:
       h_index * i = new h_index(levels, ns, offset_in, matrix);
       return i;
     }
+  }
 
+  template <class T> __host__ inline h_index * child_UxS (const dev_low_rank <T> * lr) const
+  {
+    return child(-1, lr -> getOffset_UxS(offset));
+  }
+
+  template <class T> __host__ inline h_index * child_VT (const dev_low_rank <T> * lr) const
+  {
+    return child(-1, lr -> getOffset_VT(offset));
   }
 
   __host__ h_index * clone() const

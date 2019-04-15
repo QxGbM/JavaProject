@@ -346,42 +346,41 @@ public:
 
 
 
-  __device__ int inst_fetch_right_looking (const int look_ahead_offset = 0)
+  __device__ int inst_fetch_right_looking (const int look_ahead_offset, int * inst_shm)
   {
-    __shared__ int inst_shm;
 
     if (thread_rank() == 0)
     {
-      inst_shm = -1;
+      * inst_shm = -1;
       int i = inst_ready + look_ahead_offset;
 
-      while (i < inst_length && inst_shm == -1)
+      while (i < inst_length && * inst_shm == -1)
       {
         if (dep_counts[i] == 0 && status[i] == 0)
         {
           if (atomicAdd(&status[i], 1) == 0) 
-          { inst_shm = i; }
+          { * inst_shm = i; }
         }
         i++;
       }
 
       i = inst_ready;
       int n = i + look_ahead_offset; n = (n > inst_length) ? inst_length : n;
-      while (i < n && inst_shm == -1)
+      while (i < n && * inst_shm == -1)
       {
         if (dep_counts[i] == 0 && status[i] == 0)
         {
           if (atomicAdd(&status[i], 1) == 0) 
-          { inst_shm = i; }
+          { * inst_shm = i; }
         }
         i++;
       }
     }
     __syncthreads();
-    return inst_shm;
+    return * inst_shm;
   }
 
-  __device__ void inst_execute (const int inst_num)
+  __device__ void inst_execute (const int inst_num, T * shm, const int shm_size)
   {
     if (inst_num >= 0)
     {
@@ -394,23 +393,23 @@ public:
       case nop: break;
 
       case getrf: 
-        blockDenseGetrf_shm <T, 512> (m1, inst[3], inst[4], inst[5], p); 
+        blockDenseGetrf_shm <T> (m1, inst[3], inst[4], inst[5], p, shm);
         break;
         
       case trsml:
-        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmL <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
         break;
 
       case trsmr:
-        blockDenseTrsmR_shm <T, 512> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7]);
+        blockDenseTrsmR_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
         break;
 
       case gemm:
-        blockDenseGemm_Cshm_RM <T, 4096> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9]);
+        blockDenseGemm_Cshm_RM_Sub <T> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9], false, false, shm, shm_size);
         break;
 
       case pivot:
-        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6]);
+        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6], shm, shm_size);
         break;
 
       }
@@ -433,34 +432,34 @@ public:
     }
   }
 
-  __device__ void inst_adjust_window()
+  __device__ void inst_adjust_window (int * inst_ready_shm)
   {
-    __shared__ int inst_ready_shm;
 
     if (thread_rank() == 0)
     {
       int i = inst_ready;
       while (i < inst_length && status[i] == -1)
       { i++; }
-      inst_ready_shm = i;
+      * inst_ready_shm = i;
     }
     __syncthreads();
 
-    inst_ready = inst_ready_shm;
+    inst_ready = * inst_ready_shm;
   }
 
   __device__ void run (const int look_ahead_offset)
   {
+    __shared__ T shm[6144];
     while (inst_ready < inst_length)
     {
       int i;
       if (block_rank() % 2 == 0)
-      { i = inst_fetch_right_looking(look_ahead_offset); }
+      { i = inst_fetch_right_looking(look_ahead_offset, (int *) &shm[0]); }
       else
-      { i = inst_fetch_right_looking(0); }
-      inst_execute(i);
+      { i = inst_fetch_right_looking(0, (int *) &shm[0]); }
+      inst_execute(i, &shm[0], 6144);
       inst_commit(i);
-      inst_adjust_window();
+      inst_adjust_window((int *) &shm[0]);
     }
   }
 
