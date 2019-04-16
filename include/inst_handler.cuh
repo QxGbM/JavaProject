@@ -13,7 +13,6 @@ private:
   int ** dep;
   int * dep_counts;
   int * status;
-  int inst_ready;
 
   int ptrs_size;
   T ** ptrs;
@@ -32,7 +31,6 @@ public:
     cudaMallocManaged(&dep, inst_length * sizeof(int *), cudaMemAttachGlobal);
     cudaMallocManaged(&dep_counts, inst_length * sizeof(int), cudaMemAttachGlobal);
     cudaMallocManaged(&status, inst_length * sizeof(int), cudaMemAttachGlobal);
-    inst_ready = 0;
 
     ptrs_size = ptrs_size_in;
     cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
@@ -346,36 +344,23 @@ public:
 
 
 
-  __device__ int inst_fetch_right_looking (const int look_ahead_offset, int * inst_shm)
+  __device__ int inst_fetch (const int look_ahead_offset, int * inst_shm)
   {
 
     if (thread_rank() == 0)
     {
-      * inst_shm = -1;
-      int i = inst_ready + look_ahead_offset;
+      int i = * inst_shm;
+      *inst_shm = -1;
 
       while (i < inst_length && * inst_shm == -1)
       {
-        if (dep_counts[i] == 0 && status[i] == 0)
-        {
-          if (atomicAdd(&status[i], 1) == 0) 
-          { * inst_shm = i; }
-        }
-        i++;
-      }
-
-      i = inst_ready;
-      int n = i + look_ahead_offset; n = (n > inst_length) ? inst_length : n;
-      while (i < n && * inst_shm == -1)
-      {
-        if (dep_counts[i] == 0 && status[i] == 0)
-        {
-          if (atomicAdd(&status[i], 1) == 0) 
-          { * inst_shm = i; }
-        }
-        i++;
+        if (dep_counts[i] == 0 && status[i] == 0 && atomicAdd(&status[i], 1) == 0)
+        { * inst_shm = i; }
+        else
+        { i++; }
       }
     }
+
     __syncthreads();
     return * inst_shm;
   }
@@ -384,84 +369,87 @@ public:
   {
     if (inst_num >= 0)
     {
-      const int *inst = insts[inst_num];
-      const operation_t op = (operation_t) inst[0];
-      T *m1 = ptrs[inst[1]], *m2 = ptrs[inst[2]], *m3 = ptrs[inst[3]];
-      int *p = (inst[2] == -1) ? nullptr: pivot_ptrs[inst[2]];
-      switch (op)
+      const int * inst = insts[inst_num];
+      switch ((operation_t)inst[0])
       {
-      case nop: break;
+      case nop:
+      { break; }
 
-      case getrf: 
-        blockDenseGetrf_shm <T> (m1, inst[3], inst[4], inst[5], p, shm);
+      case getrf:
+      {
+        blockDenseGetrf_shm <T>((T *)ptrs[inst[1]], inst[3], inst[4], inst[5], (int *)ptrs[inst[2]], shm);
         break;
-        
+      }
+
       case trsml:
-        blockDenseTrsmL_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
+      {
+        blockDenseTrsmL_shm <T>((T *)ptrs[inst[1]], (T *)ptrs[inst[2]], inst[3], inst[4], inst[5], inst[6], inst[7], shm);
         //blockDenseTrsmL_lr_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], false, shm);
         break;
+      }
 
       case trsmr:
-        blockDenseTrsmR_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], shm);
+      {
+        blockDenseTrsmR_shm <T>((T *)ptrs[inst[1]], (T *)ptrs[inst[2]], inst[3], inst[4], inst[5], inst[6], inst[7], shm);
         //blockDenseTrsmR_lr_shm <T> (m1, m2, inst[3], inst[4], inst[5], inst[6], inst[7], false, shm);
         break;
+      }
 
       case gemm:
-        blockDenseGemm_Cshm_RM_Sub <T> (m1, m2, m3, inst[4], inst[5], inst[6], inst[7], inst[8], inst[9], false, false, shm, shm_size);
+      {
+        blockDenseGemm_Cshm_RM_Sub <T> ((T *)ptrs[inst[1]], (T *)ptrs[inst[2]], (T *)ptrs[inst[3]], inst[4], inst[5], inst[6], inst[7], inst[8], inst[9], false, false, shm, shm_size);
         break;
+      }
 
       case pivot:
-        blockApplyPivot <T> (m1, p, inst[3], inst[4], inst[5], (bool) inst[6], shm, shm_size);
-        break;
-
-      }
-      __syncthreads();
-
-    }
-  }
-
-  __device__ void inst_commit (const int inst_num)
-  {
-    if (thread_rank() == 0 && inst_num >= 0)
-    {
-      const int length = dep[inst_num][0];
-      for (int i = 1; i <= length; i++)
       {
-        const int inst_i = dep[inst_num][i];
-        atomicSub(&dep_counts[inst_i], 1);
+        blockApplyPivot <T> ((T *)ptrs[inst[1]], (int *)ptrs[inst[2]], inst[3], inst[4], inst[5], (bool)inst[6], shm, shm_size);
+        break;
       }
-      status[inst_num] = -1;
+
+      }
+
     }
+    __syncthreads();
+
   }
 
-  __device__ void inst_adjust_window (int * inst_ready_shm)
+  __device__ bool inst_commit (const int inst_num, int * inst_shm)
   {
 
     if (thread_rank() == 0)
     {
-      int i = inst_ready;
-      while (i < inst_length && status[i] == -1)
-      { i++; }
-      * inst_ready_shm = i;
+      if (inst_num >= 0)
+      {
+        for (int i = 1; i <= dep[inst_num][0]; i++)
+        {
+          const int inst_i = dep[inst_num][i];
+          atomicSub (&dep_counts[inst_i], 1);
+        }
+        status[inst_num] = -1;
+      }
+
+      * inst_shm = 0;
+      while (status[* inst_shm] == -1)
+      { (* inst_shm)++; }
     }
+
     __syncthreads();
 
-    inst_ready = * inst_ready_shm;
+    return (* inst_shm) < inst_length;
   }
 
-  __device__ void run (const int look_ahead_offset)
+  __device__ void run ()
   {
     __shared__ T shm[6144];
-    while (inst_ready < inst_length)
+    bool looping = true;
+
+    while (looping)
     {
-      int i;
-      if (block_rank() % 2 == 0)
-      { i = inst_fetch_right_looking(look_ahead_offset, (int *) &shm[0]); }
-      else
-      { i = inst_fetch_right_looking(0, (int *) &shm[0]); }
+      int i = inst_fetch (0, (int *) &shm[0]);
       inst_execute(i, &shm[0], 6144);
-      inst_commit(i);
-      inst_adjust_window((int *) &shm[0]);
+      looping = inst_commit(i, (int *) &shm[0]);
+      __syncthreads();
     }
   }
 

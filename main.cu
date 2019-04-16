@@ -1,9 +1,9 @@
 
 #include <pspl.cuh>
 
-template <class T> __global__ void kernel (inst_handler <T> ih, const int look_ahead_offset) 
+template <class T> __global__ void kernel (inst_handler <T> ih) 
 { 
-  ih.run (look_ahead_offset);
+  ih.run ();
 }
 
 template <class T> __host__ int test0()
@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 32;
+  const int n = 16, levels = 0, dim = 64;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -41,11 +41,10 @@ template <class T> __host__ int test0()
     cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   }
   
-  const int blocks = 16, threads = 1024;
-  int look_ahead_offset = 64;
+  const int blocks = 64, threads = 768;
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[2]{ ih, &look_ahead_offset }, 0, main_stream);
+  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[1]{ ih }, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
@@ -217,10 +216,10 @@ template <class T> __host__ int test4()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
+  test0 <double> ();
   //test1();
   //test2();
   //test3();
-  test4<double>();
+  //test4<double>();
   return 0;
 }
