@@ -6,13 +6,9 @@
 template <class T> class inst_handler
 {
 private:
-  unsigned long long int fops;
 
   int inst_length;
   int ** insts;
-  int ** dep;
-  int * dep_counts;
-  int * status;
 
   int ptrs_size;
   T ** ptrs;
@@ -24,13 +20,8 @@ public:
 
   __host__ inst_handler (const h_ops_dag * dag, const dev_hierarchical <T> *h, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
   {
-    fops = dag -> getFops();
     inst_length = dag -> getLength();
-
     cudaMallocManaged(&insts, inst_length * sizeof(int *), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep, inst_length * sizeof(int *), cudaMemAttachGlobal);
-    cudaMallocManaged(&dep_counts, inst_length * sizeof(int), cudaMemAttachGlobal);
-    cudaMallocManaged(&status, inst_length * sizeof(int), cudaMemAttachGlobal);
 
     ptrs_size = ptrs_size_in;
     cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
@@ -68,10 +59,6 @@ public:
         break;
       }
 
-      const int dep_length = dag -> getDepLength(i);
-      cudaMallocManaged(&dep[i], (dep_length + 1) * sizeof(int), cudaMemAttachGlobal);
-      dag -> flattenDep(i, dep[i]);
-      dep_counts[i] = dag -> getDepCount(i);
     }
   }
 
@@ -81,13 +68,8 @@ public:
     {
       if (insts[i] != nullptr) 
       { cudaFree(insts[i]); }
-      if (dep[i] != nullptr)
-      { cudaFree(dep[i]); }
     }
     cudaFree(insts);
-    cudaFree(dep);
-    cudaFree(dep_counts);
-    cudaFree(status);
     cudaFree(ptrs);
     cudaFree(pivot_ptrs);
   }
@@ -98,13 +80,8 @@ public:
     {
       if (insts[i] != nullptr) 
       { cudaFree(insts[i]); }
-      if (dep[i] != nullptr)
-      { cudaFree(dep[i]); }
     }
     cudaMemset(insts, 0, inst_length * sizeof(int *));
-    cudaMemset(dep, 0, inst_length * sizeof(int *));
-    cudaMemset(dep_counts, 0, inst_length * sizeof(int));
-    cudaMemset(status, 0, inst_length * sizeof(int));
     cudaMemset(ptrs, 0, ptrs_size * sizeof(T *));
     cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
   }
@@ -328,23 +305,9 @@ public:
       }
     }
 
-    printf("Total Float Ops: %llu\n\n", fops);
-
-    for (int i = 0; i < inst_length; i++)
-    {
-      if (dep[i][0] > 0)
-      {
-        for (int j = 1; j <= dep[i][0]; j++)
-        { printf("(%d -> %d) ", i, dep[i][j]); }
-        printf("\n\n");
-      }
-      printf("Inst %d: [%d Output] [%d Input] dependencies.\n\n", i, dep[i][0], dep_counts[i]);
-    }
   }
 
-
-
-  __device__ int inst_fetch (const int look_ahead_offset, int * inst_shm)
+  /*__device__ int inst_fetch (const int look_ahead_offset, int * inst_shm)
   {
 
     if (thread_rank() == 0)
@@ -423,8 +386,7 @@ public:
       {
         for (int i = 1; i <= dep[inst_num][0]; i++)
         {
-          const int inst_i = dep[inst_num][i];
-          atomicSub (&dep_counts[inst_i], 1);
+          atomicSub (&dep_counts[dep[inst_num][i]], 1);
         }
         status[inst_num] = -1;
       }
@@ -437,11 +399,11 @@ public:
     __syncthreads();
 
     return (* inst_shm) < inst_length;
-  }
+  }*/
 
   __device__ void run ()
   {
-    __shared__ T shm[6144];
+    /*__shared__ T shm[6144];
     bool looping = true;
 
     while (looping)
@@ -450,7 +412,7 @@ public:
       inst_execute(i, &shm[0], 6144);
       looping = inst_commit(i, (int *) &shm[0]);
       __syncthreads();
-    }
+    }*/
   }
 
 };

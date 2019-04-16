@@ -48,10 +48,12 @@ public:
     return 1 + ((next == nullptr) ? 0 : next -> length());
   }
 
-  __host__ void flatten (int * deps) const
+  __host__ int * flatten () const
   {
-    deps[0] = to;
-    if (next != nullptr) { next -> flatten(&deps[1]); }
+    int * dep = new int[length()], i = 0;
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; i++, ptr = ptr -> next)
+    { dep[i] = ptr -> to; }
+    return dep;
   }
 
   __host__ void print () const
@@ -135,7 +137,7 @@ public:
     { return deps_graph[from] -> lookupDependency(to); }
   }
 
-  __host__ int getDepLength (const int from) const
+  __host__ int getDepCount_from (const int from) const
   {
     if (deps_graph[from] == nullptr) 
     { return 0; }
@@ -143,22 +145,37 @@ public:
     { return deps_graph[from] -> length();}
   }
 
-  __host__ void flattenDep (const int from, int * deps) const
+  __host__ int * flattenDep_from (const int from) const
   {
     if (deps_graph[from] == nullptr) 
-    { deps[0] = 0; }
+    { return nullptr; }
     else
-    { deps[0] = getDepLength(from); deps_graph[from] -> flatten(&deps[1]); }
+    { return deps_graph[from] -> flatten(); }
   }
 
-  __host__ int getDepCount (const int to) const
+  __host__ int getDepCount_to (const int to) const
   {
     int sum = 0;
     for (int i = 0; i < to; i++)
-    {
-      if (getDep(i, to) > no_dep) { sum++; }
-    }
+    { if (getDep(i, to) > no_dep) { sum++; } }
     return sum;
+  }
+
+  __host__ int * flattenDep_to (const int to) const
+  {
+    const int l = getDepCount_to(to);
+    if (l == 0) 
+    { return nullptr; }
+    else
+    {
+      int * dep = new int[l], i = 0, t = 0;
+      while (t < l) 
+      {
+        if (getDep(i, to) > no_dep) { dep[t] = i; t++; }
+        i++;
+      }
+      return dep;
+    }
   }
 
   __host__ unsigned long long int getFops () const

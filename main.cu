@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 64;
+  const int n = 4, levels = 0, dim = 32;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -25,11 +25,13 @@ template <class T> __host__ int test0()
   //tree->print();
 
   h_ops_dag *d = new h_ops_dag (tree);
-  //d->print();
+  d->print();
   delete tree;
 
+  inst_scheduler *is = new inst_scheduler (d, 4);
+  delete is;
+
   inst_handler <T> * ih = new inst_handler <T> (d, a);
-  delete d;
 
   timer myTimer = timer();
   cudaStream_t main_stream;
@@ -41,7 +43,7 @@ template <class T> __host__ int test0()
     cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   }
   
-  const int blocks = 64, threads = 768;
+  /*const int blocks = 64, threads = 768;
 
   myTimer.newEvent("GETRF", start, main_stream);
   cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[1]{ ih }, 0, main_stream);
@@ -58,10 +60,11 @@ template <class T> __host__ int test0()
     printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
 
     delete b_;
-  }
+  }*/
   delete ih;
   delete a;
   delete c;
+  delete d;
 
 
   cudaStreamDestroy(main_stream);
