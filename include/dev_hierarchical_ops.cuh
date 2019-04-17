@@ -181,110 +181,239 @@ public:
 
   __host__ operation_t opType() const { return op_type; }
 
-  __host__ inline int wr0_nx() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[1] : dims[0]); }
+  __host__ int wr_nx (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type) 
+      {
+      case nop: return 0; 
+      case gemm: return dims[1]; 
+      default: return dims[0];
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int wr0_ny() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[0] : dims[1]); }
+  __host__ int wr_ny (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type) 
+      {
+      case nop: return 0; 
+      case gemm: return dims[0]; 
+      default: return dims[1];
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int wr0_ld() const { return (op_type == nop) ? 0 : lds[0]; }
+  __host__ int wr_ld (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case nop: return 0;
+      default: return lds[0];
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int wr0_t() const { return 0; }
+  __host__ int wr_T (const int i) const 
+  { 
+    return 0; 
+  }
 
-  __host__ inline int r0_nx() const { return (op_type == gemm || op_type == trsml) ? dims[2] : ((op_type == trsmr) ? dims[0] : 0); }
+  __host__ int r_nx (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case gemm: case trsml: return dims[2];
+      case trsmr: return dims[0];
+      default: return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: return dims[1];
+      default: return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r0_ny() const { return (op_type == gemm) ? dims[0] : ((op_type == trsml) ? dims[1] : ((op_type == trsmr) ? dims[2] : 0)); }
+  __host__ int r_ny (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case gemm: return dims[0];
+      case trsml: return dims[1];
+      case trsmr: return dims[2];
+      default: return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: return dims[2];
+      default: return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r0_ld() const { return (op_type == gemm || op_type == trsml || op_type == trsmr) ? lds[1] : 0; }
+  __host__ int r_ld (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsml: case trsmr: case gemm: return lds[1];
+      default: return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: return lds[2];
+      default: return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r0_t() const { return (op_type == gemm) ? ts[0] : 0; }
+  __host__ int r_T (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case gemm: return ts[1];
+      default: return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: return ts[2];
+      default: return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r1_nx() const { return (op_type == gemm) ? dims[1] : 0; }
+  template <class T> __host__ T * wr_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case nop: return nullptr;
+      default: return h -> lookup(&wr[0]);
+      }
+    default:
+      return nullptr;
+    }
+  }
 
-  __host__ inline int r1_ny() const { return (op_type == gemm) ? dims[2] : 0; }
-
-  __host__ inline int r1_ld() const { return (op_type == gemm) ? lds[2] : 0; }
-
-  __host__ inline int r1_t() const { return (op_type == gemm) ? ts[1] : 0; }
-
-  template <class T> __host__ inline T * wr0_ptr (const dev_hierarchical <T> *h) const { return (op_type == nop) ? nullptr : h -> lookup(&wr[0]); }
-
-  template <class T> __host__ inline T * r0_ptr (const dev_hierarchical <T> *h) const { return (op_type == trsml || op_type == trsmr || op_type == gemm) ? h -> lookup(&r[0]) : nullptr; }
-
-  template <class T> __host__ inline T * r1_ptr (const dev_hierarchical <T> *h) const { return (op_type == gemm) ?  h -> lookup(&r[1]) : nullptr; }
+  template <class T> __host__ T * r_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsml: case trsmr: case gemm: return h -> lookup(&r[0]);
+      default: return nullptr;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: return h -> lookup(&r[1]);
+      default: return nullptr;
+      }
+    default:
+      return nullptr;
+    }
+  }
 
   __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
-    bool wr0_from = false, r0_from = false, r1_from = false;
+    int wr_from = 0, r_from = 0, wr_to = 0, r_to = 0;
 
     switch (op_from -> op_type)
     {
-    case gemm: r1_from = true;
-    case trsml: case trsmr: case pivot: r0_from = true;
-    case getrf: wr0_from = true;
+    case gemm: r_from++;
+    case trsml: case trsmr: case pivot: r_from++;
+    case getrf: wr_from++;
     case nop: break;
     }
 
-    bool wr0_to = false, r0_to = false, r1_to = false;
-
     switch (op_type)
     {
-    case gemm: r1_to = true;
-    case trsml: case trsmr: case pivot: r0_to = true;
-    case getrf: wr0_to = true;
+    case gemm: r_to++;
+    case trsml: case trsmr: case pivot: r_to++;
+    case getrf: wr_to++;
     case nop: break;
     }
 
     dependency_t dep = no_dep;
-    
-    if (wr0_from && r0_to)
+
+    for (int i = 0; i < wr_from; i++)
     {
-      relation_t relation = r[0].compare(r0_nx(), r0_ny(), r0_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
-      switch (relation)
+      for (int j = 0; j < r_to; j++)
       {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) flow_dep);
+        relation_t relation = r[j].compare(r_nx(j), r_ny(j), r_ld(j), &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i));
+        switch (relation)
+        {
+        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+        case diff_offset_overlapped: case same_index: case contains: case contained:
+          dep = (dependency_t) ((int) dep | (int) flow_dep);
+        }
       }
-    }
-    if (wr0_from && r1_to)
-    {
-      relation_t relation = r[1].compare(r1_nx(), r1_ny(), r1_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
-      switch (relation)
+
+      for (int j = 0; j < wr_to; j++)
       {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) flow_dep);
+        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i));
+        switch (relation)
+        {
+        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+        case diff_offset_overlapped: case same_index: case contains: case contained:
+          dep = (dependency_t) ((int) dep | (int) output_dep);
+        }
       }
     }
 
-    if (wr0_to && r0_from)
+    for (int i = 0; i < wr_to; i++)
     {
-      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> r)[0], op_from -> r0_nx(), op_from -> r0_ny(), op_from -> r0_ld());
-      switch (relation)
+      for (int j = 0; j < r_from; j++)
       {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) anti_dep);
-      }
-    }
-    if (wr0_to && r1_from)
-    {
-      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> r)[1], op_from -> r1_nx(), op_from -> r1_ny(), op_from -> r1_ld());
-      switch (relation)
-      {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) anti_dep);
-      }
-    }
-
-    if (wr0_from && wr0_to) 
-    {
-      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
-      switch (relation)
-      {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) output_dep);
+        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), &(op_from -> r)[i], op_from -> r_nx(i), op_from -> r_ny(i), op_from -> r_ld(i));
+        switch (relation)
+        {
+        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+        case diff_offset_overlapped: case same_index: case contains: case contained:
+          dep = (dependency_t) ((int) dep | (int) anti_dep);
+        }
       }
     }
 

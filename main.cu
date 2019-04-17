@@ -32,7 +32,7 @@ template <class T> __host__ int test0()
   is->print();
   delete is;
 
-  dev_instructions <T> * ins = new dev_instructions <T> (4, 1);
+  dev_instructions <T> * ins = new dev_instructions <T> (4);
   ins->print();
   delete ins;
 

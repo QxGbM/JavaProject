@@ -228,9 +228,9 @@ private:
     }
   }
 
-  __host__ void execPivot (const int i, T * M, int * p, const int nx, const int ny, const int ld, const bool recover)
+  __host__ void execPivot (const int worker_id, T * M, int * p, const int nx, const int ny, const int ld, const bool recover)
   {
-    if (i >= 0 && i < inst_length)
+    if (worker_id >= 0 && worker_id < inst_length)
     {
       const int inst_length = 8, loc = inst_ptr[worker_id];
       while (loc + inst_length >= inst_lengths[worker_id] - 1)
@@ -249,6 +249,50 @@ private:
 
       inst_ptr[worker_id] = loc + inst_length;
     }
+  }
+
+  __host__ int newSignalWrite (const int worker_id, const int signal_id)
+  {
+    if (worker_id >= 0 && worker_id < inst_length)
+    {
+      const int inst_length = 2, loc = inst_ptr[worker_id];
+      while (loc + inst_length >= inst_lengths[worker_id] - 1)
+      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
+      while (signal_id >= comm_space_size)
+      { changeCommSpaceSize(comm_space_size * 2); }
+      int * inst = &(insts[worker_id][loc]);
+
+      inst[0] = (int) signal_write;
+      inst[1] = signal_id;
+      inst[2] = (int) finish;
+      
+      comm_space_used ++;
+      inst_ptr[worker_id] = loc + inst_length;
+    }
+  }
+
+  __host__ int newSignalWait (const int worker_id, const int signal_id)
+  {
+    if (worker_id >= 0 && worker_id < inst_length)
+    {
+      const int inst_length = 2, loc = inst_ptr[worker_id];
+      while (loc + inst_length >= inst_lengths[worker_id] - 1)
+      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
+      while (signal_id >= comm_space_size)
+      { changeCommSpaceSize(comm_space_size * 2); }
+      int * inst = &(insts[worker_id][loc]);
+
+      inst[0] = (int) signal_wait;
+      inst[1] = signal_id;
+      inst[2] = (int) finish;
+      
+      inst_ptr[worker_id] = loc + inst_length;
+    }
+  }
+
+  __host__ void loadInsts (const h_ops_dag * dag, const dev_hierarchical <T> * h, const inst_scheduler * scheduler)
+  {
+    
   }
 
 public:
@@ -279,9 +323,6 @@ public:
     cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
     cudaMemset(comm_space, 0, pivot_ptrs_size * sizeof(int));
     memset(inst_ptr, 0, num_workers * sizeof(int));
-
-    print();
-    execGetrf(0, nullptr, 4, 4, 4);
 
   }
 
