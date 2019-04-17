@@ -132,102 +132,6 @@ private:
     pivot_ptrs[i] = ptr; return i;
   }
 
-  __host__ void execGetrf (const int worker_id, T * M, const int nx, const int ny, const int ld, int * p = nullptr)
-  {
-    if (worker_id >= 0 && worker_id < workers)
-    {
-      const int inst_length = 7, loc = inst_ptr[worker_id];
-      while (loc + inst_length >= inst_lengths[worker_id] - 1)
-      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
-      int * inst = &(insts[worker_id][loc]);
-
-      inst[0] = (int) execute;
-      inst[1] = (int) getrf;
-      inst[2] = loadPointer(M);
-      inst[3] = loadPivotPointer(p);
-      inst[4] = nx;
-      inst[5] = ny;
-      inst[6] = ld;
-      inst[7] = (int) finish;
-
-      inst_ptr[worker_id] = loc + inst_length;
-    }
-  }
-
-  __host__ void execTrsmL (const int worker_id, T * B, T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
-  {
-    if (worker_id >= 0 && worker_id < workers)
-    {
-      const int inst_length = 9, loc = inst_ptr[worker_id];
-      while (loc + inst_length >= inst_lengths[worker_id] - 1)
-      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
-      int * inst = &(insts[worker_id][loc]);
-
-      inst[0] = (int) execute;
-      inst[1] = (int) trsml;
-      inst[2] = loadPointer(B);
-      inst[3] = loadPivotPointer(L);
-      inst[4] = nx_b;
-      inst[5] = ny_b;
-      inst[6] = nx_l;
-      inst[7] = ld_b;
-      inst[8] = ld_l;
-      inst[9] = (int) finish;
-
-      inst_ptr[worker_id] = loc + inst_length;
-    }
-  }
-
-  __host__ void execTrsmR (const int worker_id, T * B, T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
-  {
-    if (worker_id >= 0 && worker_id < workers)
-    {
-      const int inst_length = 9, loc = inst_ptr[worker_id];
-      while (loc + inst_length >= inst_lengths[worker_id] - 1)
-      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
-      int * inst = &(insts[worker_id][loc]);
-
-      inst[0] = (int) execute;
-      inst[1] = (int) trsmr;
-      inst[2] = loadPointer(B);
-      inst[3] = loadPointer(U);
-      inst[4] = nx_b;
-      inst[5] = ny_b;
-      inst[6] = ny_u;
-      inst[7] = ld_b;
-      inst[8] = ld_u;
-      inst[9] = (int) finish;
-
-      inst_ptr[worker_id] = loc + inst_length;
-    }
-  }
-
-  __host__ void execGemm (const int worker_id, T * M, T * A, T * B, const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b)
-  {
-    if (worker_id >= 0 && worker_id < workers)
-    {
-      const int inst_length = 11, loc = inst_ptr[worker_id];
-      while (loc + inst_length >= inst_lengths[worker_id] - 1)
-      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
-      int * inst = &(insts[worker_id][loc]);
-
-      inst[0] = (int) execute;
-      inst[1] = (int) gemm;
-      inst[2] = loadPointer(M);
-      inst[3] = loadPointer(A);
-      inst[4] = loadPointer(B);
-      inst[5] = m;
-      inst[6] = n;
-      inst[7] = k;
-      inst[8] = ld_m;
-      inst[9] = ld_a;
-      inst[10] = ld_b;
-      inst[11] = (int) finish;
-
-      inst_ptr[worker_id] = loc + inst_length;
-    }
-  }
-
   __host__ int loadOperationPointers (int * inst, const h_ops * op, const dev_hierarchical <T> * h)
   {
     int l1 = op -> l_wr(), l2 = op -> l_r(), t = 0;
@@ -306,6 +210,9 @@ private:
 
   __host__ void loadInsts (const int worker_id, const inst_queue * queue, const h_ops_dag * dag, const dev_hierarchical <T> * h)
   {
+    if (queue == nullptr) 
+    { insts[worker_id][0] = (int) finish; return; }
+
     for (const inst_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
     {
       int inst_n = ptr -> getInst();

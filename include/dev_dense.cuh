@@ -82,7 +82,7 @@ public:
 
   __host__ inline T * getElements (const int offset = 0) const { return &elements[offset]; }
 
-  __host__ inline int * getPivot (const int offset = 0) const { return &pivot[offset / ld]; }
+  __host__ inline int * getPivot (const int offset = 0) const { return (pivoted) ? &pivot[offset / ld] : nullptr; }
 
   __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
   {
