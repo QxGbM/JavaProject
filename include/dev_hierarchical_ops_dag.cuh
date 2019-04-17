@@ -75,7 +75,6 @@ private:
   h_ops_tree * ops_list;
   dependency_linked_list ** deps_graph;
 
-
 public:
 
   __host__ h_ops_dag (const h_ops_tree * ops) 
@@ -122,11 +121,12 @@ public:
     return length;
   }
 
-  __host__ h_ops * getOps (const int i) const
+  __host__ h_ops * getOp (const int i) const
   {
-    h_ops_tree * op = ops_list;
-    for (int n = 0; n < i && op != nullptr; n++, op = op -> getNext()) {}
-    return op;
+    int c = 0;
+    for (h_ops_tree * op = ops_list; op != nullptr; op = op -> getNext())
+    { if (c == i) { return op; } c++; }
+    return nullptr;
   }
 
   __host__ dependency_t getDep (const int from, const int to) const
@@ -159,23 +159,6 @@ public:
     for (int i = 0; i < to; i++)
     { if (getDep(i, to) > no_dep) { sum++; } }
     return sum;
-  }
-
-  __host__ int * flattenDep_to (const int to) const
-  {
-    const int l = getDepCount_to(to);
-    if (l == 0) 
-    { return nullptr; }
-    else
-    {
-      int * dep = new int[l], i = 0, t = 0;
-      while (t < l) 
-      {
-        if (getDep(i, to) > no_dep) { dep[t] = i; t++; }
-        i++;
-      }
-      return dep;
-    }
   }
 
   __host__ unsigned long long int getFops () const

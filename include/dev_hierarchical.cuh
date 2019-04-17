@@ -516,6 +516,24 @@ public:
     }
   }
 
+  __host__ int * lookup_pivot (const h_index * index, const int level_self = 0) const
+  {
+    if (index == nullptr || index -> getLevels() <= level_self)
+    {
+      return nullptr;
+    }
+    else if (index -> getLevels() == level_self + 1)
+    {
+      const dev_dense <T> *d = elements[index -> getIndex(level_self)].getElementDense();
+      return (d == nullptr) ? nullptr : d -> getPivot(index -> getOffset());
+    }
+    else
+    {
+      const dev_hierarchical <T> *h = elements[index -> getIndex(level_self)].getElementHierarchical();
+      return (h == nullptr) ? nullptr : h -> lookup_pivot(index, level_self + 1);
+    }
+  }
+
   __host__ void print(const h_index * index_in) const
   {
     for (int i = 0; i < ny * nx; i++)

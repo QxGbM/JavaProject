@@ -11,7 +11,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 4, levels = 0, dim = 32;
+  const int n = 2, levels = 0, dim = 32;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -30,9 +30,8 @@ template <class T> __host__ int test0()
 
   inst_scheduler *is = new inst_scheduler (d, 4);
   is->print();
-  delete is;
 
-  dev_instructions <T> * ins = new dev_instructions <T> (4);
+  dev_instructions <T> * ins = new dev_instructions <T> (4, d, is, a);
   ins->print();
   delete ins;
 
@@ -65,6 +64,7 @@ template <class T> __host__ int test0()
     delete b_;
   }*/
 
+  delete is;
   delete a;
   delete c;
   delete d;

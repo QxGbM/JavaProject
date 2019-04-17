@@ -320,6 +320,25 @@ public:
     }
   }
 
+  __host__ int l_wr () const
+  {
+    switch (op_type)
+    {
+    case nop: return 0;
+    default: return 1;
+    }
+  }
+
+  __host__ int l_r () const
+  {
+    switch (op_type)
+    {
+    case gemm: return 2;
+    case trsml: case trsmr: case pivot: return 1;
+    default: return 0;
+    }
+  }
+
   template <class T> __host__ T * wr_ptr (const int i, const dev_hierarchical <T> *h) const 
   {
     switch (i)
@@ -329,6 +348,21 @@ public:
       {
       case nop: return nullptr;
       default: return h -> lookup(&wr[0]);
+      }
+    default:
+      return nullptr;
+    }
+  }
+
+  template <class T> __host__ int * wr_pivot_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case getrf: return h -> lookup_pivot (&wr[0]);
+      default: return nullptr;
       }
     default:
       return nullptr;
@@ -349,6 +383,21 @@ public:
       switch (op_type)
       {
       case gemm: return h -> lookup(&r[1]);
+      default: return nullptr;
+      }
+    default:
+      return nullptr;
+    }
+  }
+
+  template <class T> __host__ int * r_pivot_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case pivot: return h -> lookup_pivot (&r[0]);
       default: return nullptr;
       }
     default:
@@ -423,6 +472,76 @@ public:
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
   {
     return op_to -> checkDependencyFrom(this);
+  }
+
+  __host__ h_ops * clone() const
+  {
+    switch (op_type)
+    {
+    case nop:
+      return new h_ops ();
+    case getrf:
+      return new h_ops (op_type, &wr[0], dims[0], dims[1], lds[0]);
+    case trsml: case trsmr:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
+    case gemm:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
+    case pivot:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], lds[0], (bool)ts[0]);
+    case trsml_lr: case trsmr_lr:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
+    case gemm3:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], dims[0], dims[1], dims[2], dims[3],
+        lds[0], lds[1], lds[2], lds[3], (bool)ts[0], (bool)ts[1], (bool)ts[2]);
+    case gemm4:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], dims[0], dims[1], dims[2], dims[3], dims[4], 
+        lds[0], lds[1], lds[2], lds[3], lds[4], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3]);
+    case gemm5:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], &r[4], dims[0], dims[1], dims[2], dims[3], dims[4], dims[5],
+        lds[0], lds[1], lds[2], lds[3], lds[4], lds[5], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3], (bool)ts[4]);
+    default:
+      return nullptr;
+    }
+  }
+
+  __host__ int writeParametersTo (int * inst) const
+  {
+    int l_dims = 0, l_lds = 0, l_ts = 0;
+
+    switch (op_type)
+    {
+    case nop:
+      break;
+    case getrf:
+      l_dims = 2; l_lds = 1; break;
+    case trsml: case trsmr:
+      l_dims = 3; l_lds = 2; break;
+    case gemm:
+      l_dims = 3; l_lds = 3; l_ts = 2; break;
+    case pivot:
+      l_dims = 2; l_lds = 1; l_ts = 1; break;
+    case trsml_lr: case trsmr_lr:
+      l_dims = 3; l_lds = 2; l_ts = 1; break;
+    case gemm3:
+      l_dims = 4; l_lds = 4; l_ts = 3; break;
+    case gemm4:
+      l_dims = 5; l_lds = 5; l_ts = 4; break;
+    case gemm5:
+      l_dims = 6; l_lds = 6; l_ts = 5; break;
+    default:
+      break;
+    }
+
+    int t = 0;
+
+    for (int i = 0; i < l_dims; i++)
+    { inst[t] = dims[i]; t++; }
+    for (int i = 0; i < l_lds; i++)
+    { inst[t] = lds[i]; t++; }
+    for (int i = 0; i < l_ts; i++)
+    { inst[t] = (int) ts[i]; t++; }
+
+    return t;
   }
 
   __host__ unsigned long long int getFops () const
@@ -552,35 +671,7 @@ public:
     printf("{fp-ops: %llu}\n", getFops());
   }
 
-  __host__ h_ops * clone() const
-  {
-    switch (op_type)
-    {
-    case nop:
-      return new h_ops ();
-    case getrf:
-      return new h_ops (op_type, &wr[0], dims[0], dims[1], lds[0]);
-    case trsml: case trsmr:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
-    case gemm:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
-    case pivot:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[2], lds[0], (bool)ts[0]);
-    case trsml_lr: case trsmr_lr:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
-    case gemm3:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], dims[0], dims[1], dims[2], dims[3],
-        lds[0], lds[1], lds[2], lds[3], (bool)ts[0], (bool)ts[1], (bool)ts[2]);
-    case gemm4:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], dims[0], dims[1], dims[2], dims[3], dims[4], 
-        lds[0], lds[1], lds[2], lds[3], lds[4], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3]);
-    case gemm5:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], &r[4], dims[0], dims[1], dims[2], dims[3], dims[4], dims[5],
-        lds[0], lds[1], lds[2], lds[3], lds[4], lds[5], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3], (bool)ts[4]);
-    default:
-      return nullptr;
-    }
-  }
+
   
 };
 
@@ -718,7 +809,7 @@ public:
     case gemm:
       return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
     case pivot:
-      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[2], lds[0], (bool)ts[0]);
+      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], lds[0], (bool)ts[0]);
     case trsml_lr: case trsmr_lr:
       return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
     case gemm3:

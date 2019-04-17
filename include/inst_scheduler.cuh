@@ -21,18 +21,22 @@ public:
   }
 
   __host__ ~inst_queue ()
-  {
-    delete next; 
-  }
+  { delete next; }
 
-  __host__ int get_inst (const int index)
+  __host__ inline int getInst () const
+  { return inst; }
+
+  __host__ inline bool getExW () const
+  { return ex_w; }
+
+  __host__ inline inst_queue * getNext() const
+  { return next; }
+
+  __host__ int getInst (const int index)
   {
     int i = 0;
     for (inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    {
-      if (i == index) { return ptr -> inst; }
-      i++;
-    }
+    { if (i == index) { return ptr -> inst; } i++; }
     return -1;
   }
 
@@ -59,14 +63,9 @@ public:
     for (inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
       if (ptr -> inst == inst_in)
-      {
-        return;
-      }
+      { return; }
       else if (ptr -> next == nullptr) 
-      { 
-        ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in); 
-        return; 
-      }
+      { ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in); return; }
       else if ((ptr -> next -> n_deps) < n_deps_in)
       {
         inst_queue * p = new inst_queue (inst_in, n_deps_in, ex_w_in);
@@ -172,7 +171,7 @@ private:
       load_working_queue(dag);
       for (int i = 0; i < workers; i++)
       {
-        int inst = working_queue -> get_inst(i);
+        int inst = working_queue -> getInst(i);
         if (inst != -1)
         {
           int * list = wait_list (dag, inst);
@@ -201,6 +200,7 @@ private:
   }
 
 public:
+
   __host__ inst_scheduler (const h_ops_dag * dag, const int num_workers_limit)
   {
     length = dag -> getLength();
@@ -229,14 +229,13 @@ public:
     delete[] inward_deps_counter;
   }
 
+  __host__ inline inst_queue * getSchedule (const int worker_id) const
+  { return (worker_id >= 0 && worker_id < workers) ? result_queues[worker_id] : nullptr; }
+
   __host__ void print () const
   {
-
     for (int i = 0; i < workers; i++)
-    { 
-      printf("%d: ", i);
-      result_queues[i] -> print(); 
-    }
+    { printf("%d: ", i); result_queues[i] -> print(); }
   }
 };
 

@@ -228,32 +228,46 @@ private:
     }
   }
 
-  __host__ void execPivot (const int worker_id, T * M, int * p, const int nx, const int ny, const int ld, const bool recover)
+  __host__ int loadOperationPointers (int * inst, const h_ops * op, const dev_hierarchical <T> * h)
   {
-    if (worker_id >= 0 && worker_id < inst_length)
+    int l1 = op -> l_wr(), l2 = op -> l_r(), t = 0;
+    for (int i = 0; i < l1; i++)
     {
-      const int inst_length = 8, loc = inst_ptr[worker_id];
-      while (loc + inst_length >= inst_lengths[worker_id] - 1)
-      { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
-      int * inst = &(insts[worker_id][loc]);
-
-      inst[0] = (int) execute;
-      inst[1] = (int) pivot;
-      inst[2] = loadPointer(M);
-      inst[3] = loadPivotPointer(p);
-      inst[4] = nx;
-      inst[5] = ny;
-      inst[6] = ld;
-      inst[7] = (int) recover;
-      inst[8] = (int) finish;
-
-      inst_ptr[worker_id] = loc + inst_length;
+      inst[t] = loadPointer(op -> wr_ptr <T>(i, h)); t++;
+      if (op -> opType() == getrf)
+      { inst[t] = loadPivotPointer(op -> wr_pivot_ptr(i, h)); t++; }
     }
+    for (int i = 0; i < l2; i++)
+    {
+      if (op -> opType() == pivot)
+      { inst[t] = loadPivotPointer(op -> r_pivot_ptr(i, h)); t++; }
+      else
+      { inst[t] = loadPointer(op -> r_ptr <T> (i, h)); t++; }
+    }
+    return t;
   }
 
-  __host__ int newSignalWrite (const int worker_id, const int signal_id)
+  __host__ void execOperation (const int worker_id, const h_ops * op, const dev_hierarchical <T> * h)
   {
-    if (worker_id >= 0 && worker_id < inst_length)
+    const int loc = inst_ptr[worker_id];
+    while (loc + 16 >= inst_lengths[worker_id])
+    { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
+    int * inst = &(insts[worker_id][loc]), t = 2;
+
+    inst[0] = (int) execute;
+    inst[1] = (int) op -> opType();
+    
+    t += loadOperationPointers (&inst[t], op, h);
+    t += op -> writeParametersTo(&inst[t]);
+
+    inst[t] = (int) finish;
+
+    inst_ptr[worker_id] = loc + t;
+  }
+
+  __host__ void newSignalWrite (const int worker_id, const int signal_id)
+  {
+    if (worker_id >= 0 && worker_id < workers)
     {
       const int inst_length = 2, loc = inst_ptr[worker_id];
       while (loc + inst_length >= inst_lengths[worker_id] - 1)
@@ -271,9 +285,9 @@ private:
     }
   }
 
-  __host__ int newSignalWait (const int worker_id, const int signal_id)
+  __host__ void newSignalWait (const int worker_id, const int signal_id)
   {
-    if (worker_id >= 0 && worker_id < inst_length)
+    if (worker_id >= 0 && worker_id < workers)
     {
       const int inst_length = 2, loc = inst_ptr[worker_id];
       while (loc + inst_length >= inst_lengths[worker_id] - 1)
@@ -290,14 +304,22 @@ private:
     }
   }
 
-  __host__ void loadInsts (const h_ops_dag * dag, const dev_hierarchical <T> * h, const inst_scheduler * scheduler)
+  __host__ void loadInsts (const int worker_id, const inst_queue * queue, const h_ops_dag * dag, const dev_hierarchical <T> * h)
   {
-    
+    for (const inst_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
+    {
+      int inst_n = ptr -> getInst();
+      if (ptr -> getExW())
+      { execOperation(worker_id, dag -> getOp(inst_n), h); newSignalWrite(worker_id, inst_n); }
+      else
+      { newSignalWait(worker_id, inst_n); }
+    }
   }
 
 public:
 
-  __host__ dev_instructions (const int num_workers, const int default_inst_length = 1024, const int default_ptrs_size = 1024, const int default_comm_space_size = 1024)
+  __host__ dev_instructions (const int num_workers, const h_ops_dag * dag, const inst_scheduler * schedule, const dev_hierarchical <T> * h,
+    const int default_inst_length = 1024, const int default_ptrs_size = 1024, const int default_comm_space_size = 1024)
   {
     cudaMallocManaged(&insts, num_workers * sizeof(int *), cudaMemAttachGlobal);
     cudaMallocManaged(&ptrs, default_ptrs_size * sizeof(T *), cudaMemAttachGlobal);
@@ -323,6 +345,9 @@ public:
     cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
     cudaMemset(comm_space, 0, pivot_ptrs_size * sizeof(int));
     memset(inst_ptr, 0, num_workers * sizeof(int));
+
+    for (int i = 0; i < num_workers; i++)
+    { loadInsts(i, schedule -> getSchedule(i), dag, h); }
 
   }
 
@@ -443,7 +468,7 @@ public:
     __syncthreads();
 
     return (* inst_shm) < inst_length;
-  }*/
+  }
 
   __device__ void run ()
   {
@@ -456,8 +481,8 @@ public:
       inst_execute(i, &shm[0], 6144);
       looping = inst_commit(i, (int *) &shm[0]);
       __syncthreads();
-    }*/
-  }
+    }
+  }*/
 
 };
 
