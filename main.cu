@@ -1,9 +1,9 @@
 
 #include <pspl.cuh>
 
-template <class T> __global__ void kernel (inst_handler <T> ih) 
+template <class T> __global__ void kernel () 
 { 
-  ih.run ();
+  //ih.run ();
 }
 
 template <class T> __host__ int test0()
@@ -29,9 +29,12 @@ template <class T> __host__ int test0()
   delete tree;
 
   inst_scheduler *is = new inst_scheduler (d, 4);
+  is->print();
   delete is;
 
-  inst_handler <T> * ih = new inst_handler <T> (d, a);
+  dev_instructions <T> * ins = new dev_instructions <T> (4);
+  ins->print();
+  delete ins;
 
   timer myTimer = timer();
   cudaStream_t main_stream;
@@ -61,7 +64,7 @@ template <class T> __host__ int test0()
 
     delete b_;
   }*/
-  delete ih;
+
   delete a;
   delete c;
   delete d;

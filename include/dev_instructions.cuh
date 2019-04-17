@@ -1,89 +1,65 @@
-#ifndef _INST_HANDLER_CUH
-#define _INST_HANDLER_CUH
+#ifndef _DEV_INSTRUCTIONS_CUH
+#define _DEV_INSTRUCTIONS_CUH
 
 #include <pspl.cuh>
 
-template <class T> class inst_handler
+template <class T> class dev_instructions
 {
 private:
 
-  int inst_length;
   int ** insts;
-
-  int ptrs_size;
   T ** ptrs;
-
-  int pivot_ptrs_size;
   int ** pivot_ptrs;
+  int * comm_space;
+  
+  int workers;
+  int *inst_ptr;
+  int *inst_lengths;
+  int ptrs_size;
+  int pivot_ptrs_size;
+  int comm_space_size;
 
 public:
 
-  __host__ inst_handler (const h_ops_dag * dag, const dev_hierarchical <T> *h, const int ptrs_size_in = 16, const int pivot_ptrs_size_in = 16)
+  __host__ dev_instructions (const int num_workers, const int default_inst_length = 1024, const int default_ptrs_size = 1024, const int default_comm_space_size = 1024)
   {
-    inst_length = dag -> getLength();
-    cudaMallocManaged(&insts, inst_length * sizeof(int *), cudaMemAttachGlobal);
+    cudaMallocManaged(&insts, num_workers * sizeof(int *), cudaMemAttachGlobal);
+    cudaMallocManaged(&ptrs, default_ptrs_size * sizeof(T *), cudaMemAttachGlobal);
+    cudaMallocManaged(&pivot_ptrs, default_ptrs_size * sizeof(int *), cudaMemAttachGlobal);
+    cudaMallocManaged(&comm_space, default_comm_space_size * sizeof(int), cudaMemAttachGlobal);
 
-    ptrs_size = ptrs_size_in;
-    cudaMallocManaged(&ptrs, ptrs_size_in * sizeof(T *), cudaMemAttachGlobal);
-
-    pivot_ptrs_size = pivot_ptrs_size_in;
-    cudaMallocManaged(&pivot_ptrs, pivot_ptrs_size_in * sizeof(int *), cudaMemAttachGlobal);
-
-    reset(false);
-
-    for (int i = 0; i < inst_length; i++)
-    {
-      h_ops * op = dag -> getOps(i);
-      switch (op -> opType())
-      {
-      case nop: 
-        break;
-
-      case getrf: 
-        set_getrf_inst(i, op -> wr0_ptr <T> (h), op -> wr0_nx(), op -> wr0_ny(), op -> wr0_ld(), nullptr); // TODO
-        break;
-
-      case trsml:
-        set_trsml_inst(i, op -> wr0_ptr <T> (h), op -> r0_ptr <T> (h), op -> wr0_nx(), op -> wr0_ny(), op -> r0_nx(), op -> wr0_ld(), op -> r0_ld());
-        break;
-
-      case trsmr:
-        set_trsmr_inst(i, op -> wr0_ptr <T> (h), op -> r0_ptr <T> (h), op -> wr0_nx(), op -> wr0_ny(), op -> r0_ny(), op -> wr0_ld(), op -> r0_ld());
-        break;
-
-      case gemm:
-        set_gemm_inst(i, op -> wr0_ptr <T> (h), op -> r0_ptr <T> (h), op -> r1_ptr <T> (h), op -> wr0_ny(), op->wr0_nx(), op -> r0_nx(), op -> wr0_ld(), op -> r0_ld(), op -> r1_ld());
-        break;
-        
-      case pivot: // TODO
-        break;
-      }
-
+    for (int i = 0; i < num_workers; i++)
+    { 
+      cudaMallocManaged(&insts[i], default_inst_length * sizeof(int), cudaMemAttachGlobal); 
+      cudaMemset(insts[i], -1, default_inst_length * sizeof(int));
     }
+
+    cudaMemset(ptrs, 0, ptrs_size * sizeof(T *));
+    cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
+    cudaMemset(comm_space, 0, pivot_ptrs_size * sizeof(int));
+
+    workers = num_workers;
+    inst_ptr = new int[num_workers];
+    inst_lengths = new int[num_workers];
+    ptrs_size = default_ptrs_size;
+    pivot_ptrs_size = default_ptrs_size;
+    comm_space_size = default_comm_space_size;
+
+    memset(inst_ptr, 0, num_workers * sizeof(int));
+    memset(inst_lengths, default_inst_length, num_workers * sizeof(int));
+
   }
 
-  __host__ ~inst_handler ()
+  __host__ ~dev_instructions ()
   {
-    for (int i = 0; i < inst_length; i++)
-    {
-      if (insts[i] != nullptr) 
-      { cudaFree(insts[i]); }
-    }
+    for (int i = 0; i < workers; i++)
+    { cudaFree(insts[i]); }
     cudaFree(insts);
     cudaFree(ptrs);
     cudaFree(pivot_ptrs);
-  }
-
-  __host__ void reset (const bool free_insts = true)
-  {
-    for (int i = 0; free_insts && i < inst_length; i++)
-    {
-      if (insts[i] != nullptr) 
-      { cudaFree(insts[i]); }
-    }
-    cudaMemset(insts, 0, inst_length * sizeof(int *));
-    cudaMemset(ptrs, 0, ptrs_size * sizeof(T *));
-    cudaMemset(pivot_ptrs, 0, pivot_ptrs_size * sizeof(int *));
+    cudaFree(comm_space);
+    delete[] inst_ptr;
+    delete[] inst_lengths;
   }
 
   __host__ void change_ptrs_size (const int size_in)
@@ -146,18 +122,6 @@ public:
     }
     change_pivot_ptrs_size (pivot_ptrs_size * 2);
     pivot_ptrs[i] = ptr; return i;
-  }
-
-  __host__ void fill_nop_inst ()
-  {
-    for (int i = 0; i < inst_length; i++)
-    {
-      if (insts[i] == nullptr) 
-      {
-        cudaMallocManaged(&insts[i], sizeof(int), cudaMemAttachGlobal);
-        insts[i][0] = (int) nop;
-      }
-    }
   }
 
   __host__ void set_getrf_inst (const int i, T * M, const int nx, const int ny, const int ld, int * p = nullptr)
@@ -266,43 +230,12 @@ public:
 
   __host__ void print() const
   {
-    for (int i = 0; i < inst_length; i++)
+    for (int i = 0; i < workers; i++)
     {
-      if (insts[i] != nullptr)
-      {
-        operation_t type = (operation_t) insts[i][0];
-        printf("%d: ", i);
-        switch (type)
-        {
-        case nop: 
-          printf("NOP."); 
-          break;
-
-        case getrf: printf("GETRF M %d: %d x %d, (ld %d), P %d.", 
-          insts[i][1], insts[i][4], insts[i][3], insts[i][5], insts[i][2]); 
-          break;
-
-        case trsml: printf("TRSML B %d: %d x %d, L %d: %d x %d, (ld %d %d).", 
-          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][4], insts[i][5], insts[i][6], insts[i][7]);
-          break;
-
-        case trsmr: printf("TRSMR B %d: %d x %d, U %d: %d x %d, (ld %d %d).", 
-          insts[i][1], insts[i][4], insts[i][3], insts[i][2], insts[i][5], insts[i][3], insts[i][6], insts[i][7]);
-          break;
-
-        case gemm: printf("GEMM M %d: %d x %d, A %d: %d x %d, B %d: %d x %d, (ld %d %d %d)", 
-          insts[i][1], insts[i][4], insts[i][5], insts[i][2], insts[i][4], insts[i][6], insts[i][3], insts[i][6], insts[i][5], insts[i][7], insts[i][8], insts[i][9]); 
-          break;
-
-        case pivot: printf("PIVOT M %d: %d x %d, (ld %d), P %d",
-          insts[i][1], insts[i][4], insts[i][3], insts[i][5], insts[i][2]);
-          if (insts[i][6] == 0) printf(" APPLY.");
-          else printf(" RECOVERY.");
-          break;
-
-        }
-        printf("\n");
-      }
+      printf("worker %d: ", i);
+      for (int j = 0; j < inst_lengths[i] && insts[i][j] != -1; j++)
+      { printf("%d ", insts[i][j]); }
+      printf("fin.\n");
     }
 
   }

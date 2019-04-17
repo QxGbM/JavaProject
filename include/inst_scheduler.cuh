@@ -216,8 +216,6 @@ public:
     { inward_deps_counter[i] = dag -> getDepCount_to(i); }
 
     schedule(dag);
-
-    print();
   }
 
   __host__ ~inst_scheduler ()
