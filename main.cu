@@ -18,7 +18,7 @@ template <class T> __host__ int test0()
   
   const int blocks = 3, threads = 1024;
 
-  cudaError_t error = hierarchical_GETRF(a, blocks, threads);
+  cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
   if (error == cudaSuccess)
   {
