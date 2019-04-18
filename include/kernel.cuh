@@ -14,9 +14,6 @@ load_inst:
   next_pc = 0;
   __syncthreads();
 
-  if (thread_rank() == 0) 
-  { printf("%d %d %d\n", block_rank(), shm[0], shm[1]); }
-  __syncthreads();
   switch ((opcode_t) shm[0])
   {
   case execute: goto exe;
@@ -28,37 +25,49 @@ load_inst:
   }
 
 exe:
-  __syncthreads();
   switch ((operation_t) shm[1])
   {
   case getrf:
   {
-    blockDenseGetrf_shm <T> ((T *) ptrs[shm[2]], (shm[3] == -1) ? nullptr : (int *) pivot_ptrs[shm[3]], shm[4], shm[5], shm[6], (T *) shm);
+    T * M = ptrs[shm[2]]; 
+    int * p = (shm[3] == -1) ? nullptr : (int *)pivot_ptrs[shm[3]];
+    int nx = shm[4], ny = shm[5], ld = shm[6];
+    __syncthreads();
+    blockDenseGetrf_shm <T> (M, p, nx, ny, ld, (T *) shm);
     next_pc = 7; goto sync;  
   }
 
   case trsml:
   {
-    blockDenseTrsmL_shm <T> ((T *) ptrs[shm[2]], (T *) ptrs[shm[3]], shm[4], shm[5], shm[6], shm[7], shm[8], (T *) shm);
+    T * B = ptrs[shm[2]], * L = ptrs[shm[3]];
+    int nx_b = shm[4], ny_b = shm[5], nx_l = shm[6], ld_b = shm[7], ld_l = shm[8];
+    __syncthreads();
+    blockDenseTrsmL_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm);
     next_pc = 9; goto sync;  
   }
 
   case trsmr:
   {
-    blockDenseTrsmR_shm <T> ((T *) ptrs[shm[2]], (T *) ptrs[shm[3]], shm[4], shm[5], shm[6], shm[7], shm[8], (T *) shm);
+    T * B = ptrs[shm[2]], * U = ptrs[shm[3]];
+    int nx_b = shm[4], ny_b = shm[5], ny_u = shm[6], ld_b = shm[7], ld_u = shm[8];
+    __syncthreads();
+    blockDenseTrsmR_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm);
     next_pc = 9; goto sync;  
   }
 
   case gemm:
   {
-    blockDenseGemm_Cshm_RM_Sub <T> ((T *) ptrs[shm[2]], (T *) ptrs[shm[3]], (T *) ptrs[shm[4]], shm[5], shm[6], shm[7], 
-      shm[8], shm[9], shm[10], (bool) shm[11], (bool) shm[12], (T *) shm, 49152 / sizeof(T));
+    T * M = ptrs[shm[2]], * A = ptrs[shm[3]], * B = ptrs[shm[4]];
+    int m = shm[5], n = shm[6], k = shm[7], ld_m = shm[8], ld_a = shm[9], ld_b = shm[10];
+    bool a_T = (bool) shm[11], b_T = (bool) shm[12];
+    __syncthreads();
+    blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, 49152 / sizeof(T));
     next_pc = 13; goto sync;
   }
 
   case pivot:
   {
-    blockApplyPivot <T> ((T *) ptrs[shm[2]], (int *) pivot_ptrs[shm[3]], shm[4], shm[5], shm[6], (bool) shm[7], (T *) shm, 49152 / sizeof(T));
+    //blockApplyPivot <T> ((T *) ptrs[shm[2]], (int *) pivot_ptrs[shm[3]], shm[4], shm[5], shm[6], (bool) shm[7], (T *) shm, 49152 / sizeof(T));
     next_pc = 8; goto sync;
   }
 
@@ -66,14 +75,17 @@ exe:
   }
 
 wait:
+  if (thread_rank() == 0)
+  { shm[0] = comm_space[shm[1]]; }
   __syncthreads();
-  if (comm_space[shm[1]])
+  if (shm[0])
   { next_pc = 2; }
   goto sync;
 
 write:
-  __syncthreads();
-  comm_space[shm[1]] = 1;
+  if (thread_rank() == 0)
+  { comm_space[shm[1]] = 1; }
+  __threadfence();
   next_pc = 2;
   goto sync;
 
@@ -96,7 +108,6 @@ template <class T> __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T>
   delete tree;
 
   inst_scheduler schedule = inst_scheduler (&dag, num_blocks);
-  schedule.print();
 
   dev_instructions <T> ins = dev_instructions <T> (num_blocks, &dag, &schedule, h);
 
@@ -105,7 +116,7 @@ template <class T> __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T>
 
   if (sizeof(T) == 8) 
   {
-    printf("shared memory bank size set for double precision.\n"); 
+    printf("Shared memory bank size configured to be 8-bytes.\n"); 
     cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   }
 
@@ -122,6 +133,7 @@ template <class T> __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T>
 
   cudaStreamDestroy(main_stream);
 
+  delete args;
   return error;
 }
 
