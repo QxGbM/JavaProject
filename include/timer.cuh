@@ -91,7 +91,6 @@ public:
     { delete events[i]; delete names[i]; }
     delete[] events;
     delete[] names;
-    printf("-- Timer destructed. --\n\n");
   }
 
   __host__ event_linked_list * getEvent (const char *event_name) const

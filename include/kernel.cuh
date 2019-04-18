@@ -47,7 +47,7 @@ exe:
   case gemm:
     if (thread_rank() == 0)
     { printf("%d gemm\n", block_rank()); }
-    next_pc = 11; goto sync;
+    next_pc = 13; goto sync;
 
   case pivot:
     if (thread_rank() == 0)
@@ -95,7 +95,6 @@ template <class T> __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T>
   schedule.print();
 
   dev_instructions <T> ins = dev_instructions <T> (num_blocks, &dag, &schedule, h);
-  ins.print();
 
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);

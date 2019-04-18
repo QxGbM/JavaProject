@@ -112,8 +112,6 @@ public:
     delete[] deps_graph;
 
     delete ops_list;
-
-    printf("-- DAG destroyed. --\n\n");
   }
 
   __host__ int getLength () const
