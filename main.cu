@@ -6,7 +6,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 4, levels = 0, dim = 64, rank = 8;
+  const int n = 2, levels = 1, dim = 14, rank = 2;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   //a -> loadTestMatrix(levels, n, dim);
@@ -16,7 +16,7 @@ template <class T> __host__ int test0()
   dev_dense <T> *c = a -> convertToDense();
   printf("Converted to Dense.\n");
   
-  const int blocks = 6, threads = 256;
+  const int blocks = 68, threads = 512;
 
   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
