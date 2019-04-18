@@ -342,6 +342,7 @@ __device__ void blockDenseGetrf_shm (T * M, int * p, const int nx, const int ny,
     matrixCopy_toRM <T> (&shm[0], &M[i * ld + i], 1, ny - i, 1, ld, false);
     __syncthreads();
   }
+
 }
 
 template <class T>

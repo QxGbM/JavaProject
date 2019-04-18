@@ -16,7 +16,7 @@ template <class T> __host__ int test0()
   c -> loadTestMatrix();
   printf("Converted to Dense.\n");
   
-  const int blocks = 4, threads = 1024;
+  const int blocks = 3, threads = 1024;
 
   cudaError_t error = hierarchical_GETRF(a, blocks, threads);
 
