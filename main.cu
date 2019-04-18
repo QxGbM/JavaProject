@@ -1,17 +1,12 @@
 
 #include <pspl.cuh>
 
-template <class T> __global__ void kernel () 
-{ 
-  //ih.run ();
-}
-
 template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 0, dim = 32;
+  const int n = 4, levels = 0, dim = 32;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim);
@@ -20,39 +15,10 @@ template <class T> __host__ int test0()
   dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
   c -> loadTestMatrix();
   printf("Converted to Dense.\n");
-
-  const h_ops_tree *tree = a -> generateOps_GETRF();
-  //tree->print();
-
-  h_ops_dag *d = new h_ops_dag (tree);
-  d->print();
-  delete tree;
-
-  inst_scheduler *is = new inst_scheduler (d, 4);
-  is->print();
-
-  dev_instructions <T> * ins = new dev_instructions <T> (4, d, is, a);
-  ins->print();
-  delete ins;
-
-  timer myTimer = timer();
-  cudaStream_t main_stream;
-  cudaStreamCreate(&main_stream);
-
-  if (sizeof(T) == 8) 
-  {
-    printf("shared mem double precision.\n"); 
-    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
-  }
   
-  /*const int blocks = 64, threads = 768;
+  const int blocks = 4, threads = 1024;
 
-  myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[1]{ ih }, 0, main_stream);
-  myTimer.newEvent("GETRF", end, main_stream);
-
-  fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
-  cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
+  cudaError_t error = hierarchical_GETRF(a, blocks, threads);
 
   if (error == cudaSuccess)
   {
@@ -62,15 +28,11 @@ template <class T> __host__ int test0()
     printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
 
     delete b_;
-  }*/
+  }
 
-  delete is;
   delete a;
   delete c;
-  delete d;
 
-
-  cudaStreamDestroy(main_stream);
   return 0;
 }
 

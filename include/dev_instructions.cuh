@@ -270,6 +270,9 @@ public:
     delete[] inst_lengths;
   }
 
+  __host__ inline void ** getLaunchArgs ()
+  { return new void *[4]{ &insts, &ptrs, &pivot_ptrs, &comm_space }; }
+
 
   __host__ void print() const
   {

@@ -81,5 +81,6 @@ template <class T> class dev_h_element;
 
 #include <inst_scheduler.cuh>
 #include <dev_instructions.cuh>
+#include <kernel.cuh>
 
 #endif

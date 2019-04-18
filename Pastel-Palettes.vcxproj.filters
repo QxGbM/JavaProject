@@ -14,6 +14,7 @@
     <ClInclude Include="include\inst_scheduler.cuh" />
     <ClInclude Include="include\dev_low_rank_funcs.cuh" />
     <ClInclude Include="include\dev_instructions.cuh" />
+    <ClInclude Include="include\kernel.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
