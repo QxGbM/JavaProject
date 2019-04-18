@@ -3,10 +3,14 @@
 #define _KERNEL_CUH
 
 #include <pspl.cuh>
+#include <cooperative_groups.h>
+
+using namespace cooperative_groups;
 
 template <class T> __global__ void kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
 {
   __shared__ int shm [12288]; int * pc = insts[block_rank()], next_pc = 0;
+  grid_group grid = this_grid();
   
 load_inst:
   if (thread_rank() < 32)
@@ -29,31 +33,47 @@ check_inst:
 exe:
   switch ((operation_t) shm[1])
   {
+
   case getrf:
+  {
+    blockDenseGetrf_shm <T> ((T *) ptrs[shm[2]], (shm[3] == -1) ? nullptr : (int *) pivot_ptrs[shm[3]], shm[4], shm[5], shm[6], (T *) shm);
     if (thread_rank() == 0)
     { printf("%d getrf\n", block_rank()); }
-    next_pc = 7; goto sync;
+    next_pc = 7; goto sync;  
+  }
 
   case trsml:
+  {
+    blockDenseTrsmL_shm <T> ((T *) ptrs[shm[2]], (T *) ptrs[shm[3]], shm[4], shm[5], shm[6], shm[7], shm[8], (T *) shm);
     if (thread_rank() == 0)
     { printf("%d trsml\n", block_rank()); }
-    next_pc = 9; goto sync;
-    
+    next_pc = 9; goto sync;  
+  }
+
   case trsmr:
+  {
+    blockDenseTrsmR_shm <T> ((T *) ptrs[shm[2]], (T *) ptrs[shm[4]], shm[4], shm[5], shm[6], shm[7], shm[8], (T *) shm);
     if (thread_rank() == 0)
     { printf("%d trsmr\n", block_rank()); }
-    next_pc = 9; goto sync;
+    next_pc = 9; goto sync;  
+  }
 
   case gemm:
+  {
+    blockDenseGemm_Cshm_RM_Sub <T> ((T *) ptrs[shm[2]], (T *) ptrs[shm[3]], (T *) ptrs[shm[4]], shm[5], shm[6], shm[7], 
+      shm[8], shm[9], shm[10], (bool) shm[11], (bool) shm[12], (T *) shm, 49152 / sizeof(T));
     if (thread_rank() == 0)
     { printf("%d gemm\n", block_rank()); }
     next_pc = 13; goto sync;
+  }
 
   case pivot:
+  {
+    blockApplyPivot <T> ((T *) ptrs[shm[2]], (int *) pivot_ptrs[shm[3]], shm[4], shm[5], shm[6], (bool) shm[7], (T *) shm, 49152 / sizeof(T));
     if (thread_rank() == 0)
     { printf("%d pivot\n", block_rank()); }
     next_pc = 8; goto sync;
-
+  }
 
   default: goto fin;
   }
@@ -74,7 +94,7 @@ write:
 
 sync:
   // sync grid here.
-  __syncthreads();
+  grid.sync();
   if (next_pc > 0) 
   { pc = &pc[next_pc]; goto load_inst; }
   else
@@ -110,7 +130,7 @@ template <class T> __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T>
   timer myTimer = timer();
 
   myTimer.newEvent("GETRF", start, main_stream);
-  cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T>, num_blocks, num_threads, args, 0, main_stream);
+  cudaError_t error = cudaLaunchCooperativeKernel((void *) kernel_dynamic <T>, num_blocks, num_threads, args, 0, main_stream);
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));

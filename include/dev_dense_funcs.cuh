@@ -309,7 +309,7 @@ __device__ void resetPivot (int *p, const int n)
 
 template <class T> 
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p, T * shm)
+__device__ void blockDenseGetrf_shm (T * M, int * p, const int nx, const int ny, const int ld, T * shm)
 {
   if (p != nullptr) { resetPivot(p, ny); }
 
