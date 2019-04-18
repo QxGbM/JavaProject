@@ -240,6 +240,23 @@ public:
     }
   }
 
+  __host__ bool wr_T (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsml_lr: case trsmr_lr:
+        return ts[0];
+      default: 
+        return false;
+      }
+    default:
+      return false;
+    }
+  }
+
   __host__ int r_nx (const int i) const
   {
     switch (i)
@@ -400,6 +417,55 @@ public:
       }
     default:
       return 0;
+    }
+  }
+
+  __host__ bool r_T (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case pivot: case gemm: case gemm3: case gemm4: case gemm5:
+        return ts[0];
+      default:
+        return false;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return ts[1];
+      default:
+        return false;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return ts[2];
+      default:
+        return false;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return ts[3];
+      default:
+        return false;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return ts[4];
+      default:
+        return false;
+      }
+    default:
+      return false;
     }
   }
 
@@ -575,7 +641,8 @@ public:
     {
       for (int j = 0; j < r_to; j++)
       {
-        relation_t relation = r[j].compare(r_nx(j), r_ny(j), r_ld(j), &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i));
+        relation_t relation = r[j].compare(r_nx(j), r_ny(j), r_ld(j), r_T(j), 
+          &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i), op_from -> wr_T(i));
         switch (relation)
         {
         case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
@@ -586,7 +653,8 @@ public:
 
       for (int j = 0; j < wr_to; j++)
       {
-        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i));
+        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), wr_T(j),
+          &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i), op_from -> wr_T(i));
         switch (relation)
         {
         case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
@@ -600,7 +668,8 @@ public:
     {
       for (int j = 0; j < wr_to; j++)
       {
-        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), &(op_from -> r)[i], op_from -> r_nx(i), op_from -> r_ny(i), op_from -> r_ld(i));
+        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), wr_T(j),
+          &(op_from -> r)[i], op_from -> r_nx(i), op_from -> r_ny(i), op_from -> r_ld(i), op_from -> r_T(i));
         switch (relation)
         {
         case diff_matrix: case no_relation: case diff_offset_no_overlap: break;

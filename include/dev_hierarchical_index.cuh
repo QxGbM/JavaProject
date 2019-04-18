@@ -38,7 +38,8 @@ public:
 
   __host__ int getOffset() const { return offset; }
 
-  __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const h_index *in, const int nx1, const int ny1, const int ld1) const
+  __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const bool t0, 
+    const h_index *in, const int nx1, const int ny1, const int ld1, const bool t1) const
   {
     if (this == nullptr || in == nullptr || matrix != in -> matrix) { return diff_matrix; }
 
@@ -55,7 +56,7 @@ public:
 
         const int row0 = (offset0 == 0) ? 0 : offset0 / ld0, col0 = offset0 - row0 * ld0;
         const int row1 = (offset1 == 0) ? 0 : offset1 / ld1, col1 = offset1 - row1 * ld1;
-        const int row_diff = row1 - row0, col_diff = col1 - col0;
+        const int row_diff = (t1 ? col1: row1) - (t0 ? col0 : row0), col_diff = (t1 ? row1 : col1) - (t0 ? row0 : col0);
 
         const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
         const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);

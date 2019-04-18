@@ -172,6 +172,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   { printf("Number of launched blocks reduced from %d to %d. \n", num_blocks, workers); }
 
   h_ops_dag dag = h_ops_dag (tree);
+  dag.print();
   delete tree;
 
   inst_scheduler schedule = inst_scheduler (&dag, workers);
