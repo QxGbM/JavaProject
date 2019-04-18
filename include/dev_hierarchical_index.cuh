@@ -56,10 +56,13 @@ public:
 
         const int row0 = (offset0 == 0) ? 0 : offset0 / ld0, col0 = offset0 - row0 * ld0;
         const int row1 = (offset1 == 0) ? 0 : offset1 / ld1, col1 = offset1 - row1 * ld1;
-        const int row_diff = (t1 ? col1: row1) - (t0 ? col0 : row0), col_diff = (t1 ? row1 : col1) - (t0 ? row0 : col0);
+        const int row_diff = row1 - row0, col_diff = col1 - col0;
 
-        const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
-        const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);
+        const int ny0_ = t0 ? nx0 : ny0, nx0_ = t0 ? ny0 : nx0;
+        const int ny1_ = t1 ? nx1 : ny1, nx1_ = t1 ? ny1 : nx1;
+
+        const bool row_over = (row_diff >= 0 && row_diff < ny0_) || (row_diff <= 0 && row_diff + ny1_ > 0);
+        const bool col_over = (col_diff >= 0 && col_diff < nx0_) || (col_diff <= 0 && col_diff + nx1_ > 0);
 
         return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
       }
