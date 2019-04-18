@@ -507,7 +507,8 @@ public:
     else if (index -> getLevels() == level_self + 1)
     {
       const dev_dense <T> *d = elements[index -> getIndex(level_self)].getElementDense();
-      return (d == nullptr) ? nullptr : d -> getElements(index -> getOffset());
+      const dev_low_rank <T> *lr = elements[index->getIndex(level_self)].getElementLowRank();
+      return (d == nullptr) ? (lr == nullptr ? nullptr : lr -> getElements(index -> getOffset())) : d -> getElements(index -> getOffset());
     }
     else
     {

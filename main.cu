@@ -6,23 +6,24 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 8, levels = 0, dim = 128;
+  const int n = 4, levels = 0, dim = 64, rank = 8;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  a -> loadTestMatrix(levels, n, dim);
+  //a -> loadTestMatrix(levels, n, dim);
+  a -> loadTestMatrix2(levels, n, dim, rank);
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
-  dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
-  c -> loadTestMatrix();
+  dev_dense <T> *c = a -> convertToDense();
   printf("Converted to Dense.\n");
   
-  const int blocks = 3, threads = 1024;
+  const int blocks = 6, threads = 256;
 
   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
   if (error == cudaSuccess)
   {
     dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
+    //c->print(); b->print();
     delete b;
 
     printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
@@ -167,15 +168,26 @@ template <class T> __host__ int test4()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 4, rank = 2;
+  const int n = 2, levels = 1, dim = 4, rank = 2;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a->loadTestMatrix2 (levels, n, dim, rank);
+  a->print();
+
+  dev_dense <T> *c = a -> convertToDense();
+  printf("Converted to Dense.\n");
 
   const h_ops_tree *tree = a -> generateOps_GETRF();
-  tree->print();
 
+  h_ops_dag dag = h_ops_dag(tree);
+  dag.print();
   delete tree;
+
+  inst_scheduler schedule = inst_scheduler(&dag, 3);
+  schedule.print();
+
+  dev_instructions <T> ins = dev_instructions <T>(3, &dag, &schedule, a);
+  ins.print();
 
   delete a;
   return 0;

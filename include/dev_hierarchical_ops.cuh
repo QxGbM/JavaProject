@@ -77,7 +77,7 @@ public:
     ts = new int[2]{ (int) A_T, (int) B_T };
   }
 
-  __host__ h_ops(const operation_t op_in, const h_index * M, const h_index * P, const int nx, const int ny, const int ld, const bool p_T)
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * P, const int nx, const int ny, const int ld, const bool p_T)
   {
     if (op_in != pivot) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
@@ -188,9 +188,14 @@ public:
     case 0:
       switch (op_type) 
       {
-      case nop: return 0; 
-      case gemm: return dims[1]; 
-      default: return dims[0];
+      case nop: 
+        return 0;
+      case getrf: case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+        return dims[0];
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[1];
+      default: 
+        return 0;
       }
     default:
       return 0;
@@ -204,9 +209,14 @@ public:
     case 0:
       switch (op_type) 
       {
-      case nop: return 0; 
-      case gemm: return dims[0]; 
-      default: return dims[1];
+      case nop: 
+        return 0;
+      case getrf: case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+        return dims[1];
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[0];
+      default: 
+        return 0;
       }
     default:
       return 0;
@@ -220,17 +230,14 @@ public:
     case 0:
       switch (op_type)
       {
-      case nop: return 0;
-      default: return lds[0];
+      case nop: 
+        return 0;
+      default: 
+        return lds[0];
       }
     default:
       return 0;
     }
-  }
-
-  __host__ int wr_T (const int i) const 
-  { 
-    return 0; 
   }
 
   __host__ int r_nx (const int i) const
@@ -240,15 +247,52 @@ public:
     case 0:
       switch (op_type)
       {
-      case gemm: case trsml: return dims[2];
-      case trsmr: return dims[0];
-      default: return 0;
+      case trsmr: case trsmr_lr:
+        return dims[0];
+      case pivot:
+        return dims[1];
+      case trsml: case gemm: case trsml_lr: case gemm3: case gemm4: case gemm5:
+        return dims[2];
+      default: 
+        return 0;
       }
     case 1:
       switch (op_type)
       {
-      case gemm: return dims[1];
-      default: return 0;
+      case gemm: 
+        return dims[1];
+      case gemm3: case gemm4: case gemm5:
+        return dims[3];
+      default: 
+        return 0;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3:
+        return dims[1];
+      case gemm4: case gemm5:
+        return dims[4];
+      default:
+        return 0;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4:
+        return dims[1];
+      case gemm5:
+        return dims[5];
+      default:
+        return 0;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return dims[1];
+      default:
+        return 0;
       }
     default:
       return 0;
@@ -262,16 +306,46 @@ public:
     case 0:
       switch (op_type)
       {
-      case gemm: return dims[0];
-      case trsml: return dims[1];
-      case trsmr: return dims[2];
-      default: return 0;
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[0];
+      case trsml: case pivot: case trsml_lr:
+        return dims[1];
+      case trsmr: case trsmr_lr:
+        return dims[2];
+      default: 
+        return 0;
       }
     case 1:
       switch (op_type)
       {
-      case gemm: return dims[2];
-      default: return 0;
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[2];
+      default: 
+        return 0;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return dims[3];
+      default:
+        return 0;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return dims[4];
+      default:
+        return 0;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return dims[5];
+      default:
+        return 0;
       }
     default:
       return 0;
@@ -285,35 +359,44 @@ public:
     case 0:
       switch (op_type)
       {
-      case trsml: case trsmr: case gemm: return lds[1];
-      default: return 0;
+      case trsml: case trsmr: case gemm: case trsml_lr: case trsmr_lr: case gemm3: case gemm4: case gemm5:
+        return lds[1];
+      case pivot:
+        return dims[1];
+      default: 
+        return 0;
       }
     case 1:
       switch (op_type)
       {
-      case gemm: return lds[2];
-      default: return 0;
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return lds[2];
+      default: 
+        return 0;
       }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ int r_T (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
+    case 2:
       switch (op_type)
       {
-      case gemm: return ts[1];
-      default: return 0;
+      case gemm3: case gemm4: case gemm5:
+        return lds[3];
+      default:
+        return 0;
       }
-    case 1:
+    case 3:
       switch (op_type)
       {
-      case gemm: return ts[2];
-      default: return 0;
+      case gemm4: case gemm5:
+        return lds[4];
+      default:
+        return 0;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return lds[5];
+      default:
+        return 0;
       }
     default:
       return 0;
@@ -333,9 +416,18 @@ public:
   {
     switch (op_type)
     {
-    case gemm: return 2;
-    case trsml: case trsmr: case pivot: return 1;
-    default: return 0;
+    case gemm5:
+      return 5;
+    case gemm4:
+      return 4;
+    case gemm3: 
+      return 3;
+    case gemm: 
+      return 2;
+    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+      return 1;
+    default: 
+      return 0;
     }
   }
 
@@ -346,8 +438,10 @@ public:
     case 0:
       switch (op_type)
       {
-      case nop: return nullptr;
-      default: return h -> lookup(&wr[0]);
+      case nop: 
+        return nullptr;
+      default: 
+        return h -> lookup (&wr[0]);
       }
     default:
       return nullptr;
@@ -361,8 +455,10 @@ public:
     case 0:
       switch (op_type)
       {
-      case getrf: return h -> lookup_pivot (&wr[0]);
-      default: return nullptr;
+      case getrf: 
+        return h -> lookup_pivot (&wr[0]);
+      default: 
+        return nullptr;
       }
     default:
       return nullptr;
@@ -376,14 +472,42 @@ public:
     case 0:
       switch (op_type)
       {
-      case trsml: case trsmr: case gemm: return h -> lookup(&r[0]);
-      default: return nullptr;
+      case trsml: case trsmr: case gemm: case trsml_lr: case trsmr_lr: case gemm3: case gemm4: case gemm5:
+        return h -> lookup (&r[0]);
+      default: 
+        return nullptr;
       }
     case 1:
       switch (op_type)
       {
-      case gemm: return h -> lookup(&r[1]);
-      default: return nullptr;
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return h -> lookup (&r[1]);
+      default: 
+        return nullptr;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return h -> lookup (&r[2]);
+      default:
+        return nullptr;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return h -> lookup (&r[3]);
+      default:
+        return nullptr;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return h -> lookup (&r[4]);
+      default:
+        return nullptr;
       }
     default:
       return nullptr;
@@ -411,18 +535,38 @@ public:
 
     switch (op_from -> op_type)
     {
-    case gemm: r_from++;
-    case trsml: case trsmr: case pivot: r_from++;
-    case getrf: wr_from++;
-    case nop: break;
+    case gemm5:
+      r_from++;
+    case gemm4:
+      r_from++;
+    case gemm3:
+      r_from++;
+    case gemm: 
+      r_from++;
+    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+      r_from++;
+    case getrf: 
+      wr_from++;
+    case nop: 
+      break;
     }
 
     switch (op_type)
     {
-    case gemm: r_to++;
-    case trsml: case trsmr: case pivot: r_to++;
-    case getrf: wr_to++;
-    case nop: break;
+    case gemm5:
+      r_to++;
+    case gemm4:
+      r_to++;
+    case gemm3:
+      r_to++;
+    case gemm: 
+      r_to++;
+    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+      r_to++;
+    case getrf: 
+      wr_to++;
+    case nop: 
+      break;
     }
 
     dependency_t dep = no_dep;
@@ -452,9 +596,9 @@ public:
       }
     }
 
-    for (int i = 0; i < wr_to; i++)
+    for (int i = 0; i < r_from; i++)
     {
-      for (int j = 0; j < r_from; j++)
+      for (int j = 0; j < wr_to; j++)
       {
         relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), &(op_from -> r)[i], op_from -> r_nx(i), op_from -> r_ny(i), op_from -> r_ld(i));
         switch (relation)

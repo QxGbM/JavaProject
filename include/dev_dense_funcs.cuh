@@ -10,11 +10,16 @@ __device__ void matrixCopy_fromRM (const T * from, T * to, const int nx, const i
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
-    const int row = i / nx, col = i - row * nx;
     if (transpose)
-    { to[col * ld_to + row] = from[row * ld_from + col]; }
+    { 
+      const int row = i / ny, col = i - row * ny;
+      to[col * ld_to + row] = from[row * ld_from + col]; 
+    }
     else
-    { to[row * ld_to + col] = from[row * ld_from + col]; }
+    { 
+      const int row = i / nx, col = i - row * nx;
+      to[row * ld_to + col] = from[row * ld_from + col]; 
+    }
   }
 }
 
@@ -24,11 +29,16 @@ __device__ void matrixCopy_toRM (const T * from, T * to, const int nx, const int
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
-    const int row = i / nx, col = i - row * nx;
     if (transpose)
-    { to[row * ld_to + col] = from[col * ld_from + row]; }
+    { 
+      const int row = i / ny, col = i - row * ny;
+      to[row * ld_to + col] = from[col * ld_from + row]; 
+    }
     else
-    { to[row * ld_to + col] = from[row * ld_from + col]; }
+    { 
+      const int row = i / nx, col = i - row * nx;
+      to[row * ld_to + col] = from[row * ld_from + col]; 
+    }
   }
 }
 
@@ -55,7 +65,7 @@ template <class T>
 __device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const int m, const int n,
   const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm)
 {
-  matrixCopy_fromRM <T> (B, &shm[0], b_T ? 1 : n, b_T ? n : 1, ld_b, n, b_T);
+  matrixCopy_fromRM <T> (B, &shm[0], n, 1, ld_b, n, b_T);
   __syncthreads();
 
   for (int i = thread_rank(); i < m * n; i += block_dim())
@@ -104,7 +114,7 @@ __device__ void blockDenseGemm_Cshm_RM_Sub (T * M, const T * A, const T * B, con
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
     
-    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], b_T ? k : num_cols, b_T ? num_cols : k, ld_b, num_cols, b_T);
+    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], num_cols, k, ld_b, num_cols, b_T);
     __syncthreads();
 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
@@ -123,7 +133,7 @@ __device__ void blockDenseGemm_Cshm_RM_Set (T * M, const T * A, const T * B, con
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], b_T ? k : num_cols, b_T ? num_cols : k, ld_b, num_cols, b_T);
+    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], num_cols, k, ld_b, num_cols, b_T);
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
@@ -203,6 +213,27 @@ __device__ void blockDenseGemm_4x_Cshm_RM_Set (T * M, const T * A, const T * B, 
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
+    __syncthreads();
+  }
+}
+
+template <class T>
+__device__ void blockDenseGemm_5x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const T * D, const T * E, 
+  const int m, const int n, const int k, const int l, const int o, const int p, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const int ld_e, 
+  const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T, T * shm, const int shm_size)
+{
+  const int step_size = shm_size / (4 * k);
+
+#pragma unroll
+  for (int col = 0; col < n; col += step_size)
+  {
+    const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
+
+    blockDenseGemm_4x_Cshm_RM_Set <T> (&shm[0], B, C, D, &E[e_T ? col * ld_e : col], k, num_cols, l, o, p, num_cols, ld_b, ld_c, ld_d, ld_e, b_T, c_T, d_T, e_T, &shm[shm_size / 4], 3 * shm_size / 4);
+    __syncthreads();
+
+    blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
     __syncthreads();
   }
 }

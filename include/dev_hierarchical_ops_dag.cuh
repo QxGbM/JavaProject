@@ -80,6 +80,7 @@ public:
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
     ops_list = ops -> flatten();
+    //ops_list->print();
     fops = ops_list -> getFops_All();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
