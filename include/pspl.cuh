@@ -35,6 +35,8 @@ enum operation_t { nop, getrf, trsml, trsmr, gemm, pivot, trsml_lr, trsmr_lr, ge
 
 enum relation_t { diff_matrix, no_relation, diff_offset_no_overlap, diff_offset_overlapped, same_index, contains, contained };
 
+enum opcode_t { execute, signal_wait, signal_write, finish };
+
 __device__ inline int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
 
@@ -77,7 +79,8 @@ template <class T> class dev_h_element;
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 
-#include <inst_handler.cuh>
 #include <inst_scheduler.cuh>
+#include <dev_instructions.cuh>
+#include <kernel.cuh>
 
 #endif

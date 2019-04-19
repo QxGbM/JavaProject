@@ -6,7 +6,6 @@
     <ClInclude Include="include\dev_low_rank.cuh" />
     <ClInclude Include="include\timer.cuh" />
     <ClInclude Include="include\dev_dense_funcs.cuh" />
-    <ClInclude Include="include\inst_handler.cuh" />
     <ClInclude Include="include\pspl.cuh" />
     <ClInclude Include="include\dev_hierarchical_ops.cuh" />
     <ClInclude Include="include\dev_hierarchical_index.cuh" />
@@ -14,6 +13,8 @@
     <ClInclude Include="include\dev_hierarchical_ops_dag.cuh" />
     <ClInclude Include="include\inst_scheduler.cuh" />
     <ClInclude Include="include\dev_low_rank_funcs.cuh" />
+    <ClInclude Include="include\dev_instructions.cuh" />
+    <ClInclude Include="include\kernel.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />

@@ -48,10 +48,12 @@ public:
     return 1 + ((next == nullptr) ? 0 : next -> length());
   }
 
-  __host__ void flatten (int * deps) const
+  __host__ int * flatten () const
   {
-    deps[0] = to;
-    if (next != nullptr) { next -> flatten(&deps[1]); }
+    int * dep = new int[length()], i = 0;
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; i++, ptr = ptr -> next)
+    { dep[i] = ptr -> to; }
+    return dep;
   }
 
   __host__ void print () const
@@ -73,12 +75,12 @@ private:
   h_ops_tree * ops_list;
   dependency_linked_list ** deps_graph;
 
-
 public:
 
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
     ops_list = ops -> flatten();
+    //ops_list->print();
     fops = ops_list -> getFops_All();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
@@ -111,8 +113,6 @@ public:
     delete[] deps_graph;
 
     delete ops_list;
-
-    printf("-- DAG destroyed. --\n\n");
   }
 
   __host__ int getLength () const
@@ -120,11 +120,12 @@ public:
     return length;
   }
 
-  __host__ h_ops * getOps (const int i) const
+  __host__ h_ops * getOp (const int i) const
   {
-    h_ops_tree * op = ops_list;
-    for (int n = 0; n < i && op != nullptr; n++, op = op -> getNext()) {}
-    return op;
+    int c = 0;
+    for (h_ops_tree * op = ops_list; op != nullptr; op = op -> getNext())
+    { if (c == i) { return op; } c++; }
+    return nullptr;
   }
 
   __host__ dependency_t getDep (const int from, const int to) const
@@ -135,29 +136,14 @@ public:
     { return deps_graph[from] -> lookupDependency(to); }
   }
 
-  __host__ int getDepLength (const int from) const
-  {
-    if (deps_graph[from] == nullptr) 
-    { return 0; }
-    else
-    { return deps_graph[from] -> length();}
-  }
+  __host__ inline int getDepCount_from (const int from) const
+  { return (deps_graph[from] == nullptr) ? 0 : deps_graph[from] -> length(); }
 
-  __host__ void flattenDep (const int from, int * deps) const
-  {
-    if (deps_graph[from] == nullptr) 
-    { deps[0] = 0; }
-    else
-    { deps[0] = getDepLength(from); deps_graph[from] -> flatten(&deps[1]); }
-  }
-
-  __host__ int getDepCount (const int to) const
+  __host__ int getDepCount_to (const int to) const
   {
     int sum = 0;
     for (int i = 0; i < to; i++)
-    {
-      if (getDep(i, to) > no_dep) { sum++; }
-    }
+    { if (getDep(i, to) > no_dep) { sum++; } }
     return sum;
   }
 

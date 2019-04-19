@@ -10,11 +10,16 @@ __device__ void matrixCopy_fromRM (const T * from, T * to, const int nx, const i
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
-    const int row = i / nx, col = i - row * nx;
     if (transpose)
-    { to[col * ld_to + row] = from[row * ld_from + col]; }
+    { 
+      const int row = i / ny, col = i - row * ny;
+      to[col * ld_to + row] = from[row * ld_from + col]; 
+    }
     else
-    { to[row * ld_to + col] = from[row * ld_from + col]; }
+    { 
+      const int row = i / nx, col = i - row * nx;
+      to[row * ld_to + col] = from[row * ld_from + col]; 
+    }
   }
 }
 
@@ -24,11 +29,16 @@ __device__ void matrixCopy_toRM (const T * from, T * to, const int nx, const int
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
-    const int row = i / nx, col = i - row * nx;
     if (transpose)
-    { to[row * ld_to + col] = from[col * ld_from + row]; }
+    { 
+      const int row = i / ny, col = i - row * ny;
+      to[row * ld_to + col] = from[col * ld_from + row]; 
+    }
     else
-    { to[row * ld_to + col] = from[row * ld_from + col]; }
+    { 
+      const int row = i / nx, col = i - row * nx;
+      to[row * ld_to + col] = from[row * ld_from + col]; 
+    }
   }
 }
 
@@ -55,7 +65,7 @@ template <class T>
 __device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const int m, const int n,
   const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm)
 {
-  matrixCopy_fromRM <T> (B, &shm[0], b_T ? 1 : n, b_T ? n : 1, ld_b, n, b_T);
+  matrixCopy_fromRM <T> (B, &shm[0], n, 1, ld_b, n, b_T);
   __syncthreads();
 
   for (int i = thread_rank(); i < m * n; i += block_dim())
@@ -104,7 +114,7 @@ __device__ void blockDenseGemm_Cshm_RM_Sub (T * M, const T * A, const T * B, con
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
     
-    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], b_T ? k : num_cols, b_T ? num_cols : k, ld_b, num_cols, b_T);
+    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], num_cols, k, ld_b, num_cols, b_T);
     __syncthreads();
 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
@@ -123,7 +133,7 @@ __device__ void blockDenseGemm_Cshm_RM_Set (T * M, const T * A, const T * B, con
   {
     const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
 
-    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], b_T ? k : num_cols, b_T ? num_cols : k, ld_b, num_cols, b_T);
+    matrixCopy_fromRM <T> (&B[b_T ? col * ld_b : col], &shm[0], num_cols, k, ld_b, num_cols, b_T);
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
@@ -203,6 +213,27 @@ __device__ void blockDenseGemm_4x_Cshm_RM_Set (T * M, const T * A, const T * B, 
     __syncthreads();
 
     blockDenseGemm_RM_Set <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
+    __syncthreads();
+  }
+}
+
+template <class T>
+__device__ void blockDenseGemm_5x_Cshm_RM_Sub (T * M, const T * A, const T * B, const T * C, const T * D, const T * E, 
+  const int m, const int n, const int k, const int l, const int o, const int p, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const int ld_e, 
+  const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T, T * shm, const int shm_size)
+{
+  const int step_size = shm_size / (4 * k);
+
+#pragma unroll
+  for (int col = 0; col < n; col += step_size)
+  {
+    const int cols_remaining = n - col, num_cols = (cols_remaining > step_size) ? step_size : cols_remaining;
+
+    blockDenseGemm_4x_Cshm_RM_Set <T> (&shm[0], B, C, D, &E[e_T ? col * ld_e : col], k, num_cols, l, o, p, num_cols, ld_b, ld_c, ld_d, ld_e, b_T, c_T, d_T, e_T, &shm[shm_size / 4], 3 * shm_size / 4);
+    __syncthreads();
+
+    blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
     __syncthreads();
   }
 }
@@ -309,7 +340,7 @@ __device__ void resetPivot (int *p, const int n)
 
 template <class T> 
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const int ld, int *p, T * shm)
+__device__ void blockDenseGetrf_shm (T * M, int * p, const int nx, const int ny, const int ld, T * shm)
 {
   if (p != nullptr) { resetPivot(p, ny); }
 
@@ -342,11 +373,12 @@ __device__ void blockDenseGetrf_shm (T * M, const int nx, const int ny, const in
     matrixCopy_toRM <T> (&shm[0], &M[i * ld + i], 1, ny - i, 1, ld, false);
     __syncthreads();
   }
+
 }
 
 template <class T>
-/* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-__device__ void blockDenseTrsmL (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, T * shm)
+/* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. Utilizes L1 cache. */
+__device__ void blockDenseTrsmL_shm (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, T * shm)
 {
   for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
   { 
@@ -373,6 +405,52 @@ template <class T>
     matrixCopy_toRM <T> (&shm[0], &B[i], 1, ny_b, 1, ld_b, false);
     __syncthreads();
   }
+}
+
+template <class T>
+/* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. B is small enough to load all into L1 cache. */
+__device__ void blockDenseTrsmL_lr_shm (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, const bool B_T, T * shm)
+{
+  matrixCopy_fromRM <T> (B, shm, nx_b, ny_b, ld_b, nx_b, B_T);
+  __syncthreads();
+
+  for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
+  { 
+    for (int j = thread_rank(); j < (ny_b - i) * nx_b; j += block_dim())
+    {
+      const int row = j / nx_b, col = j - row * nx_b;
+      shm[(i + row + 1) * nx_b + col] -= L[(i + row + 1) * ld_l + i] * shm[i * nx_b + col];
+    }
+    __syncthreads();
+  }
+
+  matrixCopy_toRM <T> (shm, B, nx_b, ny_b, nx_b, ld_b, B_T);
+  __syncthreads();
+}
+
+ 
+template <class T>
+/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. B is small enough to load all into L1 cache. */
+ __device__ void blockDenseTrsmR_lr_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, const bool B_T, T * shm)
+{
+   matrixCopy_fromRM <T> (B, shm, nx_b, ny_b, ld_b, nx_b, B_T);
+   __syncthreads();
+
+   for (int i = 0; i < nx_b && i < ny_u; i++)
+   {
+     for (int j = warp_rank(); j < ny_b; j += num_warps())
+     {
+       if (lane_rank() == 0)
+       { shm[j * nx_b + i] /= U[i * ld_u + i]; }
+
+       for (int k = lane_rank() + i + 1; k < nx_b; k += warpSize)
+       { shm[j * nx_b + k] -= shm[j * nx_b + i] * U[i * ld_u + k]; }
+     }
+     __syncthreads();
+   }
+
+   matrixCopy_toRM <T> (shm, B, nx_b, ny_b, nx_b, ld_b, B_T);
+   __syncthreads();
 }
 
 

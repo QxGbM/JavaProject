@@ -38,9 +38,10 @@ public:
 
   __host__ int getOffset() const { return offset; }
 
-  __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const h_index *in, const int nx1, const int ny1, const int ld1) const
+  __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const bool t0, 
+    const h_index *in, const int nx1, const int ny1, const int ld1, const bool t1) const
   {
-    if (in == nullptr || matrix != in -> matrix) { return diff_matrix; }
+    if (this == nullptr || in == nullptr || matrix != in -> matrix) { return diff_matrix; }
 
     int n = ((in -> levels) > levels) ? levels : (in -> levels);
     for (int i = 0; i < n; i++) 
@@ -53,12 +54,15 @@ public:
       {
         const int offset0 = offset, offset1 = in -> offset;
 
-        const int row0 = offset0 / ld0, col0 = offset0 - row0 * ld0;
-        const int row1 = offset1 / ld1, col1 = offset1 - row1 * ld1;
+        const int row0 = (offset0 == 0) ? 0 : offset0 / ld0, col0 = offset0 - row0 * ld0;
+        const int row1 = (offset1 == 0) ? 0 : offset1 / ld1, col1 = offset1 - row1 * ld1;
         const int row_diff = row1 - row0, col_diff = col1 - col0;
 
-        const bool row_over = (row_diff >= 0 && row_diff < ny0) || (row_diff <= 0 && row_diff + ny1 > 0);
-        const bool col_over = (col_diff >= 0 && col_diff < nx0) || (col_diff <= 0 && col_diff + nx1 > 0);
+        const int ny0_ = t0 ? nx0 : ny0, nx0_ = t0 ? ny0 : nx0;
+        const int ny1_ = t1 ? nx1 : ny1, nx1_ = t1 ? ny1 : nx1;
+
+        const bool row_over = (row_diff >= 0 && row_diff < ny0_) || (row_diff <= 0 && row_diff + ny1_ > 0);
+        const bool col_over = (col_diff >= 0 && col_diff < nx0_) || (col_diff <= 0 && col_diff + nx1_ > 0);
 
         return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
       }
@@ -92,12 +96,27 @@ public:
     return child(-1, lr -> getOffset_VT(offset));
   }
 
-  __host__ h_index * clone() const
+  __host__ h_index * clone () const
   {
     if (this == nullptr) 
     { return nullptr; }
     else
     { return new h_index(levels, ns, offset, matrix); }
+  }
+
+  __host__ void cloneTo (h_index * index) const
+  {
+    if (index != nullptr && this != nullptr)
+    {
+      index -> levels = levels;
+
+      index -> ns = new int [levels];
+      for (int i = 0; i < levels; i++) 
+      { (index -> ns)[i] = ns[i]; }
+
+      index -> offset = offset;
+      index -> matrix = matrix;
+    }
   }
 
   __host__ void print() const

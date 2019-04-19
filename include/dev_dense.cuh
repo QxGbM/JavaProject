@@ -82,7 +82,7 @@ public:
 
   __host__ inline T * getElements (const int offset = 0) const { return &elements[offset]; }
 
-  __host__ inline int * getPivot () const { return pivot; }
+  __host__ inline int * getPivot (const int offset = 0) const { return (pivoted) ? &pivot[offset / ld] : nullptr; }
 
   __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
   {
@@ -293,6 +293,8 @@ public:
       for(int y = 0; y < ny; y++)
       {
         double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
+        if (abs(t) > 1.e-14) 
+        { printf("Error Location: (%d, %d). M1: %5.4f M2: %5.4f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); }
         norm += t * t;
       }
     }

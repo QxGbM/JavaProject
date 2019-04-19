@@ -1,55 +1,24 @@
 
 #include <pspl.cuh>
 
-template <class T> __global__ void kernel (inst_handler <T> ih, const int look_ahead_offset) 
-{ 
-  ih.run (look_ahead_offset);
-}
-
 template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 32;
+  const int n = 12, levels = 0, dim = 32, rank = 8;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  a -> loadTestMatrix(levels, n, dim);
+  //a -> loadTestMatrix(levels, n, dim);
+  a -> loadTestMatrix2(levels, n, dim, rank);
   printf("Testing: %d x %d.\n", a -> getNy(), a -> getNx());
 
-  dev_dense <T> *c = new dev_dense<T> (a -> getNx(), a -> getNy());
-  c -> loadTestMatrix();
+  dev_dense <T> *c = a -> convertToDense();
   printf("Converted to Dense.\n");
-
-  const h_ops_tree *tree = a -> generateOps_GETRF();
-  //tree->print();
-
-  h_ops_dag *d = new h_ops_dag (tree);
-  //d->print();
-  delete tree;
-
-  inst_handler <T> * ih = new inst_handler <T> (d, a);
-  delete d;
-
-  timer myTimer = timer();
-  cudaStream_t main_stream;
-  cudaStreamCreate(&main_stream);
-
-  if (sizeof(T) == 8) 
-  {
-    printf("shared mem double precision.\n"); 
-    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
-  }
   
-  const int blocks = 64, threads = 1024;
-  int look_ahead_offset = 64;
+  const int blocks = 68, threads = 512;
 
-  myTimer.newEvent("GETRF", start, main_stream);
-  cudaLaunchKernel((void *)kernel <T>, blocks, threads, (void **) new void *[2]{ ih, &look_ahead_offset }, 0, main_stream);
-  myTimer.newEvent("GETRF", end, main_stream);
-
-  fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(cudaGetLastError()));
-  cudaError_t error = myTimer.dumpAllEvents_Sync(d -> getFops());
+  cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
   if (error == cudaSuccess)
   {
@@ -60,12 +29,10 @@ template <class T> __host__ int test0()
 
     delete b_;
   }
-  delete ih;
+
   delete a;
   delete c;
 
-
-  cudaStreamDestroy(main_stream);
   return 0;
 }
 
@@ -109,7 +76,7 @@ int test1()
 __global__ void partial_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[6144];
-  blockDenseGetrf_shm <double> (matrix, nx, ny, ld, pivot, &shm[0]);
+  blockDenseGetrf_shm <double> (matrix, pivot, nx, ny, ld, &shm[0]);
 }
 
 __global__ void recover_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
@@ -204,11 +171,22 @@ template <class T> __host__ int test4()
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a->loadTestMatrix2 (levels, n, dim, rank);
+  a->print();
+
+  dev_dense <T> *c = a -> convertToDense();
+  printf("Converted to Dense.\n");
 
   const h_ops_tree *tree = a -> generateOps_GETRF();
-  tree->print();
 
+  h_ops_dag dag = h_ops_dag(tree);
+  dag.print();
   delete tree;
+
+  inst_scheduler schedule = inst_scheduler(&dag, 3);
+  schedule.print();
+
+  dev_instructions <T> ins = dev_instructions <T>(3, &dag, &schedule, a);
+  ins.print();
 
   delete a;
   return 0;
@@ -218,9 +196,9 @@ template <class T> __host__ int test4()
 int main(int argc, char **argv)
 {
   test0 <double> ();
-  test1();
-  test2();
-  test3();
-  test4<double>();
+  //test1();
+  //test2();
+  //test3();
+  //test4<double>();
   return 0;
 }

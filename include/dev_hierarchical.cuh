@@ -34,7 +34,7 @@ public:
   __host__ void setElement (void * M, const element_t type, const int x, const int y) 
   {
     if (x < nx && y < ny)
-    { elements[y * nx + x] = * new dev_h_element <T>(M, type); }
+    { elements[y * nx + x].setElement(M, type); }
   }
 
   __host__ h_index * getRootIndex () const
@@ -507,12 +507,31 @@ public:
     else if (index -> getLevels() == level_self + 1)
     {
       const dev_dense <T> *d = elements[index -> getIndex(level_self)].getElementDense();
-      return (d == nullptr) ? nullptr : d -> getElements(index -> getOffset());
+      const dev_low_rank <T> *lr = elements[index->getIndex(level_self)].getElementLowRank();
+      return (d == nullptr) ? (lr == nullptr ? nullptr : lr -> getElements(index -> getOffset())) : d -> getElements(index -> getOffset());
     }
     else
     {
       const dev_hierarchical <T> *h = elements[index -> getIndex(level_self)].getElementHierarchical();
       return (h == nullptr) ? nullptr : h -> lookup(index, level_self + 1);
+    }
+  }
+
+  __host__ int * lookup_pivot (const h_index * index, const int level_self = 0) const
+  {
+    if (index == nullptr || index -> getLevels() <= level_self)
+    {
+      return nullptr;
+    }
+    else if (index -> getLevels() == level_self + 1)
+    {
+      const dev_dense <T> *d = elements[index -> getIndex(level_self)].getElementDense();
+      return (d == nullptr) ? nullptr : d -> getPivot(index -> getOffset());
+    }
+    else
+    {
+      const dev_hierarchical <T> *h = elements[index -> getIndex(level_self)].getElementHierarchical();
+      return (h == nullptr) ? nullptr : h -> lookup_pivot(index, level_self + 1);
     }
   }
 

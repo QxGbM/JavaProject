@@ -21,8 +21,10 @@ public:
   {
     if (op_in != nop) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[0];
-    r = new h_index[0];
+
+    wr = new h_index[0]{};
+    r = new h_index[0]{};
+
     dims = new int[0];
     lds = new int[0];
     ts = new int[0];
@@ -32,8 +34,11 @@ public:
   {
     if (op_in != getrf) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[0];
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[0]{};
+
     dims = new int[2]{ nx, ny };
     lds = new int[1]{ ld };
     ts = new int[0]{};
@@ -44,8 +49,12 @@ public:
   {
     if (op_in != trsml && op_in != trsmr) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(B -> clone()) };
-    r = new h_index[1]{ *(M -> clone()) };
+
+    wr = new h_index[1]{};
+    B -> cloneTo(&wr[0]);
+    r = new h_index[1]{};
+    M -> cloneTo(&r[0]);
+
     dims = new int[3]{ nx_b, ny_b, dim_m };
     lds = new int[2]{ ld_b, ld_m };
     ts = new int[0]{};
@@ -56,19 +65,28 @@ public:
   {
     if (op_in != gemm) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[2]{ *(A -> clone()), *(B -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[2]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+
     dims = new int[3]{ m, n, k };
     lds = new int[3]{ ld_m, ld_a, ld_b };
     ts = new int[2]{ (int) A_T, (int) B_T };
   }
 
-  __host__ h_ops(const operation_t op_in, const h_index * M, const h_index * P, const int nx, const int ny, const int ld, const bool p_T)
+  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * P, const int nx, const int ny, const int ld, const bool p_T)
   {
     if (op_in != pivot) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[1]{ *(P -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[1]{};
+    P -> cloneTo(&r[0]);
+
     dims = new int[2]{ nx, ny };
     lds = new int[1]{ ld };
     ts = new int[1]{ (int) p_T };
@@ -79,8 +97,12 @@ public:
   {
     if (op_in != trsml_lr && op_in != trsmr_lr) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(LR -> clone()) };
-    r = new h_index[1]{ *(M -> clone()) };
+
+    wr = new h_index[1]{};
+    LR -> cloneTo(&wr[0]);
+    r = new h_index[1]{};
+    M -> cloneTo(&r[0]);
+
     dims = new int[3]{ nx_lr, ny_lr, dim_m };
     lds = new int[2]{ ld_lr, ld_m };
     ts = new int[1]{ (int) lr_T };
@@ -92,8 +114,14 @@ public:
   {
     if (op_in != gemm3) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[3]{ *(A -> clone()), *(B -> clone()), *(C -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[3]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+    C -> cloneTo(&r[2]);
+
     dims = new int[4]{ m, n, k, l };
     lds = new int[4]{ ld_m, ld_a, ld_b, ld_c };
     ts = new int[3]{ (int) a_T, (int) b_T, (int) c_T };
@@ -105,8 +133,15 @@ public:
   {
     if (op_in != gemm4) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[4]{ *(A -> clone()), *(B -> clone()), *(C -> clone()), *(D -> clone()) };
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[4]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+    C -> cloneTo(&r[2]);
+    D -> cloneTo(&r[3]);
+
     dims = new int[5]{ m, n, k, l, o };
     lds = new int[5]{ ld_m, ld_a, ld_b, ld_c, ld_d };
     ts = new int[4]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T };
@@ -119,8 +154,16 @@ public:
   {
     if (op_in != gemm5) { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
-    wr = new h_index[1]{ *(M -> clone()) };
-    r = new h_index[5]{ *(A -> clone()), *(B -> clone()), *(C -> clone()), *(D -> clone()), *(E -> clone())};
+
+    wr = new h_index[1]{};
+    M -> cloneTo(&wr[0]);
+    r = new h_index[5]{};
+    A -> cloneTo(&r[0]);
+    B -> cloneTo(&r[1]);
+    C -> cloneTo(&r[2]);
+    D -> cloneTo(&r[3]);
+    E -> cloneTo(&r[4]);
+
     dims = new int[6]{ m, n, k, l, o, p };
     lds = new int[6]{ ld_m, ld_a, ld_b, ld_c, ld_d, ld_e };
     ts = new int[5]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T, (int) e_T };
@@ -128,8 +171,9 @@ public:
 
   __host__ ~h_ops ()
   {
-    delete[] r;
     delete[] wr;
+    delete[] r;
+
     delete[] dims;
     delete[] lds;
     delete[] ts;
@@ -137,110 +181,501 @@ public:
 
   __host__ operation_t opType() const { return op_type; }
 
-  __host__ inline int wr0_nx() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[1] : dims[0]); }
+  __host__ int wr_nx (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type) 
+      {
+      case nop: 
+        return 0;
+      case getrf: case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+        return dims[0];
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[1];
+      default: 
+        return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int wr0_ny() const { return (op_type == nop) ? 0 : ((op_type == gemm) ? dims[0] : dims[1]); }
+  __host__ int wr_ny (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type) 
+      {
+      case nop: 
+        return 0;
+      case getrf: case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+        return dims[1];
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[0];
+      default: 
+        return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int wr0_ld() const { return (op_type == nop) ? 0 : lds[0]; }
+  __host__ int wr_ld (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case nop: 
+        return 0;
+      default: 
+        return lds[0];
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int wr0_t() const { return 0; }
+  __host__ bool wr_T (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsml_lr: case trsmr_lr:
+        return ts[0];
+      default: 
+        return false;
+      }
+    default:
+      return false;
+    }
+  }
 
-  __host__ inline int r0_nx() const { return (op_type == gemm || op_type == trsml) ? dims[2] : ((op_type == trsmr) ? dims[0] : 0); }
+  __host__ int r_nx (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsmr: case trsmr_lr:
+        return dims[0];
+      case pivot:
+        return dims[1];
+      case trsml: case gemm: case trsml_lr: case gemm3: case gemm4: case gemm5:
+        return dims[2];
+      default: 
+        return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: 
+        return dims[1];
+      case gemm3: case gemm4: case gemm5:
+        return dims[3];
+      default: 
+        return 0;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3:
+        return dims[1];
+      case gemm4: case gemm5:
+        return dims[4];
+      default:
+        return 0;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4:
+        return dims[1];
+      case gemm5:
+        return dims[5];
+      default:
+        return 0;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return dims[1];
+      default:
+        return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r0_ny() const { return (op_type == gemm) ? dims[0] : ((op_type == trsml) ? dims[1] : ((op_type == trsmr) ? dims[2] : 0)); }
+  __host__ int r_ny (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[0];
+      case trsml: case pivot: case trsml_lr:
+        return dims[1];
+      case trsmr: case trsmr_lr:
+        return dims[2];
+      default: 
+        return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return dims[2];
+      default: 
+        return 0;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return dims[3];
+      default:
+        return 0;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return dims[4];
+      default:
+        return 0;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return dims[5];
+      default:
+        return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r0_ld() const { return (op_type == gemm || op_type == trsml || op_type == trsmr) ? lds[1] : 0; }
+  __host__ int r_ld (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsml: case trsmr: case gemm: case trsml_lr: case trsmr_lr: case gemm3: case gemm4: case gemm5:
+        return lds[1];
+      case pivot:
+        return dims[1];
+      default: 
+        return 0;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return lds[2];
+      default: 
+        return 0;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return lds[3];
+      default:
+        return 0;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return lds[4];
+      default:
+        return 0;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return lds[5];
+      default:
+        return 0;
+      }
+    default:
+      return 0;
+    }
+  }
 
-  __host__ inline int r0_t() const { return (op_type == gemm) ? ts[0] : 0; }
+  __host__ bool r_T (const int i) const
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case pivot: case gemm: case gemm3: case gemm4: case gemm5:
+        return ts[0];
+      default:
+        return false;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return ts[1];
+      default:
+        return false;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return ts[2];
+      default:
+        return false;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return ts[3];
+      default:
+        return false;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return ts[4];
+      default:
+        return false;
+      }
+    default:
+      return false;
+    }
+  }
 
-  __host__ inline int r1_nx() const { return (op_type == gemm) ? dims[1] : 0; }
+  __host__ int l_wr () const
+  {
+    switch (op_type)
+    {
+    case nop: return 0;
+    default: return 1;
+    }
+  }
 
-  __host__ inline int r1_ny() const { return (op_type == gemm) ? dims[2] : 0; }
+  __host__ int l_r () const
+  {
+    switch (op_type)
+    {
+    case gemm5:
+      return 5;
+    case gemm4:
+      return 4;
+    case gemm3: 
+      return 3;
+    case gemm: 
+      return 2;
+    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+      return 1;
+    default: 
+      return 0;
+    }
+  }
 
-  __host__ inline int r1_ld() const { return (op_type == gemm) ? lds[2] : 0; }
+  template <class T> __host__ T * wr_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case nop: 
+        return nullptr;
+      default: 
+        return h -> lookup (&wr[0]);
+      }
+    default:
+      return nullptr;
+    }
+  }
 
-  __host__ inline int r1_t() const { return (op_type == gemm) ? ts[1] : 0; }
+  template <class T> __host__ int * wr_pivot_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case getrf: 
+        return h -> lookup_pivot (&wr[0]);
+      default: 
+        return nullptr;
+      }
+    default:
+      return nullptr;
+    }
+  }
 
-  template <class T> __host__ inline T * wr0_ptr (const dev_hierarchical <T> *h) const { return (op_type == nop) ? nullptr : h -> lookup(&wr[0]); }
+  template <class T> __host__ T * r_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case trsml: case trsmr: case gemm: case trsml_lr: case trsmr_lr: case gemm3: case gemm4: case gemm5:
+        return h -> lookup (&r[0]);
+      default: 
+        return nullptr;
+      }
+    case 1:
+      switch (op_type)
+      {
+      case gemm: case gemm3: case gemm4: case gemm5:
+        return h -> lookup (&r[1]);
+      default: 
+        return nullptr;
+      }
+    case 2:
+      switch (op_type)
+      {
+      case gemm3: case gemm4: case gemm5:
+        return h -> lookup (&r[2]);
+      default:
+        return nullptr;
+      }
+    case 3:
+      switch (op_type)
+      {
+      case gemm4: case gemm5:
+        return h -> lookup (&r[3]);
+      default:
+        return nullptr;
+      }
+    case 4:
+      switch (op_type)
+      {
+      case gemm5:
+        return h -> lookup (&r[4]);
+      default:
+        return nullptr;
+      }
+    default:
+      return nullptr;
+    }
+  }
 
-  template <class T> __host__ inline T * r0_ptr (const dev_hierarchical <T> *h) const { return (op_type == trsml || op_type == trsmr || op_type == gemm) ? h -> lookup(&r[0]) : nullptr; }
-
-  template <class T> __host__ inline T * r1_ptr (const dev_hierarchical <T> *h) const { return (op_type == gemm) ?  h -> lookup(&r[1]) : nullptr; }
+  template <class T> __host__ int * r_pivot_ptr (const int i, const dev_hierarchical <T> *h) const 
+  {
+    switch (i)
+    {
+    case 0:
+      switch (op_type)
+      {
+      case pivot: return h -> lookup_pivot (&r[0]);
+      default: return nullptr;
+      }
+    default:
+      return nullptr;
+    }
+  }
 
   __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
-    bool wr0_from = false, r0_from = false, r1_from = false;
+    int wr_from = 0, r_from = 0, wr_to = 0, r_to = 0;
 
     switch (op_from -> op_type)
     {
-    case gemm: r1_from = true;
-    case trsml: case trsmr: case pivot: r0_from = true;
-    case getrf: wr0_from = true;
-    case nop: break;
+    case gemm5:
+      r_from++;
+    case gemm4:
+      r_from++;
+    case gemm3:
+      r_from++;
+    case gemm: 
+      r_from++;
+    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+      r_from++;
+    case getrf: 
+      wr_from++;
+    case nop: 
+      break;
     }
-
-    bool wr0_to = false, r0_to = false, r1_to = false;
 
     switch (op_type)
     {
-    case gemm: r1_to = true;
-    case trsml: case trsmr: case pivot: r0_to = true;
-    case getrf: wr0_to = true;
-    case nop: break;
+    case gemm5:
+      r_to++;
+    case gemm4:
+      r_to++;
+    case gemm3:
+      r_to++;
+    case gemm: 
+      r_to++;
+    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
+      r_to++;
+    case getrf: 
+      wr_to++;
+    case nop: 
+      break;
     }
 
     dependency_t dep = no_dep;
-    
-    if (wr0_from && r0_to)
+
+    for (int i = 0; i < wr_from; i++)
     {
-      relation_t relation = r[0].compare(r0_nx(), r0_ny(), r0_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
-      switch (relation)
+      for (int j = 0; j < r_to; j++)
       {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) flow_dep);
+        relation_t relation = r[j].compare(r_nx(j), r_ny(j), r_ld(j), r_T(j), 
+          &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i), op_from -> wr_T(i));
+        switch (relation)
+        {
+        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+        case diff_offset_overlapped: case same_index: case contains: case contained:
+          dep = (dependency_t) ((int) dep | (int) flow_dep);
+        }
       }
-    }
-    if (wr0_from && r1_to)
-    {
-      relation_t relation = r[1].compare(r1_nx(), r1_ny(), r1_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
-      switch (relation)
+
+      for (int j = 0; j < wr_to; j++)
       {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) flow_dep);
+        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), wr_T(j),
+          &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i), op_from -> wr_T(i));
+        switch (relation)
+        {
+        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+        case diff_offset_overlapped: case same_index: case contains: case contained:
+          dep = (dependency_t) ((int) dep | (int) output_dep);
+        }
       }
     }
 
-    if (wr0_to && r0_from)
+    for (int i = 0; i < r_from; i++)
     {
-      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> r)[0], op_from -> r0_nx(), op_from -> r0_ny(), op_from -> r0_ld());
-      switch (relation)
+      for (int j = 0; j < wr_to; j++)
       {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) anti_dep);
-      }
-    }
-    if (wr0_to && r1_from)
-    {
-      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> r)[1], op_from -> r1_nx(), op_from -> r1_ny(), op_from -> r1_ld());
-      switch (relation)
-      {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) anti_dep);
-      }
-    }
-
-    if (wr0_from && wr0_to) 
-    {
-      relation_t relation = wr[0].compare(wr0_nx(), wr0_ny(), wr0_ld(), &(op_from -> wr)[0], op_from -> wr0_nx(), op_from -> wr0_ny(), op_from -> wr0_ld());
-      switch (relation)
-      {
-      case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-      case diff_offset_overlapped: case same_index: case contains: case contained:
-        dep = (dependency_t) ((int) dep | (int) output_dep);
+        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), wr_T(j),
+          &(op_from -> r)[i], op_from -> r_nx(i), op_from -> r_ny(i), op_from -> r_ld(i), op_from -> r_T(i));
+        switch (relation)
+        {
+        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
+        case diff_offset_overlapped: case same_index: case contains: case contained:
+          dep = (dependency_t) ((int) dep | (int) anti_dep);
+        }
       }
     }
 
@@ -250,6 +685,76 @@ public:
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
   {
     return op_to -> checkDependencyFrom(this);
+  }
+
+  __host__ h_ops * clone() const
+  {
+    switch (op_type)
+    {
+    case nop:
+      return new h_ops ();
+    case getrf:
+      return new h_ops (op_type, &wr[0], dims[0], dims[1], lds[0]);
+    case trsml: case trsmr:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
+    case gemm:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
+    case pivot:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], lds[0], (bool)ts[0]);
+    case trsml_lr: case trsmr_lr:
+      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
+    case gemm3:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], dims[0], dims[1], dims[2], dims[3],
+        lds[0], lds[1], lds[2], lds[3], (bool)ts[0], (bool)ts[1], (bool)ts[2]);
+    case gemm4:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], dims[0], dims[1], dims[2], dims[3], dims[4], 
+        lds[0], lds[1], lds[2], lds[3], lds[4], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3]);
+    case gemm5:
+      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], &r[4], dims[0], dims[1], dims[2], dims[3], dims[4], dims[5],
+        lds[0], lds[1], lds[2], lds[3], lds[4], lds[5], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3], (bool)ts[4]);
+    default:
+      return nullptr;
+    }
+  }
+
+  __host__ int writeParametersTo (int * inst) const
+  {
+    int l_dims = 0, l_lds = 0, l_ts = 0;
+
+    switch (op_type)
+    {
+    case nop:
+      break;
+    case getrf:
+      l_dims = 2; l_lds = 1; break;
+    case trsml: case trsmr:
+      l_dims = 3; l_lds = 2; break;
+    case gemm:
+      l_dims = 3; l_lds = 3; l_ts = 2; break;
+    case pivot:
+      l_dims = 2; l_lds = 1; l_ts = 1; break;
+    case trsml_lr: case trsmr_lr:
+      l_dims = 3; l_lds = 2; l_ts = 1; break;
+    case gemm3:
+      l_dims = 4; l_lds = 4; l_ts = 3; break;
+    case gemm4:
+      l_dims = 5; l_lds = 5; l_ts = 4; break;
+    case gemm5:
+      l_dims = 6; l_lds = 6; l_ts = 5; break;
+    default:
+      break;
+    }
+
+    int t = 0;
+
+    for (int i = 0; i < l_dims; i++)
+    { inst[t] = dims[i]; t++; }
+    for (int i = 0; i < l_lds; i++)
+    { inst[t] = lds[i]; t++; }
+    for (int i = 0; i < l_ts; i++)
+    { inst[t] = (int) ts[i]; t++; }
+
+    return t;
   }
 
   __host__ unsigned long long int getFops () const
@@ -379,35 +884,7 @@ public:
     printf("{fp-ops: %llu}\n", getFops());
   }
 
-  __host__ h_ops * clone() const
-  {
-    switch (op_type)
-    {
-    case nop:
-      return new h_ops ();
-    case getrf:
-      return new h_ops (op_type, &wr[0], dims[0], dims[1], lds[0]);
-    case trsml: case trsmr:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
-    case gemm:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
-    case pivot:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[2], lds[0], (bool)ts[0]);
-    case trsml_lr: case trsmr_lr:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
-    case gemm3:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], dims[0], dims[1], dims[2], dims[3],
-        lds[0], lds[1], lds[2], lds[3], (bool)ts[0], (bool)ts[1], (bool)ts[2]);
-    case gemm4:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], dims[0], dims[1], dims[2], dims[3], dims[4], 
-        lds[0], lds[1], lds[2], lds[3], lds[4], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3]);
-    case gemm5:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], &r[4], dims[0], dims[1], dims[2], dims[3], dims[4], dims[5],
-        lds[0], lds[1], lds[2], lds[3], lds[4], lds[5], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3], (bool)ts[4]);
-    default:
-      return nullptr;
-    }
-  }
+
   
 };
 
@@ -545,7 +1022,7 @@ public:
     case gemm:
       return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
     case pivot:
-      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[2], lds[0], (bool)ts[0]);
+      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], lds[0], (bool)ts[0]);
     case trsml_lr: case trsmr_lr:
       return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
     case gemm3:
