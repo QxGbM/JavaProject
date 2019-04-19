@@ -136,21 +136,8 @@ public:
     { return deps_graph[from] -> lookupDependency(to); }
   }
 
-  __host__ int getDepCount_from (const int from) const
-  {
-    if (deps_graph[from] == nullptr) 
-    { return 0; }
-    else
-    { return deps_graph[from] -> length();}
-  }
-
-  __host__ int * flattenDep_from (const int from) const
-  {
-    if (deps_graph[from] == nullptr) 
-    { return nullptr; }
-    else
-    { return deps_graph[from] -> flatten(); }
-  }
+  __host__ inline int getDepCount_from (const int from) const
+  { return (deps_graph[from] == nullptr) ? 0 : deps_graph[from] -> length(); }
 
   __host__ int getDepCount_to (const int to) const
   {

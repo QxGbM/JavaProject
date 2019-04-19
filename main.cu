@@ -6,7 +6,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 14, levels = 0, dim = 4, rank = 2;
+  const int n = 12, levels = 0, dim = 32, rank = 8;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   //a -> loadTestMatrix(levels, n, dim);
@@ -23,7 +23,6 @@ template <class T> __host__ int test0()
   if (error == cudaSuccess)
   {
     dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
-    //c->print(); b->print();
     delete b;
 
     printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));

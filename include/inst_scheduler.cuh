@@ -12,12 +12,12 @@ private:
   inst_queue * next;
 
 public:
-  __host__ inst_queue (const int inst_in, const int n_deps_in, const bool ex_w_in)
+  __host__ inst_queue (const int inst_in, const int n_deps_in, const bool ex_w_in, inst_queue * next_q = nullptr)
   {
     inst = inst_in;
     n_deps = (n_deps_in > 0) ? n_deps_in : 0;
     ex_w = ex_w_in;
-    next = nullptr;
+    next = next_q;
   }
 
   __host__ ~inst_queue ()
@@ -26,18 +26,36 @@ public:
   __host__ inline int getInst () const
   { return inst; }
 
+  __host__ inline int getNDeps () const
+  { return n_deps; }
+
   __host__ inline bool getExW () const
   { return ex_w; }
 
   __host__ inline inst_queue * getNext() const
   { return next; }
 
-  __host__ int getInst (const int index)
+  __host__ int getInst_Index (const int index) const
   {
     int i = 0;
-    for (inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    { if (i == index) { return ptr -> inst; } i++; }
+    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { if (i == index) { return ptr -> inst; } else { i++; } }
     return -1;
+  }
+
+  __host__ int getIndex_InstExe (const int inst_in) const
+  {
+    int i = 0;
+    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { if (ptr -> inst == inst_in && ptr -> ex_w) { return i; } else { i++;} }
+    return -1;
+  }
+
+  __host__ int getNumInsts() const
+  {
+    int i = 0;
+    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) { i++; }
+    return i;
   }
 
   __host__ inst_queue * removeFirst (const int index)
@@ -58,50 +76,21 @@ public:
     return nullptr;
   }
 
-  __host__ void hookup (const int inst_in, const int n_deps_in, const bool ex_w_in)
+  __host__ int hookup (const int inst_in, const int n_deps_in, const bool ex_w_in)
   {
+    int i = 0;
     for (inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
       if (ptr -> inst == inst_in)
-      { return; }
+      { return i; }
       else if (ptr -> next == nullptr) 
-      { ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in); return; }
+      { ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in); return i + 1; }
       else if ((ptr -> next -> n_deps) < n_deps_in)
-      {
-        inst_queue * p = new inst_queue (inst_in, n_deps_in, ex_w_in);
-        p -> next = ptr -> next;
-        ptr -> next = p;
-        return;
-      }
+      { ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in, ptr -> next); return i + 1; }
+      else
+      { i++; }
     }
-  }
-
-  __host__ int getLaterInst (const int original, const int inst_in) const
-  {
-    bool original_ex = false, inst_in_ex = false;
-
-    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    {
-      if (ptr -> inst == original && ptr -> ex_w)
-      {
-        original_ex = true; 
-        if (inst_in_ex) 
-        { return original; } 
-      }
-      else if (ptr -> inst == inst_in && ptr -> ex_w)
-      {
-        inst_in_ex = true;
-        if (original_ex)
-        { return inst_in; }
-      }
-    }
-
-    if (inst_in_ex && !original_ex) 
-    { return inst_in; }
-    else if (!inst_in_ex && original_ex)
-    { return original; }
-    else
-    { return -1; }
+    return -1;
   }
 
   __host__ void print() const
@@ -123,6 +112,7 @@ private:
   inst_queue * working_queue;
   inst_queue ** result_queues;
   int * inward_deps_counter;
+  int * state;
 
   __host__ void load_working_queue (const h_ops_dag * dag)
   {
@@ -130,62 +120,79 @@ private:
     {
       if (inward_deps_counter[i] == 0)
       {
+        const int dep_count = dag -> getDepCount_from(i);
         if (working_queue == nullptr)
-        { working_queue = new inst_queue(i, dag -> getDepCount_from(i), true); }
+        { working_queue = new inst_queue(i, dep_count, true); }
+        else if (working_queue -> getNDeps() < dep_count)
+        { working_queue = new inst_queue(i, dep_count, true, working_queue); }
         else
-        { working_queue -> hookup(i, dag -> getDepCount_from(i), true); }
+        { working_queue -> hookup(i, dep_count, true); }
       }
     }
   }
 
-  __host__ void add_inst (const int inst, const bool ex_w, const int worker_id)
+  __host__ int add_inst (const int inst, const bool ex_w, const int worker_id)
   {
     if (result_queues[worker_id] == nullptr)
-    { result_queues[worker_id] = new inst_queue(inst, 0, ex_w); }
+    { result_queues[worker_id] = new inst_queue(inst, 0, ex_w); return 0; }
     else
-    { result_queues[worker_id] -> hookup(inst, 0, ex_w); }
+    { return result_queues[worker_id] -> hookup(inst, 0, ex_w); }
   }
 
-  __host__ int * wait_list (const h_ops_dag * dag, const int inst)
+  __host__ int commWriteToState (const int dep_src, const int dep_dest, const int worker_dest)
   {
-    int * list = new int[workers];
-    memset(list, -1, workers * sizeof(int));
+    if (state[worker_dest * length + dep_src] >= 0) { return -1; }
 
-    for (int i = 0; i < inst; i++)
-    {
-      if ((dag -> getDep(i, inst)) > no_dep)
-      {
-        for (int j = 0; j < workers; j++)
-        { list[j] = result_queues[j] -> getLaterInst(list[j], i); }
-      }
+    int worker_src, signal_src = -1;
+
+    for (int i = 0; i < workers && signal_src == -1; i++)
+    { 
+      signal_src = result_queues[i] -> getIndex_InstExe (dep_src); 
+      if (signal_src != -1) { worker_src = i; } 
     }
 
-    return list;
+    const int signal_dest = result_queues[worker_dest] -> getNumInsts();
+
+    for (int i = 0; i < length; i++)
+    {
+      const int inst_completed_src = state[worker_src * length + i], inst_completed_dest = state[worker_dest * length + i];
+      if (inst_completed_src >= 0 && inst_completed_src <= signal_src && inst_completed_dest == -1)
+      { state[worker_dest * length + i] = signal_dest; }
+    }
+
+    return dep_src;
   }
 
   __host__ void schedule (const h_ops_dag * dag)
   {
     int scheduled_insts = 0, iter = 0;
-    while (scheduled_insts < length && iter < 100)
+    while (scheduled_insts < length && iter < 256)
     {
-      load_working_queue(dag);
+      load_working_queue (dag);
       for (int i = 0; i < workers; i++)
       {
-        int inst = working_queue -> getInst(i);
+        const int inst = working_queue -> getInst_Index(i);
         if (inst != -1)
         {
-          int * list = wait_list (dag, inst);
-          for (int j = 0; j < workers; j++)
-          { if (list[j] != -1) add_inst (list[j], false, i); }
-          delete list;
-          add_inst (inst, true, i);
+          for (int j = 0; j < inst; j++)
+          {
+            if (dag -> getDep(j, inst) > no_dep)
+            { 
+              const int wait = commWriteToState(j, inst, i);
+              if (wait >= 0) 
+              { add_inst(wait, false, i); } 
+            }
+          }
 
-          list = dag -> flattenDep_from(inst);
-          for (int j = 0; j < dag -> getDepCount_from(inst); j++)
-          { inward_deps_counter[list[j]]--; }
-          delete list;
+          state[i * length + inst] = add_inst(inst, true, i);
+
+          for (int j = inst; j < length; j++)
+          {
+            if (dag -> getDep(inst, j) > no_dep)
+            { inward_deps_counter[j]--; }
+          }
+
           inward_deps_counter[inst] = -1;
-
           scheduled_insts++;
         }
       }
@@ -208,6 +215,7 @@ public:
     working_queue = nullptr;
     result_queues = new inst_queue * [workers];
     inward_deps_counter = new int [length];
+    state = new int [length * workers];
 
     for (int i = 0; i < workers; i++)
     { result_queues[i] = nullptr; }
@@ -215,7 +223,9 @@ public:
     for (int i = 0; i < length; i++)
     { inward_deps_counter[i] = dag -> getDepCount_to(i); }
 
-    schedule(dag);
+    memset(state, -1, length * workers * sizeof(int));
+
+    schedule (dag);
   }
 
   __host__ ~inst_scheduler ()
@@ -227,6 +237,7 @@ public:
 
     delete[] result_queues;
     delete[] inward_deps_counter;
+    delete[] state;
   }
 
   __host__ inline inst_queue * getSchedule (const int worker_id) const
