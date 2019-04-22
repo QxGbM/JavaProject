@@ -47,7 +47,7 @@ public:
   {
     int i = 0;
     for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    { if (ptr -> inst == inst_in && ptr -> ex_w) { return i; } else { i++;} }
+    { if (ptr -> inst == inst_in && ptr -> ex_w) { return i; } else { i++; } }
     return -1;
   }
 
@@ -166,7 +166,7 @@ private:
   __host__ void schedule (const h_ops_dag * dag)
   {
     int scheduled_insts = 0, iter = 0;
-    while (scheduled_insts < length && iter < 256)
+    while (scheduled_insts < length && iter < _MAX_SCHEDULER_ITERS)
     {
       load_working_queue (dag);
       for (int i = 0; i < workers; i++)
@@ -223,7 +223,7 @@ public:
     for (int i = 0; i < length; i++)
     { inward_deps_counter[i] = dag -> getDepCount_to(i); }
 
-    memset(state, -1, length * workers * sizeof(int));
+    memset(state, 0xffffffff, length * workers * sizeof(int));
 
     schedule (dag);
   }

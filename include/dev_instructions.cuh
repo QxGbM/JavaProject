@@ -154,7 +154,7 @@ private:
   __host__ void execOperation (const int worker_id, const h_ops * op, const dev_hierarchical <T> * h)
   {
     const int loc = inst_ptr[worker_id];
-    while (loc + 32 >= inst_lengths[worker_id])
+    while (loc + _MAX_INST_LENGTH >= inst_lengths[worker_id])
     { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
     int * inst = &(insts[worker_id][loc]), t = 2;
 

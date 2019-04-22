@@ -4,12 +4,13 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size> __global__ void kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
+template <class T, int shm_size> __global__ void __launch_bounds__ (1024)
+  kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
 {
   __shared__ int shm [shm_size]; int * pc = insts [block_rank()], next_pc = 0;
   
 load_inst:
-  if (thread_rank() < 32)
+  if (thread_rank() < _MAX_INST_LENGTH)
   { shm[thread_rank()] = pc[thread_rank()]; }
   next_pc = 0;
   __syncthreads();

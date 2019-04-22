@@ -25,25 +25,28 @@ public:
   __host__ ~event_linked_list ()
   {
     cudaEventDestroy(event);
-    if (next != nullptr)
-    { delete next; }
+    delete next;
   }
 
   __host__ void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
   {
-    if (next == nullptr)
-    { next = new event_linked_list (type_in, stream); }
-    else
-    { next -> hookNewEvent(type_in, stream); }
+    for (event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { if (ptr -> next == nullptr) { ptr -> next = new event_linked_list (type_in, stream); return; } }
   }
 
   __host__ int length () const
-  { return (next == nullptr) ? 1 : 1 + next->length(); }
+  { 
+    int l = 0;
+    for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { l++; }
+    return l;
+  }
 
   __host__ int length (const mark_t type_in) const
   {
-    int count = (int) (type == type_in);
-    return (next == nullptr) ? count : count + next -> length (type_in);
+    int l = 0;
+    for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) 
+    { if (ptr -> type == type_in) { l++; } }
+    return l;
   }
 
   __host__ float getTotal_Sync (const event_linked_list *e = nullptr) const
@@ -52,11 +55,11 @@ public:
     switch (type)
     {
     case start:
-      millis = (next == nullptr) ? 0 : next->getTotal_Sync(this);
+      millis = (next == nullptr) ? 0 : next -> getTotal_Sync (this);
       break;
     case end:
       if (e != nullptr) { cudaEventElapsedTime(&millis, e -> event, event); }
-      millis += (next == nullptr) ? 0 : next->getTotal_Sync(e);
+      millis += (next == nullptr) ? 0 : next -> getTotal_Sync (e);
       break;
     }
     return millis;

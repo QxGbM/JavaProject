@@ -23,7 +23,8 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
-#define MAX_WARPS 32
+#define _MAX_INST_LENGTH 32
+#define _MAX_SCHEDULER_ITERS 256
 
 enum mark_t{ start, end };
 
