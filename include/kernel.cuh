@@ -4,7 +4,7 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size> __global__ void __launch_bounds__ (1024, 2)
+template <class T, int shm_size> __global__ void __launch_bounds__ (512, 2)
   kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
 {
   __shared__ int shm [shm_size]; int * pc = insts [block_rank()], next_pc = 0;
@@ -209,7 +209,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = 100. * exeFLOPS / estFLOPS;
 
   printf("-----------------------------------------------------\n");
-  printf("Actual FLOPS: %llu.\nDense-LU FLOPS: % llu.\nFLOPS Compression Ratio: %f%%.\n", exeFLOPS, estFLOPS, compressRatio);
+  printf("Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", exeFLOPS, estFLOPS, compressRatio);
 
   double gpuflops = 1.e3 * exeFLOPS / exeTime;
   int power = 0;

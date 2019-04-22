@@ -293,7 +293,7 @@ public:
       for(int y = 0; y < ny; y++)
       {
         double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
-        if (abs(t) > 1.e-14) 
+        if (abs(t) > 1.e-6) 
         { printf("Error Location: (%d, %d). M1: %5.4f M2: %5.4f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); }
         norm += t * t;
       }
