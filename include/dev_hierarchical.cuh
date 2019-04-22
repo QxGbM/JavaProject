@@ -131,16 +131,7 @@ public:
     }
   }
 
-  __host__ const h_ops_tree * generateOps_GETRF () const
-  {
-    const h_index * root = getRootIndex();
-    h_ops_tree * ops = new h_ops_tree(getrf, root, getNx(), getNy(), 0), * tree = generateOps_GETRF(root);
-    ops -> hookup_child(tree);
-    delete root;
-    return ops;
-  }
-
-  __host__ h_ops_tree * generateOps_GETRF (const h_index *self) const
+  __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   {
     h_ops_tree * ops = nullptr;
     for (int i = 0; i < nx && i < ny; i++)

@@ -30,7 +30,7 @@ private:
     {
       int * inst_new;
       cudaMallocManaged(&inst_new, size * sizeof(int), cudaMemAttachGlobal);
-      cudaMemset(inst_new, -1, size * sizeof(int));
+      cudaMemset(inst_new, 0xffffffff, size * sizeof(int));
       cudaMemcpy(inst_new, insts[worker_id], (size > inst_lengths[worker_id] ? inst_lengths[worker_id] : size) * sizeof(int), cudaMemcpyDeviceToDevice);
 
       cudaFree(insts[worker_id]);
@@ -154,7 +154,7 @@ private:
   __host__ void execOperation (const int worker_id, const h_ops * op, const dev_hierarchical <T> * h)
   {
     const int loc = inst_ptr[worker_id];
-    while (loc + 16 >= inst_lengths[worker_id])
+    while (loc + 32 >= inst_lengths[worker_id])
     { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); }
     int * inst = &(insts[worker_id][loc]), t = 2;
 
@@ -244,7 +244,7 @@ public:
     for (int i = 0; i < num_workers; i++)
     { 
       cudaMallocManaged(&insts[i], default_inst_length * sizeof(int), cudaMemAttachGlobal); 
-      cudaMemset(insts[i], -1, default_inst_length * sizeof(int));
+      cudaMemset(insts[i], 0xffffffff, default_inst_length * sizeof(int));
       inst_lengths[i] = default_inst_length;
     }
 
@@ -272,7 +272,6 @@ public:
 
   __host__ inline void ** getLaunchArgs ()
   { return new void *[4]{ &insts, &ptrs, &pivot_ptrs, &comm_space }; }
-
 
   __host__ void print() const
   {

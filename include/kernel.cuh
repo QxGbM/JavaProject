@@ -157,7 +157,11 @@ fin:
 template <class T, int shm_size> 
 __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num_blocks, const int num_threads)
 {
-  const h_ops_tree * tree = h -> generateOps_GETRF();
+  const int ny = h -> getNy(), nx = h -> getNx();
+  printf("Testing Hierarchical-LU for: %d x %d.\n", ny, nx);
+
+  const h_index * root = h -> getRootIndex();
+  const h_ops_tree * tree = h -> generateOps_GETRF(root);
 
   cudaDeviceProp deviceprop;
   cudaGetDeviceProperties(&deviceprop, 0);
@@ -196,7 +200,51 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   myTimer.newEvent("GETRF", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
-  error = myTimer.dumpAllEvents_Sync(dag.getFops());
+
+  h_ops dense_op = h_ops (getrf, root, nx, ny, 0);
+  delete root;
+
+  const unsigned long long int exeFLOPS = dag.getFops(), estFLOPS = dense_op.getFops();
+  const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = 100. * exeFLOPS / estFLOPS;
+
+  printf("-----------------------------------------------------\n");
+  printf("Actual FLOPS: %llu.\nDense-LU FLOPS: % llu.\nFLOPS Compression Ratio: %f%%.\n", exeFLOPS, estFLOPS, compressRatio);
+
+  double gpuflops = 1.e3 * exeFLOPS / exeTime;
+  int power = 0;
+
+  while (power < 4 && gpuflops > 1.e3) 
+  { gpuflops *= 1.e-3; power ++; }
+  printf("GPU: %f ", gpuflops);
+
+  switch (power)
+  {
+  case 0: break;
+  case 1: printf("K"); break;
+  case 2: printf("M"); break;
+  case 3: printf("G"); break;
+  case 4: printf("T"); break;
+  }
+  printf("FLOPS/S.\n");
+
+  gpuflops *= 100. / compressRatio;
+
+  while (power < 4 && gpuflops > 1.e3) 
+  { gpuflops *= 1.e-3; power ++; }
+  printf("Equivalent Dense-LU: %f ", gpuflops);
+
+  switch (power)
+  {
+  case 0: break;
+  case 1: printf("K"); break;
+  case 2: printf("M"); break;
+  case 3: printf("G"); break;
+  case 4: printf("T"); break;
+  }
+  printf("FLOPS/S.\n");
+
+
+  printf("-----------------------------------------------------\n");
 
   cudaStreamDestroy(main_stream);
 
