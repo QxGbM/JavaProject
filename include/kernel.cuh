@@ -4,7 +4,7 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size> __global__ void __launch_bounds__ (1024)
+template <class T, int shm_size> __global__ void __launch_bounds__ (1024, 2)
   kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
 {
   __shared__ int shm [shm_size]; int * pc = insts [block_rank()], next_pc = 0;
