@@ -37,7 +37,7 @@ public:
   __host__ dependency_t lookupDependency (const int to_in) const
   {
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-	  { 
+    { 
       if (ptr -> to == to_in) 
       { return ptr -> dependency; }
       else if (ptr -> to > to_in)
@@ -48,16 +48,16 @@ public:
 
   __host__ int length () const
   {
-	  int l = 0;
-	  for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-	  { l++; }
+    int l = 0;
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { l++; }
     return l;
   }
 
   __host__ void print () const
   {
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-	  { printf("%d ", ptr -> to); }
+    { printf("%d ", ptr -> to); }
     printf("\n");
   }
 };
@@ -76,7 +76,6 @@ public:
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
     ops_list = ops -> flatten();
-    //ops_list->print();
     fops = ops_list -> getFops_All();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
