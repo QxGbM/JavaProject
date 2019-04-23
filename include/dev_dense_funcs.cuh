@@ -378,7 +378,7 @@ __device__ void blockDenseGetrf_shm (T * M, int * p, const int nx, const int ny,
 
 template <class T>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. Utilizes L1 cache. */
-__device__ void blockDenseTrsmL_shm (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, T * shm)
+__device__ void blockDenseTrsmL_shm (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, const bool B_T, T * shm, const int shm_size)
 {
   for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
   { 
@@ -387,70 +387,39 @@ __device__ void blockDenseTrsmL_shm (T * B, const T * L, const int nx_b, const i
   }
 }
 
-template <class T>
-/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. Utilizes L1 cache. */
- __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * shm)
-{
-
-  for (int i = 0; i < nx_b && i < ny_u; i++)
-  {
-    matrixCopy_fromRM <T> (&B[i], &shm[0], 1, ny_b, ld_b, 1, false);
-
-    blockVectorScalar <T> (1.0 / U[i * ld_u + i], &shm[0], ny_b);
-    __syncthreads();
-
-    if (nx_b > i + 1)
-    { blockDenseGemm_K1_RM_Sub <T> (&B[i + 1], &shm[0], &U[i * ld_u + (i + 1)], ny_b, nx_b - (i + 1), ld_b, 1, ld_u, false, false, &shm[ny_b]); }
-
-    matrixCopy_toRM <T> (&shm[0], &B[i], 1, ny_b, 1, ld_b, false);
-    __syncthreads();
-  }
-}
-
-template <class T>
-/* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. B is small enough to load all into L1 cache. */
-__device__ void blockDenseTrsmL_lr_shm (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, const bool B_T, T * shm)
-{
-  matrixCopy_fromRM <T> (B, shm, nx_b, ny_b, ld_b, nx_b, B_T);
-  __syncthreads();
-
-  for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
-  { 
-    for (int j = thread_rank(); j < (ny_b - i) * nx_b; j += block_dim())
-    {
-      const int row = j / nx_b, col = j - row * nx_b;
-      shm[(i + row + 1) * nx_b + col] -= L[(i + row + 1) * ld_l + i] * shm[i * nx_b + col];
-    }
-    __syncthreads();
-  }
-
-  matrixCopy_toRM <T> (shm, B, nx_b, ny_b, nx_b, ld_b, B_T);
-  __syncthreads();
-}
-
  
 template <class T>
-/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. B is small enough to load all into L1 cache. */
- __device__ void blockDenseTrsmR_lr_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, const bool B_T, T * shm)
+/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. Utilizes L1 cache. */
+ __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, const bool B_T, T * shm, const int shm_size)
 {
-   matrixCopy_fromRM <T> (B, shm, nx_b, ny_b, ld_b, nx_b, B_T);
-   __syncthreads();
+   const int rows_block = shm_size / nx_b;
+   int rows_index = 0;
 
-   for (int i = 0; i < nx_b && i < ny_u; i++)
+   while (rows_index < ny_b)
    {
-     for (int j = warp_rank(); j < ny_b; j += num_warps())
-     {
-       if (lane_rank() == 0)
-       { shm[j * nx_b + i] /= U[i * ld_u + i]; }
+     const int rows_remaining = ny_b - rows_index, rows = (rows_remaining > rows_block) ? rows_block : rows_remaining;
 
-       for (int k = lane_rank() + i + 1; k < nx_b; k += warpSize)
-       { shm[j * nx_b + k] -= shm[j * nx_b + i] * U[i * ld_u + k]; }
+     matrixCopy_fromRM <T> (&B[B_T ? rows_index : rows_index * ld_b], shm, nx_b, rows, ld_b, nx_b, B_T);
+     __syncthreads();
+
+     for (int i = 0; i < nx_b && i < ny_u; i++)
+     {
+       for (int j = warp_rank(); j < rows; j += num_warps())
+       {
+         if (lane_rank() == 0)
+         { shm[j * nx_b + i] /= U[i * ld_u + i]; }
+
+         for (int k = lane_rank() + i + 1; k < nx_b; k += warpSize)
+         { shm[j * nx_b + k] -= shm[j * nx_b + i] * U[i * ld_u + k]; }
+       }
+       __syncthreads();
      }
+
+     matrixCopy_toRM <T> (shm, &B[B_T ? rows_index : rows_index * ld_b], nx_b, rows, nx_b, ld_b, B_T);
+     rows_index += rows;
      __syncthreads();
    }
 
-   matrixCopy_toRM <T> (shm, B, nx_b, ny_b, nx_b, ld_b, B_T);
-   __syncthreads();
 }
 
 

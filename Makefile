@@ -38,4 +38,4 @@ all:
 	./$(BIN_DIR)main
 
 clean:
-	rm -r $(BIN_DIR)
+	rm -rf $(BIN_DIR)

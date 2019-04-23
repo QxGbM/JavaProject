@@ -7,7 +7,9 @@
 template <class T, int shm_size> __global__ void __launch_bounds__ (512, 2)
   kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
 {
-  __shared__ int shm [shm_size]; int * pc = insts [block_rank()], next_pc = 0;
+  __shared__ int shm [shm_size]; 
+  int * pc = insts [block_rank()], next_pc = 0;
+  const int shm_size_acutal = shm_size * 4 / sizeof(T);
   
 load_inst:
   if (thread_rank() < _MAX_INST_LENGTH)
@@ -42,7 +44,7 @@ exe:
     T * B = ptrs[shm[2]], * L = ptrs[shm[3]];
     int nx_b = shm[4], ny_b = shm[5], nx_l = shm[6], ld_b = shm[7], ld_l = shm[8];
     __syncthreads();
-    blockDenseTrsmL_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm);
+    blockDenseTrsmL_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, false, (T *) shm, shm_size_acutal);
     next_pc = 9; goto sync;  
   }
 
@@ -51,7 +53,7 @@ exe:
     T * B = ptrs[shm[2]], * U = ptrs[shm[3]];
     int nx_b = shm[4], ny_b = shm[5], ny_u = shm[6], ld_b = shm[7], ld_u = shm[8];
     __syncthreads();
-    blockDenseTrsmR_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm);
+    blockDenseTrsmR_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, false, (T *) shm, shm_size_acutal);
     next_pc = 9; goto sync;  
   }
 
@@ -61,7 +63,7 @@ exe:
     int m = shm[5], n = shm[6], k = shm[7], ld_m = shm[8], ld_a = shm[9], ld_b = shm[10];
     bool a_T = (bool) shm[11], b_T = (bool) shm[12];
     __syncthreads();
-    blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size * 4 / sizeof(T));
+    blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
     next_pc = 13; goto sync;
   }
 
@@ -71,7 +73,7 @@ exe:
     int * p = pivot_ptrs[shm[3]], nx = shm[4], ny = shm[5], ld = shm[6];
     bool p_T = (bool) shm[7];
     __syncthreads();
-    blockApplyPivot <T> (M, p, nx, ny, ld, p_T, (T *) shm, shm_size * 4 / sizeof(T));
+    blockApplyPivot <T> (M, p, nx, ny, ld, p_T, (T *) shm, shm_size_acutal);
     next_pc = 8; goto sync;
   }
 
@@ -81,7 +83,7 @@ exe:
     int nx_b = shm[4], ny_b = shm[5], nx_l = shm[6], ld_b = shm[7], ld_l = shm[8];
     bool b_T = (bool) shm[9];
     __syncthreads();
-    blockDenseTrsmL_lr_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, b_T, (T *) shm);
+    blockDenseTrsmL_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, b_T, (T *) shm, shm_size_acutal);
     next_pc = 10; goto sync;
   }
 
@@ -91,7 +93,7 @@ exe:
     int nx_b = shm[4], ny_b = shm[5], ny_u = shm[6], ld_b = shm[7], ld_u = shm[8];
     bool b_T = (bool) shm[9];
     __syncthreads();
-    blockDenseTrsmR_lr_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, b_T, (T *) shm);
+    blockDenseTrsmR_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, b_T, (T *) shm, shm_size_acutal);
     next_pc = 10; goto sync;  
   }
 
@@ -101,7 +103,7 @@ exe:
     int m = shm[6], n = shm[7], k = shm[8], l = shm[9], ld_m = shm[10], ld_a = shm[11], ld_b = shm[12], ld_c = shm[13];
     bool a_T = (bool) shm[14], b_T = (bool) shm[15], c_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm_3x_Cshm_RM_Sub <T> (M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size * 4 / sizeof(T));
+    blockDenseGemm_3x_Cshm_RM_Sub <T> (M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
     next_pc = 17; goto sync;
   }
 
@@ -111,7 +113,7 @@ exe:
     int m = shm[7], n = shm[8], k = shm[9], l = shm[10], o = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14], ld_c = shm[15], ld_d = shm[16];
     bool a_T = (bool) shm[17], b_T = (bool) shm[18], c_T = (bool) shm[19], d_T = (bool) shm[20];
     __syncthreads();
-    blockDenseGemm_4x_Cshm_RM_Sub <T> (M, A, B, C, D, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size * 4 / sizeof(T));
+    blockDenseGemm_4x_Cshm_RM_Sub <T> (M, A, B, C, D, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
     next_pc = 21; goto sync;
   }
 
@@ -122,7 +124,7 @@ exe:
     int ld_m = shm[14], ld_a = shm[15], ld_b = shm[16], ld_c = shm[17], ld_d = shm[18], ld_e = shm[19];
     bool a_T = (bool) shm[20], b_T = (bool) shm[21], c_T = (bool) shm[22], d_T = (bool) shm[23], e_T = (bool) shm[24];
     __syncthreads();
-    blockDenseGemm_5x_Cshm_RM_Sub <T> (M, A, B, C, D, E, m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, a_T, b_T, c_T, d_T, e_T, (T *) shm, shm_size * 4 / sizeof(T));
+    blockDenseGemm_5x_Cshm_RM_Sub <T> (M, A, B, C, D, E, m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, a_T, b_T, c_T, d_T, e_T, (T *) shm, shm_size_acutal);
     next_pc = 25; goto sync;
   }
 
