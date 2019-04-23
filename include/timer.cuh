@@ -25,25 +25,28 @@ public:
   __host__ ~event_linked_list ()
   {
     cudaEventDestroy(event);
-    if (next != nullptr)
-    { delete next; }
+    delete next;
   }
 
   __host__ void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
   {
-    if (next == nullptr)
-    { next = new event_linked_list (type_in, stream); }
-    else
-    { next -> hookNewEvent(type_in, stream); }
+    for (event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { if (ptr -> next == nullptr) { ptr -> next = new event_linked_list (type_in, stream); return; } }
   }
 
   __host__ int length () const
-  { return (next == nullptr) ? 1 : 1 + next->length(); }
+  { 
+    int l = 0;
+    for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { l++; }
+    return l;
+  }
 
   __host__ int length (const mark_t type_in) const
   {
-    int count = (int) (type == type_in);
-    return (next == nullptr) ? count : count + next -> length (type_in);
+    int l = 0;
+    for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) 
+    { if (ptr -> type == type_in) { l++; } }
+    return l;
   }
 
   __host__ float getTotal_Sync (const event_linked_list *e = nullptr) const
@@ -52,11 +55,11 @@ public:
     switch (type)
     {
     case start:
-      millis = (next == nullptr) ? 0 : next->getTotal_Sync(this);
+      millis = (next == nullptr) ? 0 : next -> getTotal_Sync (this);
       break;
     case end:
       if (e != nullptr) { cudaEventElapsedTime(&millis, e -> event, event); }
-      millis += (next == nullptr) ? 0 : next->getTotal_Sync(e);
+      millis += (next == nullptr) ? 0 : next -> getTotal_Sync (e);
       break;
     }
     return millis;
@@ -153,11 +156,11 @@ public:
 
   }
 
-  __host__ cudaError_t dumpAllEvents_Sync (const unsigned long long int total_fops = 0)
+  __host__ double dumpAllEvents_Sync ()
   {
     cudaError_t error = cudaDeviceSynchronize();
     if (error != cudaSuccess) 
-    { fprintf(stderr, "CUDA error from device synchronize: %s\n\n", cudaGetErrorString(error)); return error; }
+    { fprintf(stderr, "CUDA error from device synchronize: %s\n\n", cudaGetErrorString(error)); return 0.; }
 
     printf("-----------------------------------------------------\n");
     printf("CUDA device synchronized, start dumping timed events:\n");
@@ -176,27 +179,10 @@ public:
     }
     event_counter = 0;
 
-    if (total_fops > 0)
-    { 
-      double flops = 1.e3 * total_fops / accum;
-      int power = 0;
-      while (power < 4 && flops > 1.e3) { flops *= 1.e-3; power ++; }
-
-      printf("# of float-point OPs: %llu \nTotal FLOPS: %f ", total_fops, flops);
-      switch (power)
-      {
-      case 0: break;
-      case 1: printf("K"); break;
-      case 2: printf("M"); break;
-      case 3: printf("G"); break;
-      case 4: printf("T"); break;
-      }
-      printf("FLOPS. \n");
-    }
     printf("All timed events dumped, table is cleared.\n");
     printf("-----------------------------------------------------\n\n");
 
-    return cudaSuccess;
+    return accum;
   }
 
   __host__ void printStatus () const

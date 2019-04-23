@@ -27,42 +27,38 @@ public:
 
   __host__ void insertDependency (const int to_in, const dependency_t dependency_in)
   {
-    if (next == nullptr) 
-    { next = new dependency_linked_list(to_in, dependency_in); }
-    else
-    { next -> insertDependency(to_in, dependency_in); }
+    for (dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    {
+      if (ptr -> next == nullptr) 
+      { ptr -> next = new dependency_linked_list(to_in, dependency_in); return; }
+    }
   }
 
-  __host__ dependency_t lookupDependency (const int to_in)
+  __host__ dependency_t lookupDependency (const int to_in) const
   {
-    if (to_in == to)
-    { return dependency; }
-    else if (to_in < to || next == nullptr)
-    { return no_dep; }
-    else
-    { return next -> lookupDependency(to_in); }
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { 
+      if (ptr -> to == to_in) 
+      { return ptr -> dependency; }
+      else if (ptr -> to > to_in)
+      { return no_dep; }
+    }
+    return no_dep;
   }
 
   __host__ int length () const
   {
-    return 1 + ((next == nullptr) ? 0 : next -> length());
-  }
-
-  __host__ int * flatten () const
-  {
-    int * dep = new int[length()], i = 0;
-    for (const dependency_linked_list * ptr = this; ptr != nullptr; i++, ptr = ptr -> next)
-    { dep[i] = ptr -> to; }
-    return dep;
+    int l = 0;
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { l++; }
+    return l;
   }
 
   __host__ void print () const
   {
-    printf("%d ", to);
-    if (next == nullptr)
-    { printf("\n"); }
-    else
-    { next -> print(); }
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { printf("%d ", ptr -> to); }
+    printf("\n");
   }
 };
 
@@ -80,7 +76,6 @@ public:
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
     ops_list = ops -> flatten();
-    //ops_list->print();
     fops = ops_list -> getFops_All();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];

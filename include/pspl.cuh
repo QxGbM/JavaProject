@@ -4,6 +4,7 @@
 
 #define __host__
 #define __device__
+#define __launch_bounds__()
 #define atomicAdd
 #define atomicSub
 #define atomicExch
@@ -23,7 +24,8 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
-#define MAX_WARPS 32
+#define _MAX_INST_LENGTH 32
+#define _MAX_SCHEDULER_ITERS 256
 
 enum mark_t{ start, end };
 
