@@ -103,6 +103,79 @@ __device__ void blockDenseGemm_RM_Set (T * M, const T * A, const T * B, const in
   }
 }
 
+template <class T>
+__device__ void matrixCopy_warpCoalesY (const T * from, T * to, const int nx, const int ny, const int ld, const bool from_T)
+{
+  const int div_size = num_warps() * warpSize;
+
+  if (from_T)
+  {
+    for (int i = thread_rank(); i < nx * ny; i += block_dim())
+    {
+      const int row = i / ny, col = i - row * ny, div_id = row / warpSize, div_x = col * warpSize + row - div_id * warpSize;
+      to[div_id * div_size + div_x] = from[row * ld + col];
+    }
+  }
+  else
+  {
+    for (int i = thread_rank(); i < nx * ny; i += block_dim())
+    {
+      const int row = i / nx, col = i - row * nx, div_id = col / warpSize, div_x = row * warpSize + col - div_id * warpSize;
+      to[div_id * div_size + div_x] = from[row * ld + col];
+    }
+  }
+}
+
+
+template <class T>
+__device__ void blockDenseGemm_shm (T * M, const T * A, const T * B, const int m, const int n, const int k,
+  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm, const int shm_size)
+{
+  const int warp_id = warp_rank(), lane_id = lane_rank(), warps = num_warps(), t_id = thread_rank(), b_size = block_dim();
+  const int step = shm_size / (2 * warps), half = step * warps;
+
+  for (int row_a = 0; row_a < m; row_a += warps)
+  {
+    const int rows_a = (m - row_a > warps) ? warps : m - row_a;
+
+    for (int col_a = 0; col_a < k; col_a += step)
+    {
+      const int cols_a = (k - col_a > step) ? step : k - col_a;
+      matrixCopy_warpCoalesY <T> (&A[row_a * ld_a + col_a], &shm[0], cols_a, rows_a, ld_a, a_T);
+
+      for (int col_b = 0; col_b < n; col_b += warps)
+      {
+        const int cols_b = (n - col_b > warps) ? warps : n - col_b;
+        matrixCopy_warpCoalesY <T> (&B[col_a * ld_b + col_b], &shm[half], cols_a, cols_b, ld_b, !b_T);
+        __syncthreads();
+
+        const int col_m = col_b + warp_id;
+
+        for (int i = 0; i < rows_a && col_m < n; i++)
+        {
+          T accum = 0;
+          const int row_shm = (i + warp_id) % rows_a, row_m = row_a + row_shm;
+
+          for (int j = 0; j < cols_a && row_m < m; j += warpSize)
+          { accum += shm[row_shm * warpSize + j * warps + t_id] * shm[half + warp_id * warpSize + j * warps + t_id]; }
+          __syncwarp();
+
+          for (int mask = warpSize / 2; mask > 0; mask /= 2)
+          { accum += __shfl_xor_sync (0xffffffff, accum, mask, warpSize); }
+
+          if (lane_id == 0)
+          { M[row_m * ld_m + col_m] -= accum; }
+          __syncthreads();
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
 template <class T> 
 __device__ void blockDenseGemm_Cshm_RM_Sub (T * M, const T * A, const T * B, const int m, const int n, const int k, 
   const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm, const int shm_size)
@@ -158,6 +231,7 @@ __device__ void blockDenseGemm_3x_Cshm_RM_Sub (T * M, const T * A, const T * B, 
     blockDenseGemm_RM_Sub <T> (&M[col], A, &shm[0], m, num_cols, k, ld_m, ld_a, num_cols, a_T, false);
     __syncthreads();
   }
+
 }
 
 template <class T>

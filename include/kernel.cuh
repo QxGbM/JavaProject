@@ -63,7 +63,8 @@ exe:
     int m = shm[5], n = shm[6], k = shm[7], ld_m = shm[8], ld_a = shm[9], ld_b = shm[10];
     bool a_T = (bool) shm[11], b_T = (bool) shm[12];
     __syncthreads();
-    blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    //blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_shm <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *)shm, shm_size_acutal);
     next_pc = 13; goto sync;
   }
 
