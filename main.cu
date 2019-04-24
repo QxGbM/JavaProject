@@ -6,11 +6,11 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 0, dim = 4, rank = 2;
+  const int n = 2, levels = 2, dim = 64, rank = 48;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  a -> loadTestMatrix(levels, n, dim);
-  //a -> loadTestMatrix2(levels, n, dim, rank);
+  //a -> loadTestMatrix(levels, n, dim);
+  a -> loadTestMatrix2(levels, n, dim, rank);
 
   dev_dense <T> *c = a -> convertToDense();
   printf("Reference Matrix converted to dense.\n");

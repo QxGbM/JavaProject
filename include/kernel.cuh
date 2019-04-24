@@ -64,7 +64,7 @@ exe:
     bool a_T = (bool) shm[11], b_T = (bool) shm[12];
     __syncthreads();
     //blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
-    blockDenseGemm_shm <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *)shm, shm_size_acutal);
+    blockDenseGemm_shm <T> (-1., 1., M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *)shm, shm_size_acutal);
     next_pc = 13; goto sync;
   }
 
@@ -104,7 +104,7 @@ exe:
     int m = shm[6], n = shm[7], k = shm[8], l = shm[9], ld_m = shm[10], ld_a = shm[11], ld_b = shm[12], ld_c = shm[13];
     bool a_T = (bool) shm[14], b_T = (bool) shm[15], c_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm_3x_Cshm_RM_Sub <T> (M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_3x_Cshm_RM_Sub <T> (-1., 1., M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
     next_pc = 17; goto sync;
   }
 
