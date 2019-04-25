@@ -1,36 +1,40 @@
 
 #include <pspl.cuh>
+#define ref
 
 template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 128, rank = 8;
+  const int n = 2, levels = 2, dim = 64, rank = 32;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   //a -> loadTestMatrix(levels, n, dim);
   a -> loadTestMatrix2(levels, n, dim, rank);
 
+  const int blocks = 56, threads = 1024;
+
+#ifdef ref
   dev_dense <T> *c = a -> convertToDense();
   printf("Reference Matrix converted to dense.\n");
-  
-  const int blocks = 136, threads = 512;
+#endif // ref
 
-  cudaError_t error = hierarchical_GETRF <T, 8192> (a, blocks, threads);
+  cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
+#ifdef ref
   if (error == cudaSuccess)
   {
     dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
     delete b;
 
     printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
-
     delete b_;
   }
+  delete c;
+#endif // ref
 
   delete a;
-  delete c;
 
   return 0;
 }

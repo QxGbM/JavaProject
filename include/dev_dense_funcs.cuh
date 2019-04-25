@@ -398,7 +398,7 @@ __device__ void blockDenseGemm_5x_shm (const T alpha, const T beta, T * M, const
     {
       const int o_ = (o - i0 > step) ? step : o - i0;
 
-      blockDenseGemm_3x_shm <T>(1., 0., shm, A, B, &C[c_T ? i0 * ld_c : i0], m, o_, k, l, o_, ld_a, ld_b, ld_c, a_T, b_T, c_T, nullptr, 0);
+      blockDenseGemm_3x_shm <T> (1., 0., shm, A, B, &C[c_T ? i0 * ld_c : i0], m, o_, k, l, o_, ld_a, ld_b, ld_c, a_T, b_T, c_T, shm_E, step * n);
       blockDenseGemm_shm <T> (1., 0., shm_E, E, &D[d_T ? i0 : i0 * ld_d], n, o_, p, o_, ld_e, ld_d, !e_T, !d_T, nullptr, 0);
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
