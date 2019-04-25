@@ -63,7 +63,6 @@ exe:
     int m = shm[5], n = shm[6], k = shm[7], ld_m = shm[8], ld_a = shm[9], ld_b = shm[10];
     bool a_T = (bool) shm[11], b_T = (bool) shm[12];
     __syncthreads();
-    //blockDenseGemm_Cshm_RM_Sub <T> (M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
     blockDenseGemm_shm <T> (-1., 1., M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *)shm, shm_size_acutal);
     next_pc = 13; goto sync;
   }
@@ -104,7 +103,7 @@ exe:
     int m = shm[6], n = shm[7], k = shm[8], l = shm[9], ld_m = shm[10], ld_a = shm[11], ld_b = shm[12], ld_c = shm[13];
     bool a_T = (bool) shm[14], b_T = (bool) shm[15], c_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm_3x_Cshm_RM_Sub <T> (-1., 1., M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_3x_shm <T> (-1., 1., M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
     next_pc = 17; goto sync;
   }
 
@@ -114,7 +113,7 @@ exe:
     int m = shm[7], n = shm[8], k = shm[9], l = shm[10], o = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14], ld_c = shm[15], ld_d = shm[16];
     bool a_T = (bool) shm[17], b_T = (bool) shm[18], c_T = (bool) shm[19], d_T = (bool) shm[20];
     __syncthreads();
-    blockDenseGemm_4x_Cshm_RM_Sub <T> (M, A, B, C, D, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_4x_shm <T> (-1., 1., M, A, B, C, D, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
     next_pc = 21; goto sync;
   }
 
@@ -125,7 +124,7 @@ exe:
     int ld_m = shm[14], ld_a = shm[15], ld_b = shm[16], ld_c = shm[17], ld_d = shm[18], ld_e = shm[19];
     bool a_T = (bool) shm[20], b_T = (bool) shm[21], c_T = (bool) shm[22], d_T = (bool) shm[23], e_T = (bool) shm[24];
     __syncthreads();
-    blockDenseGemm_5x_Cshm_RM_Sub <T> (M, A, B, C, D, E, m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, a_T, b_T, c_T, d_T, e_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_5x_shm <T> (-1., 1., M, A, B, C, D, E, m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, a_T, b_T, c_T, d_T, e_T, (T *) shm, shm_size_acutal);
     next_pc = 25; goto sync;
   }
 
