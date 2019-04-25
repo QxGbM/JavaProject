@@ -6,7 +6,7 @@
 
 template <class T>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ void matrixCopy_fromRM (const T * from, T * to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
+__device__ void matrixCopy_fromRM (const T * __restrict__ from, T * __restrict__ to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
@@ -25,7 +25,7 @@ __device__ void matrixCopy_fromRM (const T * from, T * to, const int nx, const i
 
 template <class T>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "to" in row major. */
-__device__ void matrixCopy_toRM (const T * from, T * to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
+__device__ void matrixCopy_toRM (const T * __restrict__ from, T * __restrict__ to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
 {
   for (int i = thread_rank(); i < nx * ny; i += block_dim())
   {
@@ -63,8 +63,8 @@ __device__ void blockDenseScalar (const T scale, T * M, const int nx, const int 
 
 template <class T>
 /* An overloaded version of GEMM, specialized in substraction and k = 1. */
-__device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const int m, const int n,
-  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm)
+__device__ void blockDenseGemm_K1_RM_Sub (T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, const int m, const int n,
+  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm)
 {
   matrixCopy_fromRM <T> (B, &shm[0], n, 1, ld_b, n, b_T);
   __syncthreads();
@@ -78,8 +78,8 @@ __device__ void blockDenseGemm_K1_RM_Sub (T * M, const T * A, const T * B, const
 
 template <class T>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
-__device__ void blockDenseGemm_shm (const T alpha, const T beta, T * M, const T * A, const T * B, const int m, const int n, const int k,
-  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * shm, const int shm_size)
+__device__ void blockDenseGemm_shm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+  const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm, const int shm_size)
 {
   const int t_id = thread_rank(), tb_size = block_dim(), step = shm_size / (m + n);
 
@@ -127,9 +127,9 @@ __device__ void blockDenseGemm_shm (const T alpha, const T beta, T * M, const T 
 
 template <class T>
 /* General Matrix multiplication with 3 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by n) + beta * old_M. */
-__device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * M, const T * A, const T * B, const T * C, 
-  const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
-  const bool a_T, const bool b_T, const bool c_T, T * shm, const int shm_size)
+__device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+  const T * __restrict__ C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
+  const bool a_T, const bool b_T, const bool c_T, T * __restrict__ shm, const int shm_size)
 {
   const int t_id = thread_rank(), tb_size = block_dim(), step = shm_size / (m + n);
   T * shm_C = &shm[step * m];
@@ -199,9 +199,10 @@ __device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * M, const
 
 template <class T>
 /* General Matrix multiplication with 4 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by o) * D (o by n) + beta * old_M. */
-__device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * M, const T * A, const T * B, const T * C, const T * D, 
-  const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, 
-  const bool a_T, const bool b_T, const bool c_T, const bool d_T, T * shm, const int shm_size)
+__device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+  const T * __restrict__ C, const T * __restrict__ D, const int m, const int n, const int k, const int l, const int o, 
+  const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const bool a_T, const bool b_T, const bool c_T, const bool d_T, 
+  T * __restrict__ shm, const int shm_size)
 {
   const int t_id = thread_rank(), tb_size = block_dim(), step = shm_size / (m + n);
   T * shm_D = &shm[step * m];
@@ -301,10 +302,10 @@ __device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * M, const
 
 template <class T>
 /* General Matrix multiplication with 5 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by o) * D (o by p) * E (p by n) + beta * old_M. */
-__device__ void blockDenseGemm_5x_shm (const T alpha, const T beta, T * M, const T * A, const T * B, const T * C, const T * D, const T * E, 
-  const int m, const int n, const int k, const int l, const int o, const int p, 
+__device__ void blockDenseGemm_5x_shm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+  const T * __restrict__ C, const T * __restrict__ D, const T * __restrict__ E, const int m, const int n, const int k, const int l, const int o, const int p, 
   const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const int ld_e, 
-  const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T, T * shm, const int shm_size)
+  const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T, T * __restrict__ shm, const int shm_size)
 {
   const int t_id = thread_rank(), tb_size = block_dim(), step = shm_size / (m + n);
   T * shm_E = &shm[step * m];
@@ -435,7 +436,7 @@ __device__ int warpReduceMax_Index (const T max_in)
 
 template <class T> 
 /* Find the index of the largest absolute value element in matrix[0], matrix[1], ... matrix[n-1]. Returns [0, n-1]. */
-__device__ int blockReduceMax_Index (const T * M, const int n, int * shm)
+__device__ int blockReduceMax_Index (const T * __restrict__ M, const int n, int * __restrict__ shm)
 {
   T max = 0; int index = 0;
   
@@ -471,7 +472,7 @@ __device__ int blockReduceMax_Index (const T * M, const int n, int * shm)
 
 template <class T> 
 /* Exchange row1[0] with row2[0], row1[1] with row2[1], ... row1[n-1] with row2[n-1]. */
-__device__ void blockSwapRows (T * row1, T * row2, const int n)
+__device__ void blockSwapRows (T * __restrict__ row1, T * __restrict__ row2, const int n)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { const T t = row1[i]; row1[i] = row2[i]; row2[i] = t; }
@@ -479,7 +480,7 @@ __device__ void blockSwapRows (T * row1, T * row2, const int n)
 
 template <class T> 
 /* Exchange col1[0] with col2[0], col1[1] with col2[1], ... col1[n-1] with col2[n-1]. */
-__device__ void blockSwapColumns (T * col1, T * col2, const int n, const int ld)
+__device__ void blockSwapColumns (T * __restrict__ col1, T * __restrict__ col2, const int n, const int ld)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { const T t = col1[i * ld]; col1[i * ld] = col2[i * ld]; col2[i * ld] = t; }
@@ -487,7 +488,8 @@ __device__ void blockSwapColumns (T * col1, T * col2, const int n, const int ld)
 
 template <class T> 
 /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. Utilizes L1. */
-__device__ void blockApplyPivot (T * M, const int * p, const int nx, const int ny, const int ld, const bool recover, T * shm, const int shm_size)
+__device__ void blockApplyPivot (T * __restrict__ M, const int * __restrict__ p, const int nx, const int ny, const int ld, const bool recover, 
+  T * __restrict__ shm, const int shm_size)
 {
   const int step_size = shm_size / ny;
 
@@ -518,7 +520,7 @@ __device__ void resetPivot (int *p, const int n)
 
 template <class T> 
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf_shm (T * M, int * p, const int nx, const int ny, const int ld, T * shm)
+__device__ void blockDenseGetrf_shm (T * __restrict__ M, int * __restrict__ p, const int nx, const int ny, const int ld, T * __restrict__ shm)
 {
   if (p != nullptr) { resetPivot(p, ny); }
 
@@ -556,7 +558,8 @@ __device__ void blockDenseGetrf_shm (T * M, int * p, const int nx, const int ny,
 
 template <class T>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. Utilizes L1 cache. */
-__device__ void blockDenseTrsmL_shm (T * B, const T * L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, const bool B_T, T * shm, const int shm_size)
+__device__ void blockDenseTrsmL_shm (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, 
+  const int ld_b, const int ld_l, const bool B_T, T * __restrict__ shm, const int shm_size)
 {
   for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
   { 
@@ -568,7 +571,8 @@ __device__ void blockDenseTrsmL_shm (T * B, const T * L, const int nx_b, const i
  
 template <class T>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. Utilizes L1 cache. */
- __device__ void blockDenseTrsmR_shm (T * B, const T * U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, const bool B_T, T * shm, const int shm_size)
+ __device__ void blockDenseTrsmR_shm (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, 
+   const int ld_b, const int ld_u, const bool B_T, T * __restrict__ shm, const int shm_size)
 {
    const int rows_block = shm_size / nx_b;
    int rows_index = 0;
@@ -586,6 +590,7 @@ template <class T>
        {
          if (lane_rank() == 0)
          { shm[j * nx_b + i] /= U[i * ld_u + i]; }
+         __syncwarp();
 
          for (int k = lane_rank() + i + 1; k < nx_b; k += warpSize)
          { shm[j * nx_b + k] -= shm[j * nx_b + i] * U[i * ld_u + k]; }

@@ -5,16 +5,15 @@
 #include <pspl.cuh>
 
 template <class T, int shm_size> __global__ void __launch_bounds__ (1024, 2)
-  kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
+  kernel_dynamic (const int ** __restrict__ insts, T ** __restrict__ ptrs, int ** __restrict__ pivot_ptrs, int * __restrict__ comm_space)
 {
   __shared__ int shm [shm_size]; 
-  int * pc = insts [block_rank()], next_pc = 0;
-  const int shm_size_acutal = shm_size * 4 / sizeof(T);
+  const int * pc = insts [block_rank()], shm_size_acutal = shm_size * 4 / sizeof(T);
   
 load_inst:
   if (thread_rank() < _MAX_INST_LENGTH)
   { shm[thread_rank()] = pc[thread_rank()]; }
-  next_pc = 0;
+  int next_pc = 0;
   __syncthreads();
 
   switch ((opcode_t) shm[0])

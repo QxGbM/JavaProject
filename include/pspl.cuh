@@ -4,6 +4,7 @@
 
 #define __host__
 #define __device__
+#define __restrict__
 #define __launch_bounds__()
 #define atomicAdd
 #define atomicSub
