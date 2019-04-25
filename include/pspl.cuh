@@ -10,6 +10,7 @@
 #define atomicExch
 #define clock64() 0
 #define __syncthreads()
+#define __syncwarp()
 
 #endif
 
