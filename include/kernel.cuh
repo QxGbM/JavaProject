@@ -4,17 +4,16 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size> __global__ void __launch_bounds__ (512, 2)
-  kernel_dynamic (int ** insts, T ** ptrs, int ** pivot_ptrs, int * comm_space)
+template <class T, int shm_size> __global__ void __launch_bounds__ (1024, 2)
+  kernel_dynamic (const int ** __restrict__ insts, T ** __restrict__ ptrs, int ** __restrict__ pivot_ptrs, volatile int * __restrict__ comm_space)
 {
   __shared__ int shm [shm_size]; 
-  int * pc = insts [block_rank()], next_pc = 0;
-  const int shm_size_acutal = shm_size * 4 / sizeof(T);
+  const int * pc = insts [block_rank()], shm_size_acutal = shm_size * 4 / sizeof(T);
   
 load_inst:
   if (thread_rank() < _MAX_INST_LENGTH)
   { shm[thread_rank()] = pc[thread_rank()]; }
-  next_pc = 0;
+  int next_pc = 0;
   __syncthreads();
 
   switch ((opcode_t) shm[0])
@@ -160,23 +159,27 @@ fin:
 template <class T, int shm_size> 
 __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num_blocks, const int num_threads)
 {
-  const int ny = h -> getNy(), nx = h -> getNx();
-  printf("Testing Hierarchical-LU for: %d x %d.\n", ny, nx);
-
-  const h_index * root = h -> getRootIndex();
-  const h_ops_tree * tree = h -> generateOps_GETRF(root);
+  cudaSetDevice(0);
+  if (sizeof(T) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
+  { printf("Shared memory bank size configured to be 8-bytes.\n"); }
 
   cudaDeviceProp deviceprop;
   cudaGetDeviceProperties(&deviceprop, 0);
   int numSMs = deviceprop.multiProcessorCount, numBlocksPerSm = 0;
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, (void *) kernel_dynamic <T, shm_size>, num_threads, 0);
-  printf("# SMs: %d, # Blocks per SM for launch: %d\n", numSMs, numBlocksPerSm);
+  printf("# SMs: %d, # Blocks per SM for launch: %d\n\n", numSMs, numBlocksPerSm);
 
   const int workers_max = numSMs * numBlocksPerSm, workers = workers_max < num_blocks ? workers_max : num_blocks;
   if (workers == 0)
-  { printf("Too many resources requested for launch.\n"); delete tree; return cudaErrorInvalidConfiguration; }
+  { printf("Launch Config: Too many resources requested for launch.\n\n"); return cudaErrorInvalidConfiguration; }
   else if (workers < num_blocks)
-  { printf("Number of launched blocks reduced from %d to %d. \n", num_blocks, workers); }
+  { printf("Launch Config: Number of launched blocks reduced from %d to %d. \n\n", num_blocks, workers); }
+
+  const int ny = h -> getNy(), nx = h -> getNx();
+  printf("Start Testing Hierarchical - LU for: %d x %d.\n\n", ny, nx);
+
+  const h_index * root = h -> getRootIndex();
+  const h_ops_tree * tree = h -> generateOps_GETRF(root);
 
   h_ops_dag dag = h_ops_dag (tree);
   delete tree;
@@ -187,12 +190,6 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
-
-  if (sizeof(T) == 8) 
-  {
-    printf("Shared memory bank size configured to be 8-bytes.\n"); 
-    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
-  }
 
   void ** args = ins.getLaunchArgs();
 
@@ -206,12 +203,14 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   h_ops dense_op = h_ops (getrf, root, nx, ny, 0);
   delete root;
+  delete args;
 
   const unsigned long long int exeFLOPS = dag.getFops(), estFLOPS = dense_op.getFops();
   const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = 100. * exeFLOPS / estFLOPS;
 
-  printf("-----------------------------------------------------\n");
-  printf("Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", exeFLOPS, estFLOPS, compressRatio);
+  printf("-- Kernel Running Summary --\n"
+    "Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", 
+    exeFLOPS, estFLOPS, compressRatio);
 
   double gpuflops = 1.e3 * exeFLOPS / exeTime;
   int power = 0;
@@ -244,14 +243,10 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   case 3: printf("G"); break;
   case 4: printf("T"); break;
   }
-  printf("FLOPS/S.\n");
-
-
-  printf("-----------------------------------------------------\n");
+  printf("FLOPS/S.\n\n");
 
   cudaStreamDestroy(main_stream);
 
-  delete args;
   return error;
 }
 

@@ -100,7 +100,8 @@ public:
   {
     for (int i = 0; i < event_counter; i++)
     {
-      if (strcmp(event_name, names[i]) == 0) { return events[i]; }
+      if (strcmp(event_name, names[i]) == 0) 
+      { return events[i]; }
     }
     return nullptr;
   }
@@ -162,8 +163,7 @@ public:
     if (error != cudaSuccess) 
     { fprintf(stderr, "CUDA error from device synchronize: %s\n\n", cudaGetErrorString(error)); return 0.; }
 
-    printf("-----------------------------------------------------\n");
-    printf("CUDA device synchronized, start dumping timed events:\n");
+    printf("-- Timer Summary --\nCUDA device synchronization success.\n");
 
     double accum = 0.;
     for (int i = 0; i < event_counter; i++)
@@ -179,21 +179,21 @@ public:
     }
     event_counter = 0;
 
-    printf("All timed events dumped, table is cleared.\n");
-    printf("-----------------------------------------------------\n\n");
+    printf("All timed events cleared.\n\n");
 
     return accum;
   }
 
   __host__ void printStatus () const
   {
-    printf("-- Timer Status: --\n");
-    printf("Total Timed Events: %d.\n", event_counter);
-    printf("Time Table Size: %d.\n", table_size);
+    printf("-- Timer Status: --\n"
+      "Total Timed Events: %d.\n"
+      "Time Table Size: %d.\n", event_counter, table_size);
 
     for (int i = 0; i < event_counter; i++)
     {
-      printf("Event: %s has %d start and %d end marks.\n", names[i], events[i] -> length(start), events[i] -> length(end));
+      printf("Event: %s has %d start and %d end marks.\n", 
+        names[i], events[i] -> length(start), events[i] -> length(end));
     }
 
     printf("-- Timer Status End. --\n\n");
