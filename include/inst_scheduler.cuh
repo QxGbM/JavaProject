@@ -165,7 +165,7 @@ private:
 
   __host__ void schedule (const h_ops_dag * dag)
   {
-    int scheduled_insts = 0, iter = 0;
+    int scheduled_insts = 0, iter = 0, comm_wait_counts = 0;
     while (scheduled_insts < length && iter < _MAX_SCHEDULER_ITERS)
     {
       load_working_queue (dag);
@@ -180,7 +180,7 @@ private:
             { 
               const int wait = commWriteToState(j, inst, i);
               if (wait >= 0) 
-              { add_inst(wait, false, i); } 
+              { add_inst(wait, false, i); comm_wait_counts ++; } 
             }
           }
 
@@ -201,7 +201,14 @@ private:
     }
 
     if (scheduled_insts == length)
-    { printf("Successfully scheduled with %d iterations. \n", iter); }
+    { 
+      const double DOP = 100. * length / (iter * workers), CPI = 1. * comm_wait_counts / length;
+      printf("-- Scheduler --\n"
+        "Total # of Instructions: %d. \n"
+        "Successfully scheduled with %d iterations. \n"
+        "Degree of Thread-Block Level Parallelism: %f%%. \n"
+        "Avg. # of Communications per Instruction: %f. \n\n", length, iter, DOP, CPI);
+    }
     else
     { printf("Reached max iterations: %d. \n", iter); }
   }
