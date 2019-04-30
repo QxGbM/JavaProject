@@ -62,7 +62,30 @@ __device__ inline int lane_rank()
 __device__ inline int num_warps()
 { return (block_dim() + warpSize - 1) / warpSize; }
 
+template <class T> class dev_dense;
+template <class T> class dev_low_rank;
+template <class T> class dev_hierarchical;
+template <class T> class dev_h_element;
+
+class h_index;
+class h_ops;
+class h_ops_tree;
+class h_ops_dag;
+
+class inst_queue;
+class inst_scheduler;
+
+template <class T> class dev_instructions;
+
+class dependency_linked_list;
+class event_linked_list;
+class timer;
+
 #include <timer.cuh>
+
+#include <dev_hierarchical_index.cuh>
+#include <dev_hierarchical_ops.cuh>
+#include <dev_hierarchical_ops_dag.cuh>
 
 #include <dev_dense.cuh>
 #include <dev_dense_funcs.cuh>
@@ -70,16 +93,6 @@ __device__ inline int num_warps()
 #include <dev_low_rank.cuh>
 #include <dev_low_rank_funcs.cuh>
 
-class h_index;
-class h_ops_tree;
-class h_ops;
-
-template <class T> class dev_hierarchical;
-template <class T> class dev_h_element;
-
-#include <dev_hierarchical_index.cuh>
-#include <dev_hierarchical_ops.cuh>
-#include <dev_hierarchical_ops_dag.cuh>
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 

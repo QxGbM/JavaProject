@@ -1,6 +1,6 @@
 
 #include <pspl.cuh>
-#define ref
+//#define ref
 
 template <class T> __host__ int test0()
 {

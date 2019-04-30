@@ -21,9 +21,7 @@ public:
   }
 
   __host__ ~dependency_linked_list ()
-  {
-    delete next;
-  }
+  { delete next; }
 
   __host__ void insertDependency (const int to_in, const dependency_t dependency_in)
   {
@@ -38,10 +36,8 @@ public:
   {
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
-      if (ptr -> to == to_in) 
-      { return ptr -> dependency; }
-      else if (ptr -> to > to_in)
-      { return no_dep; }
+      if (ptr -> to == to_in) { return ptr -> dependency; }
+      else if (ptr -> to > to_in) { return no_dep; }
     }
     return no_dep;
   }
@@ -49,15 +45,13 @@ public:
   __host__ int length () const
   {
     int l = 0;
-    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    { l++; }
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { l++; }
     return l;
   }
 
   __host__ void print () const
   {
-    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    { printf("%d ", ptr -> to); }
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { printf("%d ", ptr -> to); }
     printf("\n");
   }
 };
@@ -76,18 +70,18 @@ public:
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
     ops_list = ops -> flatten();
-    fops = ops_list -> getFops_All();
+    fops = ops_list -> getFops();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
 
     memset(deps_graph, 0, length * sizeof(dependency_linked_list *));
 
-    int i = 1;
-    for (h_ops_tree * to = ops_list -> getNext(); i < length; to = to -> getNext(), i++)
+    for (int i = 1; i < length; i++)
     {
-      int j = 0;
-      for (h_ops_tree * from = ops_list; j < i; from = from -> getNext(), j++)
+      h_ops_tree * to = ops_list -> getChild(i);
+      for (int j = 0; j < i; j++)
       {
+        h_ops_tree * from = ops_list -> getChild(j);
         dependency_t dep = to -> checkDependencyFrom(from);
         if (dep > no_dep)
         {
@@ -115,12 +109,9 @@ public:
     return length;
   }
 
-  __host__ h_ops * getOp (const int i) const
+  __host__ h_ops * getOp (const int index) const
   {
-    int c = 0;
-    for (h_ops_tree * op = ops_list; op != nullptr; op = op -> getNext())
-    { if (c == i) { return op; } c++; }
-    return nullptr;
+    return ops_list -> getChild(index);
   }
 
   __host__ dependency_t getDep (const int from, const int to) const
@@ -149,10 +140,10 @@ public:
 
   __host__ void print() const
   {
-    h_ops_tree * to = ops_list;
-    for (int i = 0; i < length; i++, to = to -> getNext())
+    for (int i = 0; i < length; i++)
     {
       printf("Inst %d: ", i);
+      h_ops_tree * to = ops_list -> getChild(i);
       to -> h_ops::print();
       for (int j = 0; j < i; j++)
       {

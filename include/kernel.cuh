@@ -180,8 +180,10 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root);
+  tree -> print();
+  delete tree;
 
-  h_ops_dag dag = h_ops_dag (tree);
+  /*h_ops_dag dag = h_ops_dag (tree);
   delete tree;
 
   inst_scheduler schedule = inst_scheduler (&dag, workers);
@@ -245,9 +247,9 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   }
   printf("FLOPS/S.\n\n");
 
-  cudaStreamDestroy(main_stream);
+  cudaStreamDestroy(main_stream); */
 
-  return error;
+  return cudaSuccess;
 }
 
 
