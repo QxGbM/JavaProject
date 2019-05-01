@@ -180,8 +180,10 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root);
+  printf("Tree Generated.\n\n");
 
   h_ops_dag dag = h_ops_dag (tree);
+  printf("DAG Created.\n\n");
   delete tree;
 
   inst_scheduler schedule = inst_scheduler (&dag, workers);

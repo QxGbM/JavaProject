@@ -23,6 +23,8 @@
 #include <string.h>
 #include <memory.h>
 
+#include <omp.h>
+
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 

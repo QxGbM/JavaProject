@@ -146,6 +146,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
   {
+    printf("LR += D * D detected. Accuracy may suffer.");
     const int x_m = getNx(), y_m = getNy(), r_m = getRank(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
     const int m = y_m > y_a ? y_a : y_m, n = r_m, k = x_a > y_b ? y_b : x_a, l = x_m > x_b ? x_b : x_m;
     const int ld_m = getLd_UxS(), ld_a = A -> getLd(), ld_b = B -> getLd(), ld_c = getLd_VT();
