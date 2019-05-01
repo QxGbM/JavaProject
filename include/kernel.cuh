@@ -178,24 +178,34 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const int ny = h -> getNy(), nx = h -> getNx();
   printf("Start Testing Hierarchical - LU for: %d x %d.\n\n", ny, nx);
 
-  const h_index * root = h -> getRootIndex();
-  const h_ops_tree * tree = h -> generateOps_GETRF(root);
-  printf("Tree Generated.\n\n");
-
-  h_ops_dag dag = h_ops_dag (tree);
-  printf("DAG Created.\n\n");
-  delete tree;
-
-  inst_scheduler schedule = inst_scheduler (&dag, workers);
-
-  dev_instructions <T> ins = dev_instructions <T> (workers, &dag, &schedule, h);
-
+  timer myTimer = timer();
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
-  void ** args = ins.getLaunchArgs();
+  clock_t clock_start, clock_end;
 
-  timer myTimer = timer();
+  const h_index * root = h -> getRootIndex();
+  clock_start = clock();
+  const h_ops_tree * tree = h -> generateOps_GETRF(root);
+  clock_end = clock();
+  printf("Tree Generated in %.3f ms.\n\n", 1000. * (clock_end - clock_start) / CLOCKS_PER_SEC);
+
+  clock_start = clock();
+  h_ops_dag dag = h_ops_dag (tree);
+  clock_end = clock();
+  delete tree;
+  printf("DAG Created in %.3f ms.\n\n", 1000. * (clock_end - clock_start) / CLOCKS_PER_SEC);
+
+  clock_start = clock();
+  inst_scheduler schedule = inst_scheduler (&dag, workers);
+  clock_end = clock();
+  printf("Schedule Created in %.3f ms.\n\n", 1000. * (clock_end - clock_start) / CLOCKS_PER_SEC);
+
+  myTimer.newEvent("COPY INST TO DEV", start, main_stream);
+  dev_instructions <T> ins = dev_instructions <T> (workers, &dag, &schedule, h);
+  myTimer.newEvent("COPY INST TO DEV", end, main_stream);
+
+  void ** args = ins.getLaunchArgs();
 
   myTimer.newEvent("GETRF", start, main_stream);
   cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T, shm_size>, workers, num_threads, args, 0, main_stream);

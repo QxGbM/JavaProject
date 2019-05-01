@@ -169,6 +169,8 @@ private:
     while (scheduled_insts < length && iter < _MAX_SCHEDULER_ITERS)
     {
       load_working_queue (dag);
+
+#pragma omp parallel for reduction(+:scheduled_insts, comm_wait_counts)
       for (int i = 0; i < workers; i++)
       {
         const int inst = working_queue -> getInst_Index(i);
@@ -189,6 +191,7 @@ private:
           for (int j = inst; j < length; j++)
           {
             if (dag -> getDep(inst, j) > no_dep)
+#pragma omp critical
             { inward_deps_counter[j]--; }
           }
 
@@ -224,9 +227,11 @@ public:
     inward_deps_counter = new int [length];
     state = new int [length * workers];
 
+#pragma omp parallel for
     for (int i = 0; i < workers; i++)
     { result_queues[i] = nullptr; }
 
+#pragma omp parallel for
     for (int i = 0; i < length; i++)
     { inward_deps_counter[i] = dag -> getDepCount_to(i); }
 

@@ -76,19 +76,22 @@ public:
 
     memset(deps_graph, 0, length * sizeof(dependency_linked_list *));
 
-    for (int i = 1; i < length; i++)
+#pragma omp parallel for
+    for (int i = 0; i < length; i++)
     {
-      h_ops_tree * to = ops_list -> getChild(i);
-      for (int j = 0; j < i; j++)
+      h_ops_tree * from = ops_list -> getChild(i);
+#pragma omp parallel for ordered
+      for (int j = i + 1; j < length; j++)
       {
-        h_ops_tree * from = ops_list -> getChild(j);
+        h_ops_tree * to = ops_list -> getChild(j);
         dependency_t dep = to -> checkDependencyFrom(from);
+#pragma omp ordered
         if (dep > no_dep)
         {
-          if (deps_graph[j] == nullptr)
-          { deps_graph[j] = new dependency_linked_list(i, dep); }
+          if (deps_graph[i] == nullptr)
+          { deps_graph[i] = new dependency_linked_list(j, dep); }
           else
-          { deps_graph[j] -> insertDependency(i, dep); }
+          { deps_graph[i] -> insertDependency(j, dep); }
         }
       }
     }

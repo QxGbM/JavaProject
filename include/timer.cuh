@@ -78,7 +78,7 @@ private:
 
 public:
 
-  __host__ timer (const int time_table_size = 1)
+  __host__ timer (const int time_table_size = 16)
   {
     events = new event_linked_list * [time_table_size];
     names = new char * [time_table_size];
