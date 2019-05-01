@@ -141,27 +141,25 @@ public:
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   {
-    const int x = getNx(), y = getNy();
-    h_ops_tree * op = new h_ops_tree (getrf, self, x, y, 0);
+    const int x = getNx(), y = getNy(), ld = 0;
+    h_ops_tree * op = new h_ops_tree (getrf, self, x, y, ld);
 
     for (int i = 0; i < nx && i < ny; i++)
     {
-      /*const h_index * index_i = self -> child(i * nx + i);
-      h_ops_tree * ops_i = elements[i * nx + i].generateOps_GETRF(index_i);
+      const h_index * index_i = self -> child(i * nx + i);
+      op -> setChild(elements[i * nx + i].generateOps_GETRF(index_i));
 
       for (int j = i + 1; j < nx; j++)
       {
         const h_index * index_j = self -> child(i * nx + j);
-        h_ops_tree * ops_j = elements[i * nx + i].generateOps_TRSML(index_i, &elements[i * nx + j], index_j);
-        ops_i -> hookup_next(ops_j);
+        op -> setChild(elements[i * nx + i].generateOps_TRSML(index_i, &elements[i * nx + j], index_j));
         delete index_j;
       }
 
       for (int j = i + 1; j < ny; j++)
       {
         const h_index * index_j = self -> child(j * nx + i);
-        h_ops_tree * ops_j = elements[i * nx + i].generateOps_TRSMR(index_i, &elements[j * nx + i], index_j);
-        ops_i -> hookup_next(ops_j);
+        op -> setChild(elements[i * nx + i].generateOps_TRSMR(index_i, &elements[j * nx + i], index_j));
         delete index_j;
       }
 
@@ -172,123 +170,95 @@ public:
         for (int k = i + 1; k < nx; k++)
         {
           const h_index * index_j = self -> child(j * nx + i), * index_k = self -> child(i * nx + k), * index_m = self -> child(j * nx + k);
-          h_ops_tree * ops_m = elements[j * nx + k].generateOps_GEMM(index_m, &elements[j * nx + i], index_j, false, &elements[i * nx + k], index_k, false);
-          ops_i -> hookup_next(ops_m);
+          op -> setChild(elements[j * nx + k].generateOps_GEMM(index_m, &elements[j * nx + i], index_j, false, &elements[i * nx + k], index_k, false));
           delete index_j; delete index_k; delete index_m;
         }
       }
-
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next (ops_i); }*/
     }
     return op;
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
   {
-    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), y = y_b > y_m ? y_m : y_b, ld_b = B -> getLd();
-    h_ops_tree * op = new h_ops_tree (trsml, B, self, x_b, y, x_m, ld_b, 0);
+    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), y = y_b > y_m ? y_m : y_b, ld_m = 0, ld_b = B -> getLd();
+    h_ops_tree * op = new h_ops_tree (trsml, index_b, self, x_b, y, x_m, ld_b, ld_m);
 
+    int offset = index_b -> getOffset();
     for (int i = 0; i < nx && i < ny; i++)
     {
-      /*const h_index * index_i = self -> child(i * nx + i), * index_bi = index_b -> child(-1, offset);
-      h_ops_tree * ops_i = elements[i * nx + i].generateOps_TRSML(index_i, B, index_bi);
+      const h_index * index_i = self -> child(i * nx + i), * index_bi = index_b -> child(-1, offset);
+      op -> setChild(elements[i * nx + i].generateOps_TRSML(index_i, B, index_bi));
       const int next_offset = (offset += elements[i * nx + i].getNy() * B -> getLd());
       delete index_i;
 
       for (int j = i + 1; j < ny; j++)
       {
         const h_index * index_j = self -> child(j * nx + i), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_A(B, index_bj, index_j, false, B, index_bi, false);
+        op -> setChild(B -> generateOps_GEMM(index_bj, &elements[j * nx + i], index_j, false, B, index_bi, false));
         delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNy() * B -> getLd();
-        ops_i -> hookup_next(ops_j);
       }
 
       delete index_bi;
       offset = next_offset;
-
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next(ops_i); }*/
     }
     return op;
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), y = y_b > y_m ? y_m : y_b, ld_b = B -> getLd_UxS();
-    h_ops_tree * op = new h_ops_tree (trsml_lr, B, self, x_b, y, x_m, ld_b, 0);
+    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), y = y_b > y_m ? y_m : y_b, ld_m = 0, ld_b = B -> getLd_UxS();
+    h_ops_tree * op = new h_ops_tree (trsml_lr, index_b, self, x_b, y, x_m, ld_b, ld_m, false);
 
+    int offset = index_b -> getOffset();
     for (int i = 0; i < nx && i < ny; i++)
     {
-      /*const h_index * index_i = self -> child(i * nx + i), * index_bi = index_b -> child(-1, offset);
-      h_ops_tree * ops_i = elements[i * nx + i].generateOps_TRSML (index_i, B, index_bi);
+      const h_index * index_i = self -> child(i * nx + i), * index_bi = index_b -> child(-1, offset);
+      op -> setChild(elements[i * nx + i].generateOps_TRSML (index_i, B, index_bi));
       const int next_offset = (offset += elements[i * nx + i].getNy() * B -> getNx());
       delete index_i;
 
       for (int j = i + 1; j < ny; j++)
       {
         const h_index * index_j = self -> child(j * nx + i), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_A (B, index_bj, index_j, false, B, index_bi, false);
+        op -> setChild(B -> generateOps_GEMM (index_bj, &elements[j * nx + i], index_j, false, B, index_bi, false));
         delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNy() * B -> getNx();
-        ops_i -> hookup_next(ops_j);
       }
 
       delete index_bi;
       offset = next_offset;
-
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next(ops_i); }*/
     }
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSML(const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     if (ny != B -> ny) 
     { printf("Matrices are partitioned differently in H-H TRSML.\n"); return nullptr; }
 
-    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), y = y_b > y_m ? y_m : y_b, ld_b = 0;
-    h_ops_tree * op = new h_ops_tree (trsml, B, self, x_b, y, x_m, ld_b, 0);
+    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), y = y_b > y_m ? y_m : y_b, ld_m = 0, ld_b = 0;
+    h_ops_tree * op = new h_ops_tree (trsml, index_b, self, x_b, y, x_m, ld_b, ld_m);
 
+    int offset = index_b -> getOffset();
     for (int i = 0; i < nx && i < ny; i++)
     {
-      /*const h_index * index_i = self -> child(i * nx + i);
-      h_ops_tree * ops_i = nullptr;
+      const h_index * index_i = self -> child(i * nx + i);
 
       for (int j = 0; j < B -> nx; j++)
       {
         const h_index * index_bj = index_b -> child(i * (B -> nx) + j);
-        h_ops_tree * ops_j = elements[i * nx + i].generateOps_TRSML(index_i, &(B -> elements)[i * (B -> nx) + j], index_bj);
+        op -> setChild(elements[i * nx + i].generateOps_TRSML(index_i, &(B -> elements)[i * (B -> nx) + j], index_bj));
 
-        for (int k = i + 1; k < ny && ops_j != nullptr; k++)
+        for (int k = i + 1; k < ny; k++)
         {
           const h_index * index_k = self -> child(k * nx + i), * index_bk = index_b -> child(k * (B -> nx) + j);
-          h_ops_tree * ops_k = (B -> elements[k * (B -> nx) + j]).generateOps_GEMM(index_bk, &elements[k * nx + i], index_k, false, &(B -> elements)[i * (B -> nx) + j], index_bj, false);
+          op -> setChild((B -> elements[k * (B -> nx) + j]).generateOps_GEMM(index_bk, &elements[k * nx + i], index_k, false, &(B -> elements)[i * (B -> nx) + j], index_bj, false));
           delete index_k, index_bk;
-          ops_j -> hookup_next(ops_k);
         }
-
         delete index_bj;
-
-        if (ops_i == nullptr)
-        { ops_i = ops_j; }
-        else
-        { ops_i -> hookup_next(ops_j); }
       }
       delete index_i;
-
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next(ops_i); }*/
     }
     return op;
   }
@@ -309,109 +279,85 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
   {
-    if (nx != B -> nx)
-    { printf("Matrices are partitioned differently in H-H TRSMR.\n"); return nullptr; }
+    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), x = x_b > x_m ? x_m : x_b, ld_m = 0, ld_b = B -> getLd();
+    h_ops_tree * op = new h_ops_tree (trsmr, index_b, self, x, y_b, x_m, ld_b, ld_m);
 
-    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), x = x_b > x_m ? x_m : x_b, ld_b = 0;
-    h_ops_tree * op = new h_ops_tree (trsmr, B, self, x, y_b, x_m, ld_b, 0);
-
+    int offset = index_b -> getOffset();
     for (int i = 0; i < nx && i < ny; i++)
     {
-      /*const h_index * index_i = self -> child(i * nx + i);
-      h_ops_tree * ops_i = nullptr;
-
-      for (int j = 0; j < B -> ny; j++)
-      {
-        const h_index * index_bj = index_b -> child(j * (B -> nx) + i);
-        h_ops_tree * ops_j = elements[i * nx + i].generateOps_TRSMR(index_i, &(B -> elements)[j * (B -> nx) + i], index_bj);
-
-        for (int k = i + 1; k < nx && ops_j != nullptr; k++)
-        {
-          const h_index * index_k = self -> child(i * nx + k), *index_bk = index_b -> child(j * (B -> nx) + k);
-          h_ops_tree * ops_k = (B -> elements[j * (B -> nx) + k]).generateOps_GEMM(index_bk, &(B -> elements)[j * (B -> nx) + i], index_bj, false, &elements[i * nx + k], index_k, false);
-          delete index_k; delete index_bk;
-          ops_j -> hookup_next(ops_k);
-        }
-
-        delete index_bj;
-
-        if (ops_i == nullptr)
-        { ops_i = ops_j; }
-        else
-        { ops_i -> hookup_next(ops_j); }
-      }
-      delete index_i;
-
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next(ops_i); }*/
-    }
-    return op;
-  }
-
-  __host__ h_ops_tree * generateOps_TRSMR(const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
-  {
-    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), x = x_b > x_m ? x_m : x_b, ld_b = B -> getLd();
-    h_ops_tree * op = new h_ops_tree (trsmr, B, self, x, y_b, x_m, ld_b, 0);
-
-    for (int i = 0; i < nx && i < ny; i++)
-    {
-      /*const h_index * index_i = self -> child(i * nx + i), *index_bi = index_b -> child(-1, offset);
-      h_ops_tree * ops_i = elements[i * nx + i].generateOps_TRSMR(index_i, B, index_bi);
+      const h_index * index_i = self -> child(i * nx + i), *index_bi = index_b -> child(-1, offset);
+      op -> setChild(elements[i * nx + i].generateOps_TRSMR(index_i, B, index_bi));
       const int next_offset = (offset += elements[i * nx + i].getNx());
       delete index_i;
 
       for (int j = i + 1; j < nx; j++)
       {
         const h_index * index_j = self -> child(i * nx + j), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_B(B, index_bj, B, index_bi, false, index_j, false);
+        op -> setChild(B -> generateOps_GEMM (index_bj, B, index_bi, false, &elements[j * nx + i], index_j, false));
         delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNx();
-        ops_i -> hookup_next(ops_j);
       }
-
       delete index_bi;
       offset = next_offset;
-
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next(ops_i); }*/
     }
     return op;
   }
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), x = x_b > x_m ? x_m : x_b, ld_b = B -> getLd_VT();
-    h_ops_tree * op = new h_ops_tree(trsmr_lr, B, self, x, y_b, x_m, ld_b, 0);
+    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), x = x_b > x_m ? x_m : x_b, ld_m = 0, ld_b = B -> getLd_VT();
+    h_ops_tree * op = new h_ops_tree (trsmr_lr, index_b, self, x, y_b, x_m, ld_b, ld_m, true);
 
+    int offset = index_b -> getOffset();
     for (int i = 0; i < nx && i < ny; i++)
     {
-      /*const h_index * index_i = self -> child(i * nx + i), *index_bi = index_b -> child(-1, offset);
-      h_ops_tree * ops_i = elements[i * nx + i].generateOps_TRSMR (index_i, B, index_bi);
+      const h_index * index_i = self -> child(i * nx + i), *index_bi = index_b -> child(-1, offset);
+      op -> setChild(elements[i * nx + i].generateOps_TRSMR (index_i, B, index_bi));
       const int next_offset = (offset += elements[i * nx + i].getNx());
       delete index_i;
 
       for (int j = i + 1; j < nx; j++)
       {
         const h_index * index_j = self -> child(i * nx + j), *index_bj = index_b -> child(-1, offset);
-        h_ops_tree * ops_j = elements[j * nx + i].generateOps_GEMM_B (B, index_bj, B, index_bi, false, index_j, false);
+        op -> setChild(B -> generateOps_GEMM (index_bj, B, index_bi, false, &elements[j * nx + i], index_j, false));
         delete index_j; delete index_bj;
         offset += elements[j * nx + i].getNx();
-        ops_i -> hookup_next(ops_j);
       }
 
       delete index_bi;
       offset = next_offset;
+    }
+    return op;
+  }
 
-      if (ops == nullptr)
-      { ops = ops_i; }
-      else
-      { ops -> hookup_next(ops_i); }*/
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
+  {
+    if (nx != B -> nx)
+    { printf("Matrices are partitioned differently in H-H TRSMR.\n"); return nullptr; }
+
+    const int x_m = getNx(), y_m = getNy(), x_b = B -> getNx(), y_b = B -> getNy(), x = x_b > x_m ? x_m : x_b, ld_m = 0, ld_b = 0;
+    h_ops_tree * op = new h_ops_tree (trsmr, index_b, self, x, y_b, x_m, ld_b, ld_m);
+
+    for (int i = 0; i < nx && i < ny; i++)
+    {
+      const h_index * index_i = self -> child(i * nx + i);
+
+      for (int j = 0; j < B -> ny; j++)
+      {
+        const h_index * index_bj = index_b -> child(j * (B -> nx) + i);
+        op -> setChild(elements[i * nx + i].generateOps_TRSMR(index_i, &(B -> elements)[j * (B -> nx) + i], index_bj));
+
+        for (int k = i + 1; k < nx; k++)
+        {
+          const h_index * index_k = self -> child(i * nx + k), *index_bk = index_b -> child(j * (B -> nx) + k);
+          op -> setChild((B -> elements[j * (B -> nx) + k]).generateOps_GEMM(index_bk, &(B -> elements)[j * (B -> nx) + i], index_bj, false, &elements[i * nx + k], index_k, false));
+          delete index_k; delete index_bk;
+        }
+        delete index_bj;
+      }
+      delete index_i;
     }
     return op;
   }
@@ -434,31 +380,30 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
   {
-    h_ops_tree * op = nullptr;
+    const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
+    const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a;
+    const int ld_m = 0, ld_a = A -> getLd(), ld_b = B -> getLd();
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, false, false);
 
+    int offset_a = index_a -> getOffset();
     for (int i = 0; i < ny; i++)
     {
-      /*const h_index * index_ai = index_a -> child(-1, offset_a);
+      const h_index * index_ai = index_a -> child(-1, offset_a);
       int offset_b = index_b -> getOffset();
 
       for (int j = 0; j < nx; j++)
       {
         const h_index * index_m = self -> child(i * nx + j), * index_bj = index_b -> child(-1, offset_b);
-        h_ops_tree * ops_m = elements[i * nx + j].generateOps_GEMM(index_m, A, index_ai, A_T, B, index_bj, B_T);
+        op -> setChild(elements[i * nx + j].generateOps_GEMM(index_m, A, index_ai, A_T, B, index_bj, B_T));
 
         delete index_m; delete index_bj;
         offset_b += elements[i * nx + j].getNx();
-
-        if (ops == nullptr)
-        { ops = ops_m; }
-        else
-        { ops -> hookup_next(ops_m); }
       }
 
       delete index_ai;
-      offset_a += elements[i * nx].getNy() * A -> getLd();*/
+      offset_a += elements[i * nx].getNy() * A -> getLd();
     }
-    return ops;
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
@@ -494,29 +439,28 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
   {
-    h_ops_tree * op = nullptr;
+    const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
+    const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a;
+    const int ld_m = 0, ld_a = 0, ld_b = 0;
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, false, false);
 
+    int offset_a = index_a -> getOffset();
     for (int i = 0; i < ny; i++)
     {
-      /*const h_index * index_ai = index_a -> child(-1, offset_a);
+      const h_index * index_ai = index_a -> child(-1, offset_a);
       int offset_b = index_b -> getOffset();
 
       for (int j = 0; j < nx; j++)
       {
         const h_index * index_m = self -> child(i * nx + j), * index_bj = index_b -> child(-1, offset_b);
-        h_ops_tree * ops_m = elements[i * nx + j].generateOps_GEMM(index_m, A, index_ai, A_T, B, index_bj, B_T);
+        op -> setChild(elements[i * nx + j].generateOps_GEMM(index_m, A, index_ai, A_T, B, index_bj, B_T));
 
         delete index_m; delete index_bj;
         offset_b += elements[i * nx + j].getNx();
-
-        if (ops == nullptr)
-        { ops = ops_m; }
-        else
-        { ops -> hookup_next(ops_m); }
       }
 
       delete index_ai;
-      offset_a += elements[i * nx].getNy() * A -> getNx();*/
+      offset_a += elements[i * nx].getNy() * A -> getNx();
     }
     return op;
   }

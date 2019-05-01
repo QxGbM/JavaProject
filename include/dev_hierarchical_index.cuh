@@ -16,9 +16,10 @@ public:
 
   __host__ h_index (const int levels_in = 0, const int *ns_in = nullptr, const int offset_in = 0, const void * matrix_in = nullptr)
   {
-    levels = (levels_in >= 0) ? levels_in : 0;
+    levels = (levels_in > 0) ? levels_in : 0;
 
-    ns = new int [levels];
+    ns = (levels > 0) ? new int [levels] : nullptr;
+
     for (int i = 0; i < levels; i++) 
     { ns[i] = (ns_in == nullptr) ? -1 : ns_in[i]; }
 
@@ -96,27 +97,14 @@ public:
     return child(-1, lr -> getOffset_VT(offset));
   }
 
-  __host__ h_index * clone () const
+  __host__ h_index * clone (h_index * address = nullptr) const
   {
     if (this == nullptr) 
     { return nullptr; }
-    else
+    else if (address == nullptr)
     { return new h_index(levels, ns, offset, matrix); }
-  }
-
-  __host__ void cloneTo (h_index * index) const
-  {
-    if (index != nullptr && this != nullptr)
-    {
-      index -> levels = levels;
-
-      index -> ns = new int [levels];
-      for (int i = 0; i < levels; i++) 
-      { (index -> ns)[i] = ns[i]; }
-
-      index -> offset = offset;
-      index -> matrix = matrix;
-    }
+    else
+    { return new (address) h_index(levels, ns, offset, matrix); }
   }
 
   __host__ void print() const
