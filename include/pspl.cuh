@@ -30,7 +30,7 @@
 #define _PSPL_CUH
 
 #define _MAX_INST_LENGTH 32
-#define _MAX_SCHEDULER_ITERS 256
+#define _MAX_SCHEDULER_ITERS 1024
 
 enum mark_t{ start, end };
 

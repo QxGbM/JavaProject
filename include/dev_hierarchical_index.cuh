@@ -104,7 +104,17 @@ public:
     else if (address == nullptr)
     { return new h_index(levels, ns, offset, matrix); }
     else
-    { return new (address) h_index(levels, ns, offset, matrix); }
+    {
+      address -> levels = levels;
+
+      address -> ns = new int [levels];
+      for (int i = 0; i < levels; i++) 
+      { (address -> ns)[i] = ns[i]; }
+
+      address -> offset = offset;
+      address -> matrix = matrix;
+      return address;
+    }
   }
 
   __host__ void print() const

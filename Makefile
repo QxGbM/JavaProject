@@ -1,7 +1,7 @@
 .SUFFIXES: .cu
 
 NVCC = nvcc 
-NVCC += -ccbin g++ -std=c++11
+NVCC += -ccbin g++ -std=c++14
 
 HOME_DIR = ./
 
@@ -18,8 +18,9 @@ ARCH += -gencode arch=compute_75,code=compute_75
 NVCCFLAGS = -maxrregcount=64 --machine 64 -rdc=true -O3 
 NVCCFLAGS += -I$(INCLUDE_DIR) 
 NVCCFLAGS += $(ARCH) 
+NVCCFLAGS += -Xcompiler "-fopenmp"
 
-LDFLAGS = -lstdc++ -lm -lcuda -lcudart 
+LDFLAGS = -lstdc++ -lm -lcuda -lcudart -Xcompiler "-fopenmp"
 LDFLAGS += -L/usr/lib/x86_64-linux-gnu $(ARCH)
 
 #USE_MKL = TRUE
