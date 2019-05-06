@@ -453,24 +453,34 @@ public:
 
   __host__ void loadIdentityMatrix()
   {
-    for (int x = 0; x < nx; x++)
-    {
-      for (int y = 0; y < ny; y++)
-      {
-        elements[y * ld + x] = (T)((x == y) ? 1 : 0);
-      }
-    }
+    for (int x = 0; x < nx; x++) for (int y = 0; y < ny; y++)
+    { elements[y * ld + x] = (T) ((x == y) ? 1 : 0); }
   }
 
-  __host__ void loadRandomMatrix(const double min, const double max, const int seed = 0)
+  __host__ void loadRandomMatrix (const double min, const double max, const int seed = 0)
   {
     if (seed > 0) 
     { srand(seed); }
-    for(int x = 0; x < nx; x++)
+    for(int x = 0; x < nx; x++) for(int y = 0; y < ny; y++)
+    { elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); }
+  }
+
+  __host__ void loadRandomOrthMatrix (const int seed = 0)
+  {
+    if (seed > 0) 
+    { srand(seed); }
+    for (int x = 0; x < nx; x++) for (int y = 0; y < ny; y++)
+    { elements[y * ld + x] = (T) ((x == y) ? 1 : 0); }
+
+    for (int x = 0; x < nx; x++) for (int z = 0; z < x; z++)
     {
-      for(int y = 0; y < ny; y++)
-      { 
-        elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); 
+      double t = (double) rand() / RAND_MAX, cos = 1. / sqrt(1. + t * t), sin = cos * t;
+#pragma omp parallel for
+      for (int y = 0; y < ny; y++)
+      {
+        const T e1_T = elements[y * ld + x], e2_T = elements[y * ld + z];
+        elements[y * ld + x] = cos * e1_T - sin * e2_T;
+        elements[y * ld + z] = sin * e1_T + cos * e2_T;
       }
     }
   }

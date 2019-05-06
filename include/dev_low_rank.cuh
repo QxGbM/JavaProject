@@ -22,9 +22,6 @@ public:
 
     UxS = new dev_dense <T> (rank, ny);
     VT = new dev_dense <T> (rank, nx);
-
-    VT -> loadIdentityMatrix();
-
   }
 
   __host__ ~dev_low_rank ()
@@ -401,6 +398,7 @@ public:
   __host__ void loadTestMatrix(const int x_start = 0, const int y_start = 0) const
   {
     UxS -> loadTestMatrix (x_start, y_start);
+    VT -> loadRandomOrthMatrix(1);
   }
 
 };
