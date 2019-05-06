@@ -182,24 +182,25 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
-  clock_t clock_start, clock_end;
+  double clock_start, clock_end;
 
   const h_index * root = h -> getRootIndex();
-  clock_start = clock();
+  clock_start = omp_get_wtime();
   const h_ops_tree * tree = h -> generateOps_GETRF(root);
-  clock_end = clock();
-  printf("Tree Generated in %.3f ms.\n\n", 1000. * (clock_end - clock_start) / CLOCKS_PER_SEC);
+  clock_end = omp_get_wtime();
+  tree->print();
+  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  clock_start = clock();
+  clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
-  clock_end = clock();
+  clock_end = omp_get_wtime();
   delete tree;
-  printf("DAG Created in %.3f ms.\n\n", 1000. * (clock_end - clock_start) / CLOCKS_PER_SEC);
+  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  clock_start = clock();
+  clock_start = omp_get_wtime();
   inst_scheduler schedule = inst_scheduler (&dag, workers);
-  clock_end = clock();
-  printf("Schedule Created in %.3f ms.\n\n", 1000. * (clock_end - clock_start) / CLOCKS_PER_SEC);
+  clock_end = omp_get_wtime();
+  printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
   myTimer.newEvent("COPY INST TO DEV", start, main_stream);
   dev_instructions <T> ins = dev_instructions <T> (workers, &dag, &schedule, h);

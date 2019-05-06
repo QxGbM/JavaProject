@@ -236,12 +236,18 @@ public:
     const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
     const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a;
     const int ld_m = ld, ld_a = A -> getLd(), ld_b = B -> getLd();
-    return new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, false, false); 
+    return new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, A_T, B_T); 
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
   {
-    return nullptr;
+    const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), r_a = A -> getRank(), x_b = B -> getNx(), y_b = B -> getNy();
+    const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = r_a, l = x_a > y_b ? y_b : x_a;
+    const int ld_m = ld, ld_a = A -> getLd_UxS(), ld_b = A -> getLd_VT(), ld_c = B -> getLd();
+    const h_index * index_au = index_a -> child_UxS(A), * index_av = index_a -> child_VT(A);
+    h_ops_tree * op = new h_ops_tree (gemm3, self, index_au, index_av, index_b, m, n, k, l, ld_m, ld_a, ld_b, ld_c, A_T, !A_T, B_T);
+    delete index_au; delete index_av;
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
@@ -267,17 +273,23 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
   {
-    return nullptr;
+    const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy(), r_b = B -> getRank();
+    const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a, l = r_b;
+    const int ld_m = ld, ld_a = A -> getLd(), ld_b = B -> getLd_UxS(), ld_c = B -> getLd_VT();
+    const h_index * index_bu = index_b -> child_UxS(B), * index_bv = index_b -> child_VT(B);
+    h_ops_tree * op = new h_ops_tree (gemm3, self, index_a, index_bu, index_bv, m, n, k, l, ld_m, ld_a, ld_b, ld_c, A_T, B_T, !B_T);
+    delete index_bu; delete index_bv;
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
   {
     const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), r_a = A -> getRank(), x_b = B -> getNx(), y_b = B -> getNy(), r_b = B -> getRank();
     const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = r_a, l = x_a > y_b ? y_b : x_a, o = r_b;
-    const int ld_m = ld, ld_au = A -> getLd_UxS(), ld_av = A -> getLd_VT(), ld_bu = B -> getLd_UxS(), ld_bv = B -> getLd_VT();
+    const int ld_m = ld, ld_a = A -> getLd_UxS(), ld_b = A -> getLd_VT(), ld_c = B -> getLd_UxS(), ld_d = B -> getLd_VT();
     const h_index * index_au = index_a -> child_UxS(A), * index_av = index_a -> child_VT(A);
     const h_index * index_bu = index_b -> child_UxS(B), * index_bv = index_b -> child_VT(B);
-    h_ops_tree * op = new h_ops_tree (gemm4, self, index_au, index_av, index_bu, index_bv, m, n, k, l, o, ld_m, ld_au, ld_av, ld_bu, ld_bv, false, true, false, true);
+    h_ops_tree * op = new h_ops_tree (gemm4, self, index_au, index_av, index_bu, index_bv, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, A_T, !A_T, B_T, !B_T);
     delete index_au; delete index_av; delete index_bu; delete index_bv;
     return op;
   }

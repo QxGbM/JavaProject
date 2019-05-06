@@ -85,7 +85,9 @@ public:
   }
 
   __host__ bool sameRowBasis (const dev_low_rank <T> * lr) const
-  { return lr -> UxS == UxS; }
+  { 
+    return lr -> UxS == UxS;
+  }
 
   __host__ bool sameColBasis (const dev_low_rank <T> * lr) const
   { return lr -> VT == VT; }
@@ -151,7 +153,7 @@ public:
     const int m = y_m > y_a ? y_a : y_m, n = r_m, k = x_a > y_b ? y_b : x_a, l = x_m > x_b ? x_b : x_m;
     const int ld_m = getLd_UxS(), ld_a = A -> getLd(), ld_b = B -> getLd(), ld_c = getLd_VT();
     const h_index * index_u = self -> child_UxS(this), * index_v = self -> child_VT(this);
-    h_ops_tree * op = new h_ops_tree (gemm3, index_u, index_a, index_b, index_v, m, n, k, l, ld_m, ld_a, ld_b, ld_c, false, false, true);
+    h_ops_tree * op = new h_ops_tree (gemm3, index_u, index_a, index_b, index_v, m, n, k, l, ld_m, ld_a, ld_b, ld_c, A_T, B_T, false);
     delete index_u; delete index_v;
     return op;
   }
@@ -164,7 +166,7 @@ public:
       const int m = x_m > x_b ? x_b : x_m, n = r_m, k = x_a > y_b ? y_b : x_a;
       const int ld_m = getLd_VT(), ld_a = B -> getLd(), ld_b = A -> getLd_VT();
       const h_index * index_v = self -> child_VT(this), * index_va = index_a -> child_VT(A);
-      h_ops_tree * op = new h_ops_tree (gemm, index_v, index_b, index_va, m, n, k, ld_m, ld_a, ld_b, true, false);
+      h_ops_tree * op = new h_ops_tree (gemm, index_v, index_b, index_va, m, n, k, ld_m, ld_a, ld_b, !B_T, A_T);
       delete index_v; delete index_va;
       return op;
     }
@@ -174,7 +176,7 @@ public:
       const int ld_m = getLd_UxS(), ld_a = A -> getLd_UxS(), ld_b = A -> getLd_VT(), ld_c = B -> getLd(), ld_d = getLd_VT();
       const h_index * index_u = self -> child_UxS(this), * index_v = self -> child_VT(this);
       const h_index * index_ua = index_a -> child_UxS(A), * index_va = index_a -> child_VT(A);
-      h_ops_tree * op = new h_ops_tree (gemm4, index_u, index_ua, index_va, index_b, index_v, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, false, true, false, true);
+      h_ops_tree * op = new h_ops_tree (gemm4, index_u, index_ua, index_va, index_b, index_v, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, A_T, !A_T, B_T, false);
       delete index_u; delete index_v; delete index_ua; delete index_va;
       return op;
     }
@@ -209,7 +211,7 @@ public:
       const int m = y_m > y_a ? y_a : y_m, n = r_m, k = x_a > y_b ? y_b : x_a;
       const int ld_m = getLd_UxS(), ld_a = A -> getLd(), ld_b = B -> getLd_UxS();
       const h_index * index_u = self -> child_UxS(this), * index_ub = index_b -> child_UxS(B);
-      h_ops_tree * op = new h_ops_tree (gemm, index_u, index_a, index_ub, m, n, k, ld_m, ld_a, ld_b, false, false);
+      h_ops_tree * op = new h_ops_tree (gemm, index_u, index_a, index_ub, m, n, k, ld_m, ld_a, ld_b, A_T, B_T);
       delete index_u; delete index_ub;
       return op;
     }
@@ -219,7 +221,7 @@ public:
       const int ld_m = getLd_UxS(), ld_a = A -> getLd(), ld_b = B -> getLd_UxS(), ld_c = B -> getLd_VT(), ld_d = getLd_VT();
       const h_index * index_u = self -> child_UxS(this), * index_v = self -> child_VT(this);
       const h_index * index_ub = index_b -> child_UxS(B), * index_vb = index_b -> child_VT(B);
-      h_ops_tree * op = new h_ops_tree (gemm4, index_u, index_a, index_ub, index_vb, index_v, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, false, false, true, true);
+      h_ops_tree * op = new h_ops_tree (gemm4, index_u, index_a, index_ub, index_vb, index_v, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, A_T, B_T, !B_T, false);
       delete index_u; delete index_v; delete index_ub; delete index_vb;
       return op;
     }
@@ -234,7 +236,7 @@ public:
       const int ld_m = getLd_UxS(), ld_a = A -> getLd_UxS(), ld_b = A -> getLd_VT(), ld_c = B -> getLd_UxS();
       const h_index * index_u = self -> child_UxS(this), * index_ua = index_a -> child_UxS(A);
       const h_index * index_va = index_a -> child_VT(A), * index_ub = index_b -> child_UxS(B);
-      h_ops_tree * op = new h_ops_tree (gemm3, index_u, index_ua, index_va, index_ub, m, n, k, l, ld_m, ld_a, ld_b, ld_c, false, true, false);
+      h_ops_tree * op = new h_ops_tree (gemm3, index_u, index_ua, index_va, index_ub, m, n, k, l, ld_m, ld_a, ld_b, ld_c, A_T, !A_T, B_T);
       delete index_u; delete index_ua; delete index_va; delete index_ub;
       return op;
     }
@@ -244,7 +246,7 @@ public:
       const int ld_m = getLd_VT(), ld_a = B -> getLd_VT(), ld_b = B -> getLd_UxS(), ld_c = A -> getLd_VT();
       const h_index * index_v = self -> child_VT(this), * index_va = index_a -> child_VT(A);
       const h_index * index_ub = index_b -> child_UxS(B), * index_vb = index_b -> child_VT(B);
-      h_ops_tree * op = new h_ops_tree (gemm3, index_v, index_vb, index_ub, index_va, m, n, k, l, ld_m, ld_a, ld_b, ld_c, false, true, false);
+      h_ops_tree * op = new h_ops_tree (gemm3, index_v, index_vb, index_ub, index_va, m, n, k, l, ld_m, ld_a, ld_b, ld_c, B_T, !B_T, A_T);
       delete index_v; delete index_va; delete index_ub; delete index_vb;
       return op;
     }
@@ -256,7 +258,7 @@ public:
       const h_index * index_ua = index_a -> child_UxS(A), * index_va = index_a -> child_VT(A);
       const h_index * index_ub = index_b -> child_UxS(B), * index_vb = index_b -> child_VT(B);
       h_ops_tree * op = new h_ops_tree (gemm5, index_u, index_ua, index_va, index_ub, index_vb, index_v,
-        m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, false, true, false, true, true);
+        m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, A_T, !A_T, B_T, !B_T, false);
       delete index_u; delete index_v; delete index_ua; delete index_va; delete index_ub; delete index_vb;
       return op;
     }

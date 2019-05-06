@@ -397,7 +397,7 @@ public:
     const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
     const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a;
     const int ld_m = 0, ld_a = A -> getLd(), ld_b = B -> getLd();
-    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, false, false);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, A_T, B_T);
 
     int offset_a = index_a -> getOffset();
     for (int i = 0; i < ny; i++)
@@ -456,7 +456,7 @@ public:
     const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
     const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a;
     const int ld_m = 0, ld_a = 0, ld_b = 0;
-    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, false, false);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, A_T, B_T);
 
     int offset_a = index_a -> getOffset();
     for (int i = 0; i < ny; i++)
@@ -512,7 +512,34 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const
   {
-    return nullptr;
+    if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
+    { printf("Matrices are partitioned differently in H-H.H GEMM.\n"); return nullptr; }
+
+    const int x_m = getNx(), y_m = getNy(), x_a = A -> getNx(), y_a = A -> getNy(), x_b = B -> getNx(), y_b = B -> getNy();
+    const int m = y_m > y_a ? y_a : y_m, n = x_m > x_b ? x_b : x_m, k = x_a > y_b ? y_b : x_a;
+    const int ld_m = 0, ld_a = 0, ld_b = 0;
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b, m, n, k, ld_m, ld_a, ld_b, false, false);
+    op -> resizeChildren(nx * ny * A -> nx);
+
+#pragma omp parallel for
+    for (int i = 0; i < ny; i++)
+    {
+#pragma omp parallel for
+      for (int j = 0; j < nx; j++)
+      {
+        const h_index * index_m = self -> child(i * nx + j);
+#pragma omp parallel for
+        for (int k = 0; k < A -> nx; k++)
+        {
+          const int i_ak = i * (A -> nx) + k, i_bk = k * (B -> nx) + j;
+          const h_index * index_ak = index_a -> child(i_ak), * index_bk = index_b -> child(i_bk);
+          op -> setChild(elements[i * nx + j].generateOps_GEMM(index_m, &(A -> elements[i_ak]), index_ak, A_T, &(B -> elements[i_bk]), index_bk, B_T), (i * nx + j) * (A -> nx) + k);
+          delete index_ak; delete index_bk;
+        }
+        delete index_m;
+      }
+    }
+    return op;  
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const
@@ -649,55 +676,28 @@ public:
     delete root;
   }
 
-  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int x_start = 0, const int y_start = 0)
+  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int rank, const int admis, const int x_start = 0, const int y_start = 0)
   {
-    for (int y = 0, y_offset = x_start; y < ny; y++)
+    int l = block_size, cl = levels;
+    while (cl > 0) { l *= dim; cl--; }
+
+    for (int y = 0, y_offset = y_start; y < ny; y++)
     {
-      for (int x = 0, x_offset = y_start; x < nx; x++)
+      for (int x = 0, x_offset = x_start; x < nx; x++)
       {
-        if (x == y && levels > 0)
+        if (levels > 0 && (abs(x_offset - y_offset) < l + admis * block_size))
         { 
           dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
-          e -> loadTestMatrix(levels - 1, dim, block_size, x_offset, y_offset); 
+          e -> loadTestMatrix(levels - 1, dim, block_size, rank, admis, x_offset, y_offset); 
           setElement(e, hierarchical, x, y);
           x_offset += e -> getNx();
         }
         else
         {
-          int l = block_size, cl = levels; 
-          while (cl > 0) { l *= dim; cl--; }
-          dev_dense <T> *e = new dev_dense <T> (l, l);
-          e -> loadTestMatrix(x_offset, y_offset);
-          setElement(e, dense, x, y);
-          x_offset += e -> getNx();
-        }
-      }
-      y_offset += elements[y * nx].getNy();
-    }
-
-  }
-
-  __host__ void loadTestMatrix2 (const int levels, const int dim, const int block_size, const int rank, const int x_start = 0, const int y_start = 0)
-  {
-    for (int y = 0, y_offset = x_start; y < ny; y++)
-    {
-      for (int x = 0, x_offset = y_start; x < nx; x++)
-      {
-        if (x == y && levels > 0)
-        {
-          dev_hierarchical <T> *e = new dev_hierarchical <T>(dim, dim);
-          e -> loadTestMatrix2(levels - 1, dim, block_size, rank, x_offset, y_offset);
-          setElement(e, hierarchical, x, y);
-          x_offset += e -> getNx();
-        }
-        else
-        {
-          int l = block_size, cl = levels;
-          while (cl > 0) { l *= dim; cl--; }
-          if (x == y)
+          if (abs(x_offset - y_offset) <= admis * block_size)
           {
             dev_dense <T> *e = new dev_dense <T> (l, l);
-            e -> loadTestMatrix (x_offset, y_offset);
+            e -> loadTestMatrix(x_offset, y_offset);
             setElement(e, dense, x, y);
             x_offset += e -> getNx();
           }

@@ -745,16 +745,15 @@ public:
       break;
     }
 
-    int t = 0;
 
     for (int i = 0; i < l_dims; i++)
-    { inst[t] = dims[i]; t++; }
+    { inst[i] = dims[i]; }
     for (int i = 0; i < l_lds; i++)
-    { inst[t] = lds[i]; t++; }
+    { inst[l_dims + i] = lds[i]; }
     for (int i = 0; i < l_ts; i++)
-    { inst[t] = (int) ts[i]; t++; }
+    { inst[l_dims + l_lds + i] = (int) ts[i]; }
 
-    return t;
+    return l_dims + l_lds + l_ts;
   }
 
   __host__ unsigned long long int getFops () const

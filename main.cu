@@ -1,17 +1,29 @@
 
 #include <pspl.cuh>
-//#define ref
+#define ref
+
+
+__global__ void partial_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
+{
+  __shared__ double shm[6144];
+  blockDenseGetrf_shm <double>(matrix, pivot, nx, ny, ld, &shm[0]);
+}
+
+__global__ void recover_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
+{
+  __shared__ double shm[6144];
+  blockApplyPivot <double>(matrix, pivot, nx, ny, ld, true, &shm[0], 6144);
+}
 
 template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 32, rank = 8;
+  const int n = 2, levels = 1, dim = 4, rank = 2, admis = 1;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  //a -> loadTestMatrix(levels, n, dim);
-  a -> loadTestMatrix2(levels, n, dim, rank);
+  a -> loadTestMatrix(levels, n, dim, rank, admis);
 
   const int blocks = 160, threads = 1024;
 
@@ -25,11 +37,12 @@ template <class T> __host__ int test0()
 #ifdef ref
   if (error == cudaSuccess)
   {
-    dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
-    delete b;
+    dev_dense <T> *b = a -> convertToDense();
+    partial_pivot_kernel <<<1, 1024, 0, 0 >>> (c -> getElements(), a -> getNx(), a -> getNy(), a -> getNx(), nullptr);
+    cudaDeviceSynchronize();
 
-    printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
-    delete b_;
+    printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
+    delete b;
   }
   delete c;
 #endif // ref
@@ -76,17 +89,7 @@ int test1()
   return 0;
 }
 
-__global__ void partial_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
-{
-  __shared__ double shm[6144];
-  blockDenseGetrf_shm <double> (matrix, pivot, nx, ny, ld, &shm[0]);
-}
 
-__global__ void recover_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
-{
-  __shared__ double shm[6144];
-  blockApplyPivot <double> (matrix, pivot, nx, ny, ld, true, &shm[0], 6144);
-}
 
 __host__ int test2()
 {
