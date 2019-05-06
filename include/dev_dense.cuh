@@ -420,7 +420,7 @@ public:
       for (int x = 0; x < nx; x++)
       {
         T e = elements[y * ld + x];
-        printf("%5.4f, ", e);
+        printf("%.6f ", e);
       }
       printf("\n");
     }
@@ -563,7 +563,7 @@ public:
       {
         double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
         if (abs(t) > 1.e-6) 
-        { printf("Error Location: (%d, %d). M1: %5.4f M2: %5.4f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); }
+        { printf("Error Location: (%d, %d). M1: %.6f M2: %.6f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); }
         norm += t * t;
       }
     }
