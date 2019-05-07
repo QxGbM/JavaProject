@@ -55,7 +55,7 @@ template <class T> __host__ int test0()
 __global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
 {
   __shared__ double shm[6144];
-  int i = blockJacobiSVD <double> (U, VT, nx, ny, ld_u, ld_v, 1.0e-14, 100, &shm[0]);
+  int i = blockRandomizedSVD <double> (U, VT, nx, ny, ld_u, ld_v, 32, 1.0e-14, 100, &shm[0], 6144);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -64,20 +64,26 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 256, ny = 256;
+  const int nx = 4, ny = 4;
+  double * rnd_seed = new double[2048];
+#pragma omp parallel for
+  for (int i = 0; i < 2048; i++) { rnd_seed[i] = (double) rand() / RAND_MAX; }
+
+  cudaMemcpyToSymbol(seed, rnd_seed, 2048 * sizeof(double), 0, cudaMemcpyHostToDevice);
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
   A -> getUxS() -> loadTestMatrix(2000);
+  A -> getVT() -> loadIdentityMatrix();
 
   timer myTimer = timer();
+  cudaThreadSetLimit(cudaLimitMallocHeapSize, 128 * 1024 * 1024);
 
   myTimer.newEvent("SVD", start);
   svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A -> getOffset_VT()), nx, ny, A -> getLd_UxS(), A -> getLd_VT());
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
-  A->adjustRank(32);
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
   c->loadTestMatrix(2000);

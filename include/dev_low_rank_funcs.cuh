@@ -3,6 +3,8 @@
 
 #include <pspl.cuh>
 
+__constant__ double seed[2048];
+
 template <class T> __device__ void blockRotateColumns (T * col1, T * col2, const int ny, const int ld, const double sine, const double cosine)
 {
   for (int i = thread_rank(); i < ny; i += block_dim())
@@ -103,10 +105,9 @@ __device__ bool blockJacobiSVD_iter (T * __restrict__ UxS, T * __restrict__ VT, 
         if (lane_rank() == 0)
         {
           const double torque = (double) ((shm[col2] - shm[col]) / (shm[nx + col] * 2.));
-          const double sign_torque = (double) (torque >= 0.) * 2 - 1;
-          const double abs_torque = sign_torque * torque;
-          const double tangent = sign_torque / (abs_torque + sqrt(1. + torque * torque));
-          cosine = 1. / (sqrt(1. + tangent * tangent));
+          const double sign_torque = (double) signbit(torque) * -2 + 1;
+          const double tangent = sign_torque / (fabs(torque) + sqrt(1. + torque * torque));
+          cosine = rsqrt(1. + tangent * tangent);
           sine = cosine * tangent;
         }
         __syncwarp();
@@ -178,51 +179,6 @@ template <class T> __device__ void resetVT (T * VT, const int n, const int ld)
   }
 }
 
-template <class T> __device__ int blockJacobiSVD (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const double epi, const int iter_limit, T * shm)
-{
-  resetVT (VT, nx, ld_v);
-  int * iter = (int *) &shm[0], * loop_counter = (int *) &shm[1];
-  if (thread_rank() == 0) 
-  { *iter = 1; *loop_counter = 0; }
-  __syncthreads();
-
-  while (*iter && *loop_counter < iter_limit)
-  {
-    if (thread_rank() == 0)
-    { *iter = 0; (*loop_counter) ++; }
-
-    /*for (int i = 1; i < nx; i++)
-    {
-      for (int j = 0; j < i; j++)
-      {
-        const double conv = blockJacobiRotate <T> (A, VT, nx, ny, ld_a, ld_v, i, j, &shm[2]);
-        if (thread_rank() == 0 && conv > epi)
-        { *iter = 1; }
-      }
-    }*/
-
-    bool b = blockJacobiSVD_iter(A, VT, nx, ny, ld_a, ld_v, &shm[2], epi);
-    if (b) *iter = 1;
-    __syncthreads();
-  }
-  return *loop_counter;
-}
-
-template <class T> __device__ void normalizeU (T * U, T * S, const int nx, const int ny, const int ld_u, const int ld_s)
-{
-  for (int i = thread_rank(); i < nx; i += block_dim())
-  {
-    T accum = 0;
-    for (int j = 0; j < ny; j++)
-    { accum += U[j * ld_u + i] * U[j * ld_u + i]; }
-    accum = sqrt(accum);
-    for (int j = 0; j < ny; j++)
-    { U[j * ld_u + i] /= accum; }
-    S[i * ld_s + i] = accum;
-  }
-
-}
-
 template <class T> __device__ double sumSquaredDifference (const T * A, const T * B, const int nx, const int ny, const int ld_a, const int ld_b, T * shm)
 {
   double thread_sum = 0.;
@@ -236,6 +192,100 @@ template <class T> __device__ double sumSquaredDifference (const T * A, const T 
   return blockAllReduceSum <double> (thread_sum, (double *) shm);
 }
 
+template <class T> __device__ void blockDenseGeqrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
+{
+  for (int i = 0; i < nx; i++)
+  {
+    for (int col = i + thread_rank(); col < nx; col += block_dim())
+    { shm[col] = 0; }
+    __syncthreads();
+
+    for (int row = 0; row < ny; row++) for (int col = i + thread_rank(); col < nx; col += block_dim())
+    { shm[col] += M[row * ld + i] * M[row * ld + col]; }
+    __syncthreads();
+
+    for (int col = i + thread_rank() + 1; col < nx; col += block_dim())
+    { shm[col] /= shm[i]; }
+    __syncthreads();
+
+    for (int row = 0; row < ny; row++) for (int col = i + thread_rank() + 1; col < nx; col += block_dim())
+    { M[row * ld + col] = M[row * ld + col] - shm[col] * M[row * ld + i]; }
+    __syncthreads();
+  }
+
+  for (int col = thread_rank(); col < nx; col += block_dim())
+  { shm[col] = 0; }
+  __syncthreads();
+
+  for (int row = 0; row < ny; row++) for (int col = thread_rank(); col < nx; col += block_dim())
+  { T e = M[row * ld + col]; shm[col] += e * e; }
+  __syncthreads();
+
+  for (int col = thread_rank(); col < nx; col += block_dim())
+  { shm[col] = 1. / shm[col]; }
+  __syncthreads();
+
+  for (int i = thread_rank(); i < nx * ny; i += block_dim())
+  {
+    const int row = i / nx, col = i - row * nx;
+    M[row * ld + col] *= shm[col];
+  }
+  __syncthreads();
+}
+
+template <class T> 
+__device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
+  const int k, const double epi, const int iter_limit, T * __restrict__ shm, const int shm_size)
+{
+  const int P = (2 * k > nx) ? nx : 2 * k;
+
+  T * X, ** X_ptr = (T **) &shm[0];
+  if (thread_rank() == 0)
+  { X = new T[ny * P]; *X_ptr = X; }
+  __syncthreads();
+
+  X = *X_ptr;
+  blockDenseGemm_shm (1., 0., X, A, seed, ny, P, nx, P, ld_a, P, false, false, shm, shm_size);
+
+  blockDenseGeqrf (X, P, ny, P, shm);
+  if (thread_rank() == 0)
+  {
+    for (int i = 0; i < ny; i++) { for (int j = 0; j < P; j++) printf("%e ", X[i * P + j]); printf("\n"); }
+  }
+  __syncthreads();
+
+  T * B, ** B_ptr = (T **) &shm[0];
+  if (thread_rank() == 0)
+  { B = new T[P * nx]; *B_ptr = B; }
+  __syncthreads();
+
+  B = *B_ptr;
+  blockDenseGemm_shm (1., 0., B, X, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);
+
+  int * iter = (int *) &shm[0], *loop_counter = (int *) &shm[1];
+  if (thread_rank() == 0)
+  { *iter = 1; *loop_counter = 0; }
+  __syncthreads();
+
+  while (*iter && *loop_counter < iter_limit)
+  {
+    if (thread_rank() == 0)
+    { *iter = 0; (*loop_counter)++; }
+
+    //if (blockJacobiSVD_iter(A, VT, nx, ny, ld_a, ld_v, &shm[2], epi)) 
+    if (blockJacobiSVD_iter(B, VT, nx, P, nx, ld_v, &shm[2], epi))
+    { *iter = 1; }
+    __syncthreads();
+  }
+  int loops = *loop_counter;
+  
+  blockDenseGemm_shm (1., 0., A, X, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
+  if (thread_rank() == 0)
+  { delete X; delete B; }
+
+  return loops;
+
+}
 
 
 #endif
