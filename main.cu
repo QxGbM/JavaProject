@@ -20,7 +20,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 16, levels = 0, dim = 64, rank = 16, admis = 0;
+  const int n = 16, levels = 0, dim = 4, rank = 2, admis = 0;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, rank, admis);
@@ -54,7 +54,7 @@ template <class T> __host__ int test0()
 
 __global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
 {
-  __shared__ double shm[256];
+  __shared__ double shm[6144];
   int i = blockJacobiSVD <double> (U, VT, nx, ny, ld_u, ld_v, 1.0e-14, 100, &shm[0]);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
@@ -64,11 +64,11 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 16, ny = 16;
+  const int nx = 256, ny = 256;
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
-  A -> getUxS() -> loadTestMatrix(20);
+  A -> getUxS() -> loadTestMatrix(2000);
 
   timer myTimer = timer();
 
@@ -77,11 +77,10 @@ int test1()
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
-  A->adjustRank(6);
-  A->print();
+  A->adjustRank(32);
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix(20);
+  c->loadTestMatrix(2000);
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
 
   delete A; delete b; delete c;
@@ -128,8 +127,8 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
-  //test1();
+  //test0 <double> ();
+  test1();
   //test2();
 
   return 0;
