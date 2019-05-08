@@ -3,7 +3,7 @@
 
 #include <pspl.cuh>
 
-__constant__ double seed[2048];
+__constant__ double seed[_RND_SEED_LENGTH];
 
 template <class T> __device__ void blockRotateColumns (T * col1, T * col2, const int ny, const int ld, const double sine, const double cosine)
 {
@@ -204,33 +204,28 @@ template <class T> __device__ void blockDenseGeqrf (T * __restrict__ M, const in
     { shm[col] += M[row * ld + i] * M[row * ld + col]; }
     __syncthreads();
 
+    if (thread_rank() == 0)
+    { shm[i] = rsqrt(shm[i]); }
+    __syncthreads();
+
     for (int col = i + thread_rank() + 1; col < nx; col += block_dim())
-    { shm[col] /= shm[i]; }
+    { shm[col] *= shm[i]; }
     __syncthreads();
 
-    for (int row = 0; row < ny; row++) for (int col = i + thread_rank() + 1; col < nx; col += block_dim())
-    { M[row * ld + col] = M[row * ld + col] - shm[col] * M[row * ld + i]; }
-    __syncthreads();
+    for (int row = 0; row < ny; row++) 
+    {
+      if (thread_rank() == 0)
+      { shm[nx] = M[row * ld + i] * shm[i]; }
+      __syncthreads();
+
+      if (thread_rank() == 0)
+      { M[row * ld + i] = shm[nx]; }
+      for (int col = i + thread_rank() + 1; col < nx; col += block_dim())
+      { M[row * ld + col] = M[row * ld + col] - shm[col] * shm[nx]; }
+      __syncthreads();
+    }
   }
 
-  for (int col = thread_rank(); col < nx; col += block_dim())
-  { shm[col] = 0; }
-  __syncthreads();
-
-  for (int row = 0; row < ny; row++) for (int col = thread_rank(); col < nx; col += block_dim())
-  { T e = M[row * ld + col]; shm[col] += e * e; }
-  __syncthreads();
-
-  for (int col = thread_rank(); col < nx; col += block_dim())
-  { shm[col] = 1. / shm[col]; }
-  __syncthreads();
-
-  for (int i = thread_rank(); i < nx * ny; i += block_dim())
-  {
-    const int row = i / nx, col = i - row * nx;
-    M[row * ld + col] *= shm[col];
-  }
-  __syncthreads();
 }
 
 template <class T> 
@@ -239,27 +234,15 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
 {
   const int P = (2 * k > nx) ? nx : 2 * k;
 
-  T * X, ** X_ptr = (T **) &shm[0];
+  T * X, ** X_ptr = (T **) &shm[0], *B, ** B_ptr = (T **) &shm[1];
   if (thread_rank() == 0)
-  { X = new T[ny * P]; *X_ptr = X; }
+  { X = new T[ny * P]; *X_ptr = X; B = new T[P * nx]; *B_ptr = B; }
   __syncthreads();
 
-  X = *X_ptr;
+  X = *X_ptr; B = *B_ptr;
   blockDenseGemm_shm (1., 0., X, A, seed, ny, P, nx, P, ld_a, P, false, false, shm, shm_size);
-
   blockDenseGeqrf (X, P, ny, P, shm);
-  if (thread_rank() == 0)
-  {
-    for (int i = 0; i < ny; i++) { for (int j = 0; j < P; j++) printf("%e ", X[i * P + j]); printf("\n"); }
-  }
-  __syncthreads();
 
-  T * B, ** B_ptr = (T **) &shm[0];
-  if (thread_rank() == 0)
-  { B = new T[P * nx]; *B_ptr = B; }
-  __syncthreads();
-
-  B = *B_ptr;
   blockDenseGemm_shm (1., 0., B, X, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);
 
   int * iter = (int *) &shm[0], *loop_counter = (int *) &shm[1];
@@ -272,7 +255,6 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
     if (thread_rank() == 0)
     { *iter = 0; (*loop_counter)++; }
 
-    //if (blockJacobiSVD_iter(A, VT, nx, ny, ld_a, ld_v, &shm[2], epi)) 
     if (blockJacobiSVD_iter(B, VT, nx, P, nx, ld_v, &shm[2], epi))
     { *iter = 1; }
     __syncthreads();

@@ -566,14 +566,14 @@ public:
 
   __host__ double L2Error (const dev_dense <T> *matrix) const
   {
-    double norm = 0.0;
+    double norm = 0.0; int error_count = 0;
     for(int x = 0; x < nx; x++)
     {
       for(int y = 0; y < ny; y++)
       {
         double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
-        if (abs(t) > 1.e-6) 
-        { printf("Error Location: (%d, %d). M1: %.6f M2: %.6f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); }
+        if (abs(t) > 1.e-6 && error_count < 10) 
+        { printf("Error Location: (%d, %d). M1: %.6f M2: %.6f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); error_count++; }
         norm += t * t;
       }
     }

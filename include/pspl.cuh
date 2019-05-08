@@ -32,6 +32,7 @@
 
 #define _MAX_INST_LENGTH 32
 #define _MAX_SCHEDULER_ITERS 1024
+#define _RND_SEED_LENGTH 8192
 
 enum mark_t{ start, end };
 

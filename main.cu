@@ -55,7 +55,7 @@ template <class T> __host__ int test0()
 __global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
 {
   __shared__ double shm[6144];
-  int i = blockRandomizedSVD <double> (U, VT, nx, ny, ld_u, ld_v, 32, 1.0e-14, 100, &shm[0], 6144);
+  int i = blockRandomizedSVD <double> (U, VT, nx, ny, ld_u, ld_v, 8, 1.0e-14, 100, &shm[0], 6144);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
@@ -64,16 +64,18 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 4, ny = 4;
-  double * rnd_seed = new double[2048];
-#pragma omp parallel for
-  for (int i = 0; i < 2048; i++) { rnd_seed[i] = (double) rand() / RAND_MAX; }
+  const int nx = 32, ny = 32;
 
-  cudaMemcpyToSymbol(seed, rnd_seed, 2048 * sizeof(double), 0, cudaMemcpyHostToDevice);
+  srand(99);
+  double * rnd_seed = new double[_RND_SEED_LENGTH];
+#pragma omp parallel for
+  for (int i = 0; i < _RND_SEED_LENGTH; i++) { rnd_seed[i] = (double) rand() / RAND_MAX; }
+
+  cudaMemcpyToSymbol(seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
-  A -> getUxS() -> loadTestMatrix(2000);
+  A -> getUxS() -> loadTestMatrix(20);
   A -> getVT() -> loadIdentityMatrix();
 
   timer myTimer = timer();
@@ -86,7 +88,7 @@ int test1()
   myTimer.dumpAllEvents_Sync();
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix(2000);
+  c->loadTestMatrix(20);
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
 
   delete A; delete b; delete c;
