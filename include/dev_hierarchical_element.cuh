@@ -30,24 +30,24 @@ public:
     if (h != nullptr) { delete h; }
   }
 
-  __host__ dev_dense <T> * getElementDense() const
+  __host__ inline dev_dense <T> * getElementDense() const
   {
     return (type == dense) ? ((dev_dense <T> *) element) : nullptr;
   }
 
-  __host__ dev_low_rank <T> * getElementLowRank() const
+  __host__ inline dev_low_rank <T> * getElementLowRank() const
   {
     return (type == low_rank) ? ((dev_low_rank <T> *) element) : nullptr;
   }
 
-  __host__ dev_hierarchical <T> * getElementHierarchical() const
+  __host__ inline dev_hierarchical <T> * getElementHierarchical() const
   {
     return (type == hierarchical) ? ((dev_hierarchical <T> *) element) : nullptr;
   }
 
-  __host__ element_t getType() const
-  {
-    return type;
+  __host__ inline element_t getType() const
+  { 
+    return type; 
   }
 
   __host__ int getNx() const

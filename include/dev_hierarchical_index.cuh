@@ -7,131 +7,220 @@ class h_index
 {
 private:
 
-  int levels;
-  int * ns;
-  int offset;
-  const void * matrix;
+  int index_lvls;
+  int * indexs;
+
+  element_t type;
+  int nx;
+  int ny;
+  int ld;
+  int offset_x;
+  int offset_y;
+
+  int n_ptrs;
+  void ** data_ptrs;
+
+  const void * struct_ptr;
+  const void * root_ptr;
 
 public:
 
-  __host__ h_index (const int levels_in = 0, const int *ns_in = nullptr, const int offset_in = 0, const void * matrix_in = nullptr)
+  __host__ h_index ()
   {
-    levels = (levels_in > 0) ? levels_in : 0;
-
-    ns = (levels > 0) ? new int [levels] : nullptr;
-
-    for (int i = 0; i < levels; i++) 
-    { ns[i] = (ns_in == nullptr) ? -1 : ns_in[i]; }
-
-    offset = offset_in;
-    matrix = matrix_in;
-
+    index_lvls = 0;
+    indexs = nullptr;
+    type = empty;
+    nx = ny = ld = 0;
+    offset_x = offset_y = 0;
+    n_ptrs = 0;
+    data_ptrs = nullptr;
+    struct_ptr = nullptr;
+    root_ptr = nullptr;
   }
 
   __host__ ~h_index ()
   {
-    delete[] ns;
+    if (index_lvls > 0) { delete[] indexs; }
+    if (n_ptrs > 0) { delete[] data_ptrs; }
   }
 
-  __host__ int getLevels() const { return levels; }
-
-  __host__ int getIndex(const int level) const { return ns[level]; }
-
-  __host__ int getOffset() const { return offset; }
-
-  __host__ relation_t compare (const int nx0, const int ny0, const int ld0, const bool t0, 
-    const h_index *in, const int nx1, const int ny1, const int ld1, const bool t1) const
+  template <class T> __host__ h_index (const dev_hierarchical <T> * h)
   {
-    if (this == nullptr || in == nullptr || matrix != in -> matrix) { return diff_matrix; }
+    index_lvls = 0;
+    indexs = nullptr;
 
-    int n = ((in -> levels) > levels) ? levels : (in -> levels);
-    for (int i = 0; i < n; i++) 
-    { if (ns[i] != (in -> ns)[i]) return no_relation; }
+    type = hierarchical;
+    nx = h -> getNx();
+    ny = h -> getNy();
+    ld = 0;
+    offset_x = offset_y = 0;
 
-    if (in -> levels == levels)
+    n_ptrs = 0;
+    data_ptrs = nullptr;
+    struct_ptr = h;
+    root_ptr = h;
+  }
+
+  template <class T> __host__ h_index (const dev_hierarchical <T> * h, const h_index * index, const int x, const int y)
+  {
+    index_lvls = index -> index_lvls + 1;
+
+    indexs = new int [index_lvls];
+
+    for (int i = 0; i < index -> index_lvls; i++)
+    { indexs[i] = (index -> indexs)[i]; }
+    
+    indexs[index_lvls - 1] = y * (h -> getX()) + x;
+
+    dev_h_element <T> * element = h -> getBlock(x, y);
+    type = element -> getType();
+    nx = element -> getNx();
+    ny = element -> getNy();
+    ld = element -> getLd();
+
+    offset_x = offset_y = 0;
+
+    if (type == hierarchical)
     {
-      if (offset == in -> offset) return same_index;
+      n_ptrs = 0;
+      data_ptrs = nullptr;
+      struct_ptr = element -> getElementHierarchical();
+    }
+    else if (type == low_rank)
+    {
+      n_ptrs = 2;
+      dev_low_rank <T> * lr = element -> getElementLowRank();
+      data_ptrs = new void *[2] { lr -> getElements(), lr -> getElements(lr -> getOffset_VT()) };
+      struct_ptr = lr;
+    }
+    else if (type == dense)
+    {
+      n_ptrs = 1;
+      dev_dense <T> * d = element -> getElementDense();
+      data_ptrs = new void *[1]{ d -> getElements() };
+      struct_ptr = d;
+    }
+    else
+    {
+      n_ptrs = 0;
+      data_ptrs = nullptr;
+      struct_ptr = nullptr;
+    }
+
+    root_ptr = index -> root_ptr;
+
+  }
+
+  __host__ h_index (const h_index * index, const int x_start, const int y_start, const int nx_block, const int ny_block)
+  {
+    index_lvls = index -> index_lvls;
+
+    indexs = new int [index_lvls];
+
+    for (int i = 0; i < index_lvls; i++)
+    { indexs[i] = (index -> indexs)[i]; }
+    
+    type = index -> type;
+    nx = nx_block;
+    ny = ny_block;
+    ld = index -> ld;
+
+    offset_x = x_start;
+    offset_y = y_start;
+
+    n_ptrs = index -> n_ptrs;
+    data_ptrs = new void * [n_ptrs];
+
+    for (int i = 0; i < n_ptrs; i++)
+    { data_ptrs[i] = (index -> data_ptrs)[i]; }
+
+    struct_ptr = index -> struct_ptr;
+    root_ptr = index -> root_ptr;
+  }
+
+  __host__ relation_t compare (const h_index * index) const
+  {
+    if (this == nullptr || index == nullptr || root_ptr != index -> root_ptr) 
+    { return diff_mat; }
+
+    for (int i = 0; i < index_lvls && i < (index -> index_lvls); i++) 
+    { 
+      if (indexs[i] != (index -> indexs)[i]) 
+      { return same_mat_diff_branch; } 
+    }
+
+    if (index -> index_lvls != index_lvls)
+    {
+      printf("-- Some Intermediate node are being compared. This should not happen. --\n");
+      return same_branch_diff_node; 
+    }
+    else
+    {       
+      if (offset_x == index -> offset_x && offset_y == index -> offset_y) 
+      { return same_index; }
       else
       {
-        const int offset0 = offset, offset1 = in -> offset;
+        const bool row_split = (index -> offset_y - offset_y >= ny) || (offset_y - index -> offset_y >= index -> ny);
+        const bool col_split = (index -> offset_x - offset_x >= nx) || (offset_x - index -> offset_x >= index -> nx);
 
-        const int row0 = (offset0 == 0) ? 0 : offset0 / ld0, col0 = offset0 - row0 * ld0;
-        const int row1 = (offset1 == 0) ? 0 : offset1 / ld1, col1 = offset1 - row1 * ld1;
-        const int row_diff = row1 - row0, col_diff = col1 - col0;
-
-        const int ny0_ = t0 ? nx0 : ny0, nx0_ = t0 ? ny0 : nx0;
-        const int ny1_ = t1 ? nx1 : ny1, nx1_ = t1 ? ny1 : nx1;
-
-        const bool row_over = (row_diff >= 0 && row_diff < ny0_) || (row_diff <= 0 && row_diff + ny1_ > 0);
-        const bool col_over = (col_diff >= 0 && col_diff < nx0_) || (col_diff <= 0 && col_diff + nx1_ > 0);
-
-        return (row_over && col_over) ? diff_offset_overlapped : diff_offset_no_overlap;
-      }
-    }
-    else
-    { return (levels > n) ? contains : contained; }
-  }
-
-  __host__ h_index * child (const int index_in = -1, const int offset_in = 0) const
-  {
-    if (index_in >= 0)
-    {
-      h_index * i = new h_index(levels + 1, ns, 0, matrix);
-      (i -> ns)[levels] = index_in;
-      return i;
-    }
-    else
-    {
-      h_index * i = new h_index(levels, ns, offset_in, matrix);
-      return i;
+        return (row_split || col_split) ? same_node_no_overlap : same_node_overlapped;
+      } 
     }
   }
 
-  template <class T> __host__ inline h_index * child_UxS (const dev_low_rank <T> * lr) const
+  __host__ h_index * clone (h_index * addr = nullptr, const bool remove_this = true) const
   {
-    return child(-1, lr -> getOffset_UxS(offset));
-  }
-
-  template <class T> __host__ inline h_index * child_VT (const dev_low_rank <T> * lr) const
-  {
-    return child(-1, lr -> getOffset_VT(offset));
-  }
-
-  __host__ h_index * clone (h_index * address = nullptr) const
-  {
-    if (this == nullptr) 
+    if (this == nullptr)
     { return nullptr; }
-    else if (address == nullptr)
-    { return new h_index(levels, ns, offset, matrix); }
+    else if (addr == nullptr)
+    { h_index * id = new h_index(); clone(id, remove_this); return id; }
     else
     {
-      address -> levels = levels;
+      addr -> index_lvls = index_lvls;
+      addr -> type = type;
+      addr -> nx = nx;
+      addr -> ny = ny;
+      addr -> ld = ld;
+      addr -> offset_x = offset_x;
+      addr -> offset_y = offset_y;
+      addr -> n_ptrs = n_ptrs;
+      addr -> struct_ptr = struct_ptr;
+      addr -> root_ptr = root_ptr;
 
-      address -> ns = new int [levels];
-      for (int i = 0; i < levels; i++) 
-      { (address -> ns)[i] = ns[i]; }
+      if (remove_this)
+      {
+        addr -> indexs = indexs;
+        addr -> data_ptrs = data_ptrs;
+        operator delete((void *) this);
+      }
+      else
+      {
+        addr -> indexs = new int [index_lvls];
+        for (int i = 0; i < index_lvls; i++)
+        { (addr -> indexs)[i] = indexs[i]; }
 
-      address -> offset = offset;
-      address -> matrix = matrix;
-      return address;
+        addr -> data_ptrs = new void * [n_ptrs];
+        for (int i = 0; i < n_ptrs; i++)
+        { (addr -> data_ptrs)[i] = data_ptrs[i]; }
+      }
+
+      return addr;
     }
   }
 
   __host__ void print() const
   {
-    printf("-- ");
-    if (levels == 0) printf("root, ");
-    for (int i = 0; i < levels; i++)
-    { printf("level %d: %d, ", i, ns[i]); }
-    printf("offset %d. --\n", offset);
-  }
-
-  __host__ void printShort() const
-  {
-    printf("[%d", levels);
-    for (int i = 0; i < levels; i++)
-    { printf("%d", ns[i]); }
-    printf(" (%d)]", offset);
+    printf("[%d ", index_lvls);
+    for (int i = 0; i < index_lvls; i++)
+    { printf("%d", indexs[i]); }
+    switch (type)
+    {
+    case empty: printf(" E "); break;
+    case dense: printf(" D "); break;
+    case low_rank: printf(" LR "); break;
+    case hierarchical: printf(" H "); break;
+    }
+    printf("(%d %d) (%d x %d b %d)] ", offset_y, offset_x, ny, nx, ld);
   }
 
 };

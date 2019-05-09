@@ -234,7 +234,7 @@ template <class T> __device__ void blockGramSchmidt (T * __restrict__ M, const i
 template <class T> 
 __device__ void blockGivensRotation (T * __restrict__ M, T * __restrict__ Q, const int nx, const int ny, const int ld_m, const int ld_q)
 {
-  for (int i = 0; i < nx; i++)
+  for (int i = 0; i < nx && i < ny - 1; i++)
   {
     const int cols = ny - i;
     int last_step = cols;
@@ -338,7 +338,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
 
   T * X, ** X_ptr = (T **) &shm[0], *Y, **Y_ptr = (T **) &shm[1], *B, ** B_ptr = (T **) &shm[2];
   if (thread_rank() == 0)
-  { X = new T[ny * P]; *X_ptr = X; Y = new T[ny * P]; *Y_ptr = Y; B = new T[P * nx]; *B_ptr = B; }
+  { X = new T[ny * P]; *X_ptr = X; Y = new T[ny * ny]; *Y_ptr = Y; B = new T[P * nx]; *B_ptr = B; }
   __syncthreads();
 
   X = *X_ptr; Y = *Y_ptr; B = *B_ptr;
@@ -346,10 +346,10 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
 
   blockDenseGemm_shm (1., 0., X, A, seed, ny, P, nx, P, ld_a, P, false, false, shm, shm_size);
 
-  loadIdentity (Y, P, ny, P);
-  blockGivensRotation (X, Y, P, ny, P, P);
+  loadIdentity (Y, ny, ny, ny);
+  blockGivensRotation (X, Y, P, ny, P, ny);
 
-  blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);
+  blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, ny, ld_a, true, false, shm, shm_size);
 
   int * iter = (int *) &shm[0], *loop_counter = (int *) &shm[1];
   if (thread_rank() == 0)
@@ -367,7 +367,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   }
   int loops = *loop_counter;
   
-  blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
+  blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, ny, nx, false, false, shm, shm_size);
   if (thread_rank() == 0)
   { delete X; delete Y; delete B; }
 

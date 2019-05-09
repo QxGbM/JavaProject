@@ -69,7 +69,7 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 4, ny = 8;
+  const int nx = 8, ny = 8;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -78,11 +78,10 @@ int test1()
 
   cudaMemcpyToSymbol(seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
 
-  /*dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
+  dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
   A -> getUxS() -> loadTestMatrix(2000);
   A -> getVT() -> loadIdentityMatrix();
-  A->print();
 
   timer myTimer = timer();
   cudaThreadSetLimit(cudaLimitMallocHeapSize, 128 * 1024 * 1024);
@@ -97,7 +96,7 @@ int test1()
   c->loadTestMatrix(2000);
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
 
-  delete A; delete b; delete c;*/
+  delete A; delete b; delete c;
 
   dev_dense <double> testm = dev_dense <double> (nx, ny), testq = dev_dense <double> (ny, ny);
   testq.loadIdentityMatrix();
@@ -107,8 +106,6 @@ int test1()
   cudaDeviceSynchronize();
 
   testq.matrixMultiplication(&testm)->print();
-
-
 
 
   return 0;
