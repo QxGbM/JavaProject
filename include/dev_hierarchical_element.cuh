@@ -285,258 +285,258 @@ public:
   }
 
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
   
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const bool A_T, const dev_h_element <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const bool A_T, const dev_h_element <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const bool A_T, const dev_h_element <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-    __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const bool A_T, const dev_dense <T> *B, const h_index *index_b, const bool B_T) const
+    __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const bool A_T, const dev_low_rank <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const bool A_T, const dev_hierarchical <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const bool A_T, const dev_h_element <T> *B, const h_index *index_b, const bool B_T) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
   {
     const dev_dense<T> *d = getElementDense();
     const dev_low_rank<T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return d -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (lr != nullptr)
-    { return lr -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return lr -> generateOps_GEMM(self, A, index_a, B, index_b); }
     if (h != nullptr)
-    { return h -> generateOps_GEMM(self, A, index_a, A_T, B, index_b, B_T); }
+    { return h -> generateOps_GEMM(self, A, index_a, B, index_b); }
 
     return nullptr;
   }

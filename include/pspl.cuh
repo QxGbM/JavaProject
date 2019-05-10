@@ -104,7 +104,7 @@ class timer;
 #include <dev_hierarchical_element.cuh>
 
 #include <inst_scheduler.cuh>
-#include <dev_instructions.cuh>
+//#include <dev_instructions.cuh>
 #include <kernel.cuh>
 
 #endif

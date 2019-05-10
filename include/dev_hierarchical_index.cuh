@@ -61,7 +61,7 @@ public:
     root_ptr = h;
   }
 
-  template <class T> __host__ h_index (const dev_hierarchical <T> * h, const h_index * index, const int x, const int y)
+  template <class T> __host__ h_index (const dev_hierarchical <T> * h, const h_index * index, const int y, const int x)
   {
     index_lvls = index -> index_lvls + 1;
 
@@ -111,7 +111,7 @@ public:
 
   }
 
-  __host__ h_index (const h_index * index, const int x_start, const int y_start, const int nx_block, const int ny_block)
+  __host__ h_index (const h_index * index, const int y_start, const int x_start, const int ny_block, const int nx_block)
   {
     index_lvls = index -> index_lvls;
 
@@ -125,8 +125,8 @@ public:
     ny = ny_block;
     ld = index -> ld;
 
-    offset_x = x_start;
-    offset_y = y_start;
+    offset_x = index -> offset_x + x_start;
+    offset_y = index -> offset_y + y_start;
 
     n_ptrs = index -> n_ptrs;
     data_ptrs = new void * [n_ptrs];
@@ -137,6 +137,12 @@ public:
     struct_ptr = index -> struct_ptr;
     root_ptr = index -> root_ptr;
   }
+
+  __host__ inline int getNx() const
+  { return nx; }
+
+  __host__ inline int getNy() const
+  { return ny; }
 
   __host__ relation_t compare (const h_index * index) const
   {

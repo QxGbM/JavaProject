@@ -101,7 +101,7 @@ public:
         case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
-#pragma omp atomic
+#pragma omp critical
           dep = (dependency_t) ((int) dep | (int) flow_dep);
         }
       }
@@ -115,7 +115,7 @@ public:
         case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
-#pragma omp atomic
+#pragma omp critical
           dep = (dependency_t) ((int) dep | (int) output_dep);
         }
       }
@@ -133,7 +133,7 @@ public:
         case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
-#pragma omp atomic
+#pragma omp critical
           dep = (dependency_t) ((int) dep | (int) anti_dep);
         }
       }
