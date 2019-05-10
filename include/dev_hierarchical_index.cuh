@@ -168,12 +168,12 @@ public:
     }
   }
 
-  __host__ h_index * clone (h_index * addr = nullptr, const bool remove_this = true) const
+  __host__ h_index * clone (h_index * addr = nullptr) const
   {
     if (this == nullptr)
     { return nullptr; }
     else if (addr == nullptr)
-    { h_index * id = new h_index(); clone(id, remove_this); return id; }
+    { h_index * id = new h_index(); return clone(id); }
     else
     {
       addr -> index_lvls = index_lvls;
@@ -187,22 +187,13 @@ public:
       addr -> struct_ptr = struct_ptr;
       addr -> root_ptr = root_ptr;
 
-      if (remove_this)
-      {
-        addr -> indexs = indexs;
-        addr -> data_ptrs = data_ptrs;
-        operator delete((void *) this);
-      }
-      else
-      {
-        addr -> indexs = new int [index_lvls];
-        for (int i = 0; i < index_lvls; i++)
-        { (addr -> indexs)[i] = indexs[i]; }
+      addr -> indexs = new int [index_lvls];
+      for (int i = 0; i < index_lvls; i++)
+      { (addr -> indexs)[i] = indexs[i]; }
 
-        addr -> data_ptrs = new void * [n_ptrs];
-        for (int i = 0; i < n_ptrs; i++)
-        { (addr -> data_ptrs)[i] = data_ptrs[i]; }
-      }
+      addr -> data_ptrs = new void * [n_ptrs];
+      for (int i = 0; i < n_ptrs; i++)
+      { (addr -> data_ptrs)[i] = data_ptrs[i]; }
 
       return addr;
     }

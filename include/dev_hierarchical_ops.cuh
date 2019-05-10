@@ -179,7 +179,7 @@ class h_ops_tree : public h_ops
 {
 private:
   int l_children;
-  h_ops_tree ** children;
+  h_ops_tree * children;
 
 public:
 
@@ -197,35 +197,45 @@ public:
 
   __host__ ~h_ops_tree ()
   { 
-    for (int i = 0; i < l_children; i++) 
-    { delete children[i]; }
     if (l_children > 0) 
     { delete[] children; } 
   }
 
   __host__ h_ops_tree * getChild (const int index) const
-  { return (index >= l_children) ? nullptr : children[index]; }
+  { return (index >= l_children) ? nullptr : &children[index]; }
 
   __host__ void setChild (h_ops_tree * op, const int index = -1)
   {
     if (index >= 0)
-    { if (index >= l_children) { resizeChildren(index + 1); } children[index] = op; }
-    else
-    { resizeChildren(l_children + 1); children[l_children - 1] = op; }
+    { 
+      if (index >= l_children) 
+      { resizeChildren(index + 1); } 
+      op -> clone(&children[index], true); 
+    }
+    else if (index == -1)
+    { 
+      resizeChildren(l_children + 1); 
+      op -> clone(&children[l_children - 1], true); 
+    }
   }
 
   __host__ void resizeChildren (const int length_in) 
   {
     if (length_in > 0 && length_in != l_children)
     { 
-      h_ops_tree ** neo = new h_ops_tree * [length_in];
+      h_ops_tree * neo = new h_ops_tree [length_in];
 
       for (int i = 0; i < l_children && i < length_in; i++)
-      { neo[i] = children[i]; }
-      for (int i = l_children; i < length_in; i++)
-      { neo[i] = nullptr; }
+      {
+        neo[i] = children[i];
+        children[i].read_and_write = nullptr;
+        children[i].read_only = nullptr;
+        children[i].children = nullptr;
+      }
 
-      if (l_children > 0) { delete[] children; }
+      if (l_children > 0) 
+      { delete[] children; }
+
       children = neo;
       l_children = length_in;
     }
@@ -240,12 +250,13 @@ public:
     else
     {
       int length = 0;
-      for (int i = 0; i < l_children; i++) { length += children[i] -> length(); }
+      for (int i = 0; i < l_children; i++) 
+      { length += children[i].length(); }
       return length;
     }
   }
 
-  __host__ h_ops_tree * clone (h_ops_tree * addr = nullptr, const bool remove_this = true) const
+  __host__ h_ops_tree * clone (h_ops_tree * addr = nullptr, const bool clone_child = false) const
   {
     if (this == nullptr)
     { return nullptr; }
@@ -253,7 +264,49 @@ public:
     { h_ops_tree * op = new h_ops_tree(); clone(op); return op; }
     else
     {
+      if (opType() >= gemm_d_d_d)
+      { 
+        addr -> op_type = op_type;
+        addr -> read_and_write = new h_index[1];
+        read_and_write[0].clone(&(addr -> read_and_write)[0]);
 
+        addr -> read_only = new h_index[2];
+        read_only[0].clone(&(addr -> read_only)[0]);
+        read_only[1].clone(&(addr -> read_only)[1]);
+      }
+      else if (opType() >= trsml_d && opType() <= pivot_lr)
+      {         
+        addr -> op_type = op_type;
+        addr -> read_and_write = new h_index[1];
+        read_and_write[0].clone(&(addr -> read_and_write)[0]);
+
+        addr -> read_only = new h_index[1];
+        read_only[0].clone(&(addr -> read_only)[0]);
+      }
+      else if (opType() == getrf_d)
+      {         
+        addr -> op_type = op_type;
+        addr -> read_and_write = new h_index[1];
+        read_and_write[0].clone(&(addr -> read_and_write)[0]);
+
+        addr -> read_only = nullptr;
+      }
+      else
+      {
+        addr -> op_type = op_type;
+        addr -> read_and_write = nullptr;
+        addr -> read_only = nullptr;
+      }
+
+      if (clone_child)
+      {
+        addr -> l_children = l_children;
+        addr -> children = new h_ops_tree [l_children];
+        for (int i = 0; i < l_children; i++)
+        { children[i].clone(&(addr -> children)[i], clone_child); }
+      }
+
+      return addr;
     }
   }
 
@@ -261,19 +314,20 @@ public:
   {
     if (list == nullptr)
     {
-      list = clone();
+      list = clone(nullptr, false);
       list -> resizeChildren(length());
     }
 
     int work_index = list_index;
+
     for (int i = 0; i < l_children; i++)
     {
-      if (children[i] -> l_children == 0)
-      { list -> setChild (children[i] -> clone(), work_index); }
+      if (children[i].l_children == 0)
+      { children[i].clone(&(list -> children)[work_index], false); }
       else
-      { children[i] -> flatten (list, work_index); }
+      { children[i].flatten (list, work_index); }
 
-      work_index += children[i] -> length();
+      work_index += children[i].length();
     }
 
     return list;
@@ -289,7 +343,7 @@ public:
     { 
       unsigned long long int accum = 0;
       for (int i = 0; i < l_children; i++) 
-      { accum += children[i] -> getFops(); }
+      { accum += children[i].getFops(); }
       return accum;
     }
   }
@@ -303,13 +357,8 @@ public:
     h_ops::print();
 
     int offset = 0, l = length();
-    for (int i = 0; i < l_children && offset < l; offset += children[i] -> length(), i++)
-    { 
-      if (children[i] != nullptr) 
-      { children[i] -> print(op_id + offset, indent + 1); }
-      else 
-      { printf("  Null operation encountered.\n"); }
-    }
+    for (int i = 0; i < l_children && offset < l; offset += children[i].length(), i++)
+    { children[i].print(op_id + offset, indent + 1); }
   }
 
 };
