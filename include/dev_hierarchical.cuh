@@ -874,7 +874,7 @@ public:
     delete root;
   }
 
-  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int rank, const int admis, const int x_start = 0, const int y_start = 0)
+  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int admis, const int x_start = 0, const int y_start = 0)
   {
     int l = block_size, cl = levels;
     while (cl > 0) { l *= dim; cl--; }
@@ -886,7 +886,7 @@ public:
         if (levels > 0 && (abs(x_offset - y_offset) < l + admis * block_size))
         { 
           dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
-          e -> loadTestMatrix(levels - 1, dim, block_size, rank, admis, x_offset, y_offset); 
+          e -> loadTestMatrix(levels - 1, dim, block_size, admis, x_offset, y_offset); 
           setElement(e, hierarchical, x, y);
           x_offset += e -> getNx();
         }
@@ -903,7 +903,6 @@ public:
           {
             dev_low_rank <T> *e = new dev_low_rank <T> (l, l);
             e -> loadTestMatrix (x_offset, y_offset);
-            e -> adjustRank(rank);
             setElement(e, low_rank, x, y);
             x_offset += e -> getNx();
           }

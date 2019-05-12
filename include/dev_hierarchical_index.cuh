@@ -88,16 +88,16 @@ public:
     }
     else if (type == low_rank)
     {
-      n_ptrs = 2;
+      n_ptrs = 3;
       dev_low_rank <T> * lr = element -> getElementLowRank();
-      data_ptrs = new void *[2] { lr -> getElements(), lr -> getElements(lr -> getOffset_VT()) };
+      data_ptrs = new void *[3] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements(), lr -> getRank() };
       struct_ptr = lr;
     }
     else if (type == dense)
     {
       n_ptrs = 1;
       dev_dense <T> * d = element -> getElementDense();
-      data_ptrs = new void *[1]{ d -> getElements() };
+      data_ptrs = new void *[1] { d -> getElements() };
       struct_ptr = d;
     }
     else

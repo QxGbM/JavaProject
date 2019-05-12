@@ -20,10 +20,10 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 4, rank = 2, admis = 1;
+  const int n = 2, levels = 1, dim = 4, admis = 1;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  a -> loadTestMatrix(levels, n, dim, rank, admis);
+  a -> loadTestMatrix(levels, n, dim, admis);
 
   const int blocks = 160, threads = 1024;
 
@@ -86,7 +86,7 @@ int test1()
   timer myTimer = timer();
 
   myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A -> getOffset_VT()), nx, ny, A -> getLd_UxS(), A -> getLd_VT());
+  svd_kernel <<<1, 1024 >>> (A -> getUxS() -> getElements(), A -> getVT() -> getElements(), nx, ny, nx, nx);
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();

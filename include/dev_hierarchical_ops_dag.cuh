@@ -13,22 +13,27 @@ private:
 
 public:
 
-  __host__ dependency_linked_list (const int to_in, const dependency_t dependency_in)
+  __host__ dependency_linked_list (const int to_in, const dependency_t dependency_in, dependency_linked_list * ptr)
   {
     to = to_in;
     dependency = dependency_in;
-    next = nullptr;
+    next = ptr;
   }
 
   __host__ ~dependency_linked_list ()
   { delete next; }
 
-  __host__ void insertDependency (const int to_in, const dependency_t dependency_in)
+  __host__ void insertDependency (const int to_in, const dependency_t dependency_in, dependency_linked_list ** list_head)
   {
+    if (this == nullptr || to > to_in)
+    { *list_head = new dependency_linked_list(to_in, dependency_in, this); return; }
+
     for (dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
     {
       if (ptr -> next == nullptr) 
-      { ptr -> next = new dependency_linked_list(to_in, dependency_in); return; }
+      { ptr -> next = new dependency_linked_list(to_in, dependency_in, nullptr); return; }
+      else if (ptr -> next -> to > to_in)
+      { dependency_linked_list * ptr2 = new dependency_linked_list(to_in, dependency_in, ptr -> next); next = ptr2; return; }
     }
   }
 
@@ -74,25 +79,16 @@ public:
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
 
-    memset(deps_graph, 0, length * sizeof(dependency_linked_list *));
-
 #pragma omp parallel for
     for (int i = 0; i < length; i++)
     {
+      deps_graph[i] = nullptr;
       h_ops_tree * from = ops_list -> getChild(i);
-#pragma omp parallel for ordered
       for (int j = i + 1; j < length; j++)
       {
-        h_ops_tree * to = ops_list -> getChild(j);
-        dependency_t dep = to -> checkDependencyFrom(from);
-#pragma omp ordered
+        dependency_t dep = ops_list -> getChild(j) -> checkDependencyFrom(from);
         if (dep > no_dep)
-        {
-          if (deps_graph[i] == nullptr)
-          { deps_graph[i] = new dependency_linked_list(j, dep); }
-          else
-          { deps_graph[i] -> insertDependency(j, dep); }
-        }
+        { deps_graph[i] -> insertDependency(j, dep, &deps_graph[i]); }
       }
     }
 

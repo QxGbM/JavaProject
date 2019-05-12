@@ -87,59 +87,50 @@ public:
     if (opType() >= getrf_d)
     { wr_to++; }
 
-    dependency_t dep = no_dep;
+    int dep = (int) no_dep;
 
-#pragma omp parallel for
-    for (int i = 0; i < wr_from; i++)
+    for (int i = 0; i < wr_from * (wr_to + r_to); i++)
     {
-#pragma omp parallel for
-      for (int j = 0; j < r_to; j++)
+      const int to = i / wr_from, from = i - to * wr_from;
+
+      if (to < wr_to)
       {
-        relation_t relation = read_only[j].compare(&(op_from -> read_and_write)[i]);
+        relation_t relation = read_and_write[to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
         case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
-#pragma omp critical
-          dep = (dependency_t) ((int) dep | (int) flow_dep);
+          dep |= (int) output_dep;
         }
       }
-
-#pragma omp parallel for
-      for (int j = 0; j < wr_to; j++)
+      else
       {
-        relation_t relation = read_and_write[j].compare(&(op_from -> read_and_write)[i]);
+        relation_t relation = read_only[to - wr_to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
         case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
-#pragma omp critical
-          dep = (dependency_t) ((int) dep | (int) output_dep);
+          dep |= (int) flow_dep;
         }
       }
     }
 
-#pragma omp parallel for
-    for (int i = 0; i < r_from; i++)
+    for (int i = 0; i < r_from * wr_to; i++)
     {
-#pragma omp parallel for
-      for (int j = 0; j < wr_to; j++)
+      const int to = i / r_from, from = i - to * r_from;
+      relation_t relation = read_and_write[to].compare(&(op_from -> read_only)[from]);
+      switch (relation)
       {
-        relation_t relation = read_and_write[j].compare(&(op_from -> read_only)[i]);
-        switch (relation)
-        {
-        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
-          break;
-        case same_branch_diff_node: case same_node_overlapped: case same_index:
-#pragma omp critical
-          dep = (dependency_t) ((int) dep | (int) anti_dep);
-        }
+      case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
+        break;
+      case same_branch_diff_node: case same_node_overlapped: case same_index:
+        dep |= (int) anti_dep;
       }
     }
 
-    return dep;
+    return (dependency_t)dep;
   }
 
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
@@ -246,6 +237,7 @@ public:
     else
     {
       int length = 0;
+#pragma omp parallel for num_threads(2) reduction (+:length) 
       for (int i = 0; i < l_children; i++) 
       { length += children[i].length(); }
       return length;
@@ -319,18 +311,22 @@ public:
       list -> resizeChildren(length());
     }
 
-    int work_index = list_index;
+    int * work_index = new int[l_children];
+    work_index[0] = list_index;
 
+    for (int i = 1; i < l_children; i++)
+    { work_index[i] = work_index[i - 1] + children[i - 1].length(); }
+
+#pragma omp parallel for num_threads(2)
     for (int i = 0; i < l_children; i++)
     {
       if (children[i].l_children == 0)
-      { children[i].clone(&(list -> children)[work_index], false); }
+      { children[i].clone(&(list -> children)[work_index[i]], false); }
       else
-      { children[i].flatten (list, work_index); }
-
-      work_index += children[i].length();
+      { children[i].flatten (list, work_index[i]); }
     }
 
+    delete[] work_index;
     return list;
   }
 

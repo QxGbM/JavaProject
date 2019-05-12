@@ -8,7 +8,7 @@ template <class T> class dev_low_rank
 private:
   int nx;
   int ny;
-  int rank;
+  int * rank;
   dev_dense <T> * UxS;
   dev_dense <T> * VT;
 
@@ -18,10 +18,12 @@ public:
   {
     nx = x;
     ny = y;
-    rank = (x > y) ? y : x;
 
-    UxS = new dev_dense <T> (rank, ny);
-    VT = new dev_dense <T> (rank, nx);
+    cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
+    * rank = (x > y) ? y : x;
+
+    UxS = new dev_dense <T> (nx, ny);
+    VT = new dev_dense <T> (nx, nx);
   }
 
   __host__ ~dev_low_rank ()
@@ -34,29 +36,11 @@ public:
 
   __host__ inline int getNy () const { return ny; }
 
-  __host__ inline int getRank () const { return rank; }
+  __host__ inline int * getRank () const { return rank; }
 
   __host__ inline dev_dense <T> * getUxS () const { return UxS; }
 
   __host__ inline dev_dense <T> * getVT () const { return VT; }
-
-  __host__ inline int getNx_UxS() const { return UxS -> getNx(); }
-
-  __host__ inline int getNy_UxS() const { return UxS -> getNy(); }
-
-  __host__ inline int getLd_UxS() const { return UxS -> getLd(); }
-
-  __host__ inline int getNx_VT() const { return VT -> getNx(); }
-
-  __host__ inline int getNy_VT() const { return VT -> getNy(); }
-
-  __host__ inline int getLd_VT() const { return VT -> getLd(); }
-
-  __host__ inline int getOffset_UxS (const int dense_offset = 0) const
-  { return rank * (dense_offset / nx); }
-
-  __host__ inline int getOffset_VT (const int dense_offset = 0) const 
-  { return rank * (dense_offset % nx) + getNy_UxS() * getLd_UxS(); }
 
   __host__ inline T * getElements (const int offset = 0) const 
   { 
@@ -65,29 +49,11 @@ public:
 
   __host__ T getElement (const int x, const int y) const
   {
-    T element = 0, * row = UxS -> getElements (y * rank), * col = VT -> getElements (x * rank);
-    for (int i = 0; i < rank; i++)
-    { element += row[i] * col[i]; }
+    T element = 0;
+    for (int i = 0; i < * rank; i++)
+    { element += (UxS -> getElements())[x * UxS -> getLd() + i] * (VT -> getElements())[y * VT -> getLd() + i]; }
     return element;
   }
-
-  __host__ void adjustRank (const int rank_in)
-  {
-    if (rank_in > 0 && rank_in != rank)
-    {
-      UxS -> resize (rank_in, ny);
-      VT -> resize (rank_in, nx);
-      rank = rank_in;
-    }
-  }
-
-  __host__ bool sameRowBasis (const dev_low_rank <T> * lr) const
-  { 
-    return lr -> UxS == UxS;
-  }
-
-  __host__ bool sameColBasis (const dev_low_rank <T> * lr) const
-  { return lr -> VT == VT; }
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   { 
