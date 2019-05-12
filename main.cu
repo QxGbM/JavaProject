@@ -84,7 +84,6 @@ int test1()
   A -> getVT() -> loadIdentityMatrix();
 
   timer myTimer = timer();
-  cudaThreadSetLimit(cudaLimitMallocHeapSize, 128 * 1024 * 1024);
 
   myTimer.newEvent("SVD", start);
   svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A -> getOffset_VT()), nx, ny, A -> getLd_UxS(), A -> getLd_VT());

@@ -4,8 +4,8 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size> __global__ void __launch_bounds__ (1024, 2)
-  kernel_dynamic (const int ** __restrict__ insts, T ** __restrict__ ptrs, int ** __restrict__ pivot_ptrs, volatile int * __restrict__ comm_space)
+template <class T, int shm_size> 
+__global__ void kernel_dynamic (const int ** __restrict__ insts, T ** __restrict__ ptrs, int ** __restrict__ pivot_ptrs, volatile int * __restrict__ comm_space)
 {
   __shared__ int shm [shm_size]; 
   const int * pc = insts [block_rank()], shm_size_acutal = shm_size * 4 / sizeof(T);
@@ -159,7 +159,6 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   clock_end = omp_get_wtime();
   printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  tree->print();
   delete tree;
   delete root;
 
