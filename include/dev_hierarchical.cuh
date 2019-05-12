@@ -154,38 +154,38 @@ public:
 #pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
-      const h_index * index_i = new h_index (this, self, i, i);
-      op -> setChild(elements[i * nx + i].generateOps_GETRF(index_i), child_offset[i]);
+      const h_index index_i = h_index (this, self, i, i);
+      h_ops_tree * op_i = elements[i * nx + i].generateOps_GETRF(&index_i);
+      op -> setChild(op_i, child_offset[i]);
+      delete op_i;
+      const int rows = ny - i - 1, cols = nx - i - 1;
 
 #pragma omp parallel for
       for (int j = i + 1; j < nx; j++)
       {
-        const h_index * index_j = new h_index (this, self, i, j);
-        op -> setChild(elements[i * nx + i].generateOps_TRSML(index_i, &elements[i * nx + j], index_j), child_offset[i] + j - i);
-        delete index_j;
+        const h_index index_j = h_index (this, self, i, j);
+        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSML(&index_i, &elements[i * nx + j], &index_j);
+        op -> setChild(op_j, child_offset[i] + j - i);
+        delete op_j;
       }
 
 #pragma omp parallel for
       for (int j = i + 1; j < ny; j++)
       {
-        const h_index * index_j = new h_index (this, self, j, i);
-        op -> setChild(elements[i * nx + i].generateOps_TRSMR(index_i, &elements[j * nx + i], index_j), child_offset[i] + (nx - i) + j - i - 1);
-        delete index_j;
+        const h_index index_j = h_index (this, self, j, i);
+        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSMR(&index_i, &elements[j * nx + i], &index_j);
+        op -> setChild(op_j, child_offset[i] + cols + j - i);
+        delete op_j;
       }
 
-      delete index_i;
-
 #pragma omp parallel for
-      for (int j = i + 1; j < ny; j++)
+      for (int j = 0; j < rows * cols; j++)
       {
-#pragma omp parallel for
-        for (int k = i + 1; k < nx; k++)
-        {
-          const h_index * index_j = new h_index (this, self, j, i), * index_k = new h_index (this, self, i, k), * index_m = new h_index (this, self, j, k);
-          op -> setChild(elements[j * nx + k].generateOps_GEMM(index_m, &elements[j * nx + i], index_j, &elements[i * nx + k], index_k), 
-            child_offset[i] + (nx + ny - 2 * i - 1) + (j - i - 1) * (nx - i - 1) + (k - i - 1));
-          delete index_j; delete index_k; delete index_m;
-        }
+        const int row = j / cols + i + 1, col = j - (row - i - 1) * cols + i + 1;
+        const h_index index_j = h_index (this, self, row, i), index_k = h_index (this, self, i, col), index_m = h_index (this, self, row, col);
+        h_ops_tree * op_j = elements[row * nx + col].generateOps_GEMM(&index_m, &elements[row * nx + i], &index_j, &elements[i * nx + col], &index_k);
+        op -> setChild(op_j, child_offset[i] + rows + cols + j + 1);
+        delete op_j;
       }
     }
 

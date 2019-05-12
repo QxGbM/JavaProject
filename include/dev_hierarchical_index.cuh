@@ -129,7 +129,7 @@ public:
     offset_y = index -> offset_y + y_start;
 
     n_ptrs = index -> n_ptrs;
-    data_ptrs = new void * [n_ptrs];
+    data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
 
     for (int i = 0; i < n_ptrs; i++)
     { data_ptrs[i] = (index -> data_ptrs)[i]; }
@@ -182,6 +182,7 @@ public:
     { h_index * id = new h_index(); return clone(id); }
     else
     {
+      print();
       addr -> index_lvls = index_lvls;
       addr -> type = type;
       addr -> nx = nx;
@@ -193,11 +194,11 @@ public:
       addr -> struct_ptr = struct_ptr;
       addr -> root_ptr = root_ptr;
 
-      addr -> indexs = new int [index_lvls];
+      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
       for (int i = 0; i < index_lvls; i++)
       { (addr -> indexs)[i] = indexs[i]; }
 
-      addr -> data_ptrs = new void * [n_ptrs];
+      addr -> data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
       for (int i = 0; i < n_ptrs; i++)
       { (addr -> data_ptrs)[i] = data_ptrs[i]; }
 

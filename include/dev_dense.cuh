@@ -122,6 +122,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   { 
+    printf("test\n");
     return new h_ops_tree (getrf_d, self); 
   }
 
@@ -411,7 +412,6 @@ public:
     for (int x = 0; x < nx; x++) for (int z = 0; z < x; z++)
     {
       double t = (double) rand() / RAND_MAX, cos = 1. / sqrt(1. + t * t), sin = cos * t;
-#pragma omp parallel for
       for (int y = 0; y < ny; y++)
       {
         const T e1_T = elements[y * ld + x], e2_T = elements[y * ld + z];

@@ -27,7 +27,7 @@ public:
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
-    read_and_write = new h_index[1];
+    read_and_write = new h_index[1]{};
     M -> clone(&read_and_write[0]);
 
     read_only = nullptr;
@@ -39,10 +39,10 @@ public:
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
-    read_and_write = new h_index[1];
+    read_and_write = new h_index[1]{};
     M1 -> clone(&read_and_write[0]);
 
-    read_only = new h_index[1];
+    read_only = new h_index[1]{};
     M2 -> clone(&read_only[0]);
   }
 
@@ -52,10 +52,10 @@ public:
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
-    read_and_write = new h_index[1];
+    read_and_write = new h_index[1]{};
     M1 -> clone(&read_and_write[0]);
 
-    read_only = new h_index[2];
+    read_only = new h_index[2]{};
     M2 -> clone(&read_only[0]);
     M3 -> clone(&read_only[1]);
   }
@@ -217,21 +217,17 @@ public:
       resizeChildren(l_children + 1); 
       op -> clone(&children[l_children - 1], true); 
     }
+
   }
 
   __host__ void resizeChildren (const int length_in) 
   {
     if (length_in > 0 && length_in != l_children)
     { 
-      h_ops_tree * neo = new h_ops_tree [length_in];
+      h_ops_tree * neo = new h_ops_tree [length_in]{};
 
       for (int i = 0; i < l_children && i < length_in; i++)
-      {
-        neo[i] = children[i];
-        children[i].read_and_write = nullptr;
-        children[i].read_only = nullptr;
-        children[i].children = nullptr;
-      }
+      { children[i].clone(&neo[i], true); }
 
       if (l_children > 0) 
       { delete[] children; }
@@ -301,9 +297,14 @@ public:
       if (clone_child)
       {
         addr -> l_children = l_children;
-        addr -> children = new h_ops_tree [l_children];
+        addr -> children = (l_children > 0) ? new h_ops_tree [l_children] : nullptr;
         for (int i = 0; i < l_children; i++)
         { children[i].clone(&(addr -> children)[i], clone_child); }
+      }
+      else
+      {
+        addr -> l_children = 0;
+        addr -> children = nullptr;
       }
 
       return addr;

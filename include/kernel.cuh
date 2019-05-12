@@ -159,7 +159,11 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   clock_end = omp_get_wtime();
   printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  clock_start = omp_get_wtime();
+  tree->print();
+  delete tree;
+  delete root;
+
+  /*clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
   clock_end = omp_get_wtime();
   delete tree;
@@ -170,7 +174,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   clock_end = omp_get_wtime();
   printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  /*myTimer.newEvent("COPY INST TO DEV", start, main_stream);
+  myTimer.newEvent("COPY INST TO DEV", start, main_stream);
   dev_instructions <T> ins = dev_instructions <T> (workers, &dag, &schedule, h);
   myTimer.newEvent("COPY INST TO DEV", end, main_stream);
 
