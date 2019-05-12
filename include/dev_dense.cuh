@@ -122,7 +122,6 @@ public:
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   { 
-    printf("test\n");
     return new h_ops_tree (getrf_d, self); 
   }
 

@@ -182,7 +182,6 @@ public:
     { h_index * id = new h_index(); return clone(id); }
     else
     {
-      print();
       addr -> index_lvls = index_lvls;
       addr -> type = type;
       addr -> nx = nx;
