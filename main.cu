@@ -55,13 +55,8 @@ template <class T> __host__ int test0()
 __global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
 {
   __shared__ double shm[6144];
-  int i = blockRandomizedSVD <double> (U, VT, nx, ny, ld_u, ld_v, 3, 1.0e-14, 100, shm, 6144);
+  int i = blockRandomizedSVD <double> (U, VT, nx, ny, ld_u, ld_v, 8, 1.0e-14, 100, shm, 6144);
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
-}
-
-__global__ void qr_kernel (double * M, double * Q, const int nx, const int ny, const int ld_m, const int ld_q)
-{
-  blockGivensRotation(M, Q, nx, ny, ld_m, ld_q);
 }
 
 int test1()
@@ -69,7 +64,7 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 8, ny = 8;
+  const int nx = 16, ny = 16;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -80,31 +75,22 @@ int test1()
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
-  A -> getUxS() -> loadTestMatrix(2000);
+  A -> getUxS() -> loadTestMatrix(20000);
   A -> getVT() -> loadIdentityMatrix();
 
   timer myTimer = timer();
 
   myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024 >>> (A -> getUxS() -> getElements(), A -> getVT() -> getElements(), nx, ny, nx, nx);
+  svd_kernel <<<1, 1024>>> (A -> getUxS() -> getElements(), A -> getVT() -> getElements(), nx, ny, nx, nx);
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix(2000);
+  c->loadTestMatrix(20000);
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
 
   delete A; delete b; delete c;
-
-  dev_dense <double> testm = dev_dense <double> (nx, ny), testq = dev_dense <double> (ny, ny);
-  testq.loadIdentityMatrix();
-  testm.loadTestMatrix(10);
-
-  qr_kernel <<<1, 1024 >>> (testm.getElements(), testq.getElements(), nx, ny, testm.getLd(), testq.getLd());
-  cudaDeviceSynchronize();
-
-  testq.matrixMultiplication(&testm)->print();
 
 
   return 0;
@@ -149,8 +135,8 @@ __host__ int test2()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
-  //test1();
+  //test0 <double> ();
+  test1();
   //test2();
 
   return 0;

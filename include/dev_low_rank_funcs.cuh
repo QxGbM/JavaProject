@@ -5,16 +5,6 @@
 
 __constant__ double seed[_RND_SEED_LENGTH];
 
-template <class T> __device__ void blockRotateColumns (T * col1, T * col2, const int ny, const int ld, const double sine, const double cosine)
-{
-  for (int i = thread_rank(); i < ny; i += block_dim())
-  {
-    const T col1_T = col1[i * ld], col2_T = col2[i * ld];
-    col1[i * ld] = cosine * col1_T - sine * col2_T;
-    col2[i * ld] = sine * col1_T + cosine * col2_T;
-  }
-}
-
 template <class T> __device__ T warpAllReduceSum (T value)
 {
   for (int mask = warpSize / 2; mask > 0; mask /= 2)
@@ -45,22 +35,17 @@ template <class T> __device__ T blockAllReduceSum (T value, T * shm)
   return shm[0];
 }
 
-template <class T> __device__ T blockVectorMultiplication (const T * vec, const int length, const int ld, T * shm)
+template <class T> __device__ double sumSquaredDifference (const T * A, const T * B, const int nx, const int ny, const int ld_a, const int ld_b, T * shm)
 {
-  T thread_sum = 0;
-  for (int i = thread_rank(); i < length; i += block_dim())
-  { thread_sum += vec[i * ld] * vec[i * ld]; }
+  double thread_sum = 0.;
+  for (int i = thread_rank(); i < nx * ny; i += block_dim())
+  { 
+    const int row = i / nx, col = i - row * nx;
+    const double diff = A[row * ld_a + col] * B[row * ld_b + col];
+    thread_sum += diff * diff; 
+  }
 
-  return blockAllReduceSum <T> (thread_sum, shm);
-}
-
-template <class T> __device__ T blockVectorMultiplication (const T * vec1, const T * vec2, const int length, const int ld_1, const int ld_2, T * shm)
-{
-  T thread_sum = 0;
-  for (int i = thread_rank(); i < length; i += block_dim())
-  { thread_sum += vec1[i * ld_1] * vec2[i * ld_2]; }
-
-  return blockAllReduceSum <T> (thread_sum, shm);
+  return blockAllReduceSum <double> (thread_sum, (double *) shm);
 }
 
 template <class T> 
@@ -140,37 +125,6 @@ __device__ bool blockJacobiSVD_iter (T * __restrict__ UxS, T * __restrict__ VT, 
   return iter;
 }
 
-template <class T> __device__ double blockJacobiRotate (T * A, T * VT, const int nx, const int ny, const int ld_a, const int ld_v, const int col_i, const int col_j, T * shm)
-{
-  const T s_ii = blockVectorMultiplication <T> (&A[col_i], ny, ld_a, &shm[0]);
-  const T s_jj = blockVectorMultiplication <T> (&A[col_j], ny, ld_a, &shm[num_warps()]);
-  const T s_ij = blockVectorMultiplication <T> (&A[col_i], &A[col_j], ny, ld_a, ld_a, &shm[2 * num_warps()]);
-
-  if (s_ii > s_jj)
-  {
-    blockSwapColumns <T> (&A[col_i], &A[col_j], ny, ld_a);
-    blockSwapColumns <T> (&VT[col_i], &VT[col_j], nx, ld_v);
-  }
-
-  double * shm_double = (double *) &shm[3 * num_warps()];
-  if (thread_rank() == 0)
-  {
-    const double torque = (double) ((s_jj - s_ii) / (2.0 * s_ij));
-    const int sign_torque = (int) (torque >= 0.0) * 2 - 1;
-    const double abs_torque = sign_torque * torque;
-    const double tangent = sign_torque / (abs_torque + sqrt(1.0 + torque * torque));
-    shm_double[2] = 1.0 / (sqrt(1.0 + tangent * tangent));
-    shm_double[1] = shm_double[2] * tangent;
-    shm_double[0] = (s_ij > 0) ? (double) s_ij : (double) -s_ij;
-  }
-  __syncthreads();
-
-  blockRotateColumns <T> (&A[col_i], &A[col_j], ny, ld_a, shm_double[1], shm_double[2]);
-  blockRotateColumns <T> (&VT[col_i], &VT[col_j], nx, ld_v, shm_double[1], shm_double[2]);
-  __syncthreads();
-
-  return shm_double[0];
-}
 
 template <class T> __device__ void loadIdentity (T * M, const int nx, const int ny, const int ld)
 {
@@ -180,19 +134,6 @@ template <class T> __device__ void loadIdentity (T * M, const int nx, const int 
     M[row * ld + col] = (T) (row == col);
   }
   __syncthreads();
-}
-
-template <class T> __device__ double sumSquaredDifference (const T * A, const T * B, const int nx, const int ny, const int ld_a, const int ld_b, T * shm)
-{
-  double thread_sum = 0.;
-  for (int i = thread_rank(); i < nx * ny; i += block_dim())
-  { 
-    const int row = i / nx, col = i - row * nx;
-    const double diff = A[row * ld_a + col] * B[row * ld_b + col];
-    thread_sum += diff * diff; 
-  }
-
-  return blockAllReduceSum <double> (thread_sum, (double *) shm);
 }
 
 template <class T> __device__ void blockGramSchmidt (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
@@ -375,5 +316,221 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
 
 }
 
+template <class T>
+/* Convert LR to dense by multiplying U with VT. VT is reset to Identity matrix and rank is set to -1. */
+__device__ void blockLrToDense (T * __restrict__ U, T * __restrict__ VT, int * __restrict__ rank, const int nx, const int ny,
+  const int ld_u, const int ld_vt, T * __restrict__ shm, const int shm_size)
+{
+  const int step_size = shm_size / nx, rank_old = *rank;
+
+  for (int row = 0; row < ny; row += step_size)
+  {
+    const int rows = (ny - row > step_size) ? step_size : ny - row;
+    blockDenseGemm_shm <T> (1., 0., shm, &U[row * ld_u], VT, rows, nx, rank_old, nx, ld_u, ld_vt, false, true, nullptr, 0);
+    matrixCopy_toRM <T> (shm, &U[row * ld_u], nx, rows, nx, ld_u, false);
+    __syncthreads();
+  }
+
+  if (thread_rank() == 0)
+  { *rank = -1; }
+  loadIdentity (VT, nx, nx, ld_vt);
+  __syncthreads();
+}
+
+
+template <class T>
+/* LR = alpha * D * D + beta * old. LR is converted to Dense. */
+__device__ void blockGemm_lr_d_d_shm (const T alpha, const T beta, T * __restrict__ U, T * __restrict__ VT, int * __restrict__ rank, 
+  const int nx, const int ny, const int ld_u, const int ld_vt, const int k, const T * __restrict__ A, const int ld_a, const bool a_T, 
+  const T * __restrict__ B, const int ld_b, const bool b_T, T * __restrict__ shm, const int shm_size)
+{
+  if (*rank >= 0) 
+  { blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size); }
+  blockDenseGemm_shm <T> (alpha, beta, U, A, B, ny, nx, k, ld_u, ld_a, ld_b, a_T, b_T, shm, shm_size);
+}
+
+template <class T>
+/* LR = alpha * D * LR + beta * old. Assumes alpha is not 0. */
+__device__ void blockGemm_lr_d_lr_shm (const T alpha, const T beta, T * __restrict__ U, T * VT, int * rank, const int nx, const int ny, 
+  const int ld_u, const int ld_vt, const int k, const T * __restrict__ A, const int ld_a, const bool a_T, 
+  const T * __restrict__ U_B, const T * VT_B, const int * rank_b, const int ld_ub, const int ld_vtb, T * __restrict__ shm, const int shm_size)
+{
+  const int rank_b_ = *rank_b, rank_old = *rank, rank_ = rank_old + rank_b_;
+  __syncthreads();
+
+  if (rank_ == -2) /* Both LR are Denses. -> Normal Dense GEMM on Us. */
+  { 
+    blockDenseGemm_shm <T> (alpha, beta, U, A, U_B, ny, nx, k, ld_u, ld_a, ld_ub, a_T, false, shm, shm_size); 
+  }
+  else if (rank_b_ == -1) /* B is dense & M is LR. -> Convert M to dense and do normal GEMM. */
+  { 
+    blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size);
+    blockDenseGemm_shm <T> (alpha, beta, U, A, U_B, ny, nx, k, ld_u, ld_a, ld_ub, a_T, false, shm, shm_size);
+  }
+  else if (beta == 0.) /* M is reset & B is LR. -> M has same rank as B. */
+  {
+    if (thread_rank() == 0) 
+    { *rank = rank_b_; }
+    matrixCopy_fromRM <T> (VT_B, VT, rank_b_, nx, ld_vtb, ld_vt, false);
+    blockDenseGemm_shm <T> (alpha, 0., U, A, U_B, ny, rank_b_, k, ld_u, ld_a, ld_ub, a_T, false, shm, shm_size);
+  }
+  else if (rank_old == -1) /* M is dense, not being reset & B is LR. -> update M using A x U_B x V_B. */
+  { 
+    blockDenseGemm_3x_shm <T> (alpha, beta, U, A, U_B, VT_B, ny, nx, k, rank_b_, ld_u, ld_a, ld_ub, ld_vtb, a_T, false, true, shm, shm_size); 
+  }
+  else if (VT == VT_B && rank == rank_b) /* M and B are LR, shared vertical basis and rank. -> Update U using A * U_B. */
+  { 
+    blockDenseGemm_shm <T> (alpha, beta, U, A, U_B, ny, rank_old, k, ld_u, ld_a, ld_ub, a_T, false, shm, shm_size); 
+  }
+  else if (rank_ >= nx || rank_ >= ny) /* M + B exceeds rank. -> Convert M to dense and do normal GEMM. */
+  {
+    blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size);
+    blockDenseGemm_3x_shm <T> (alpha, beta, U, A, U_B, VT_B, ny, nx, k, rank_b_, ld_u, ld_a, ld_ub, ld_vtb, a_T, false, true, shm, shm_size);
+  }
+  else /* M and B LR, M not being reset, and M maintains a LR. -> Concatenate U and V. */
+  {
+    if (thread_rank() == 0) 
+    { *rank = rank_; }
+    blockDenseScalar <T> (beta, U, ny, rank_old, ld_u);
+    matrixCopy_fromRM <T> (VT_B, &VT[rank_old], rank_b_, nx, ld_vtb, ld_vt, false);
+    blockDenseGemm_shm <T> (alpha, 0., &U[rank_old], A, U_B, ny, rank_b_, k, ld_u, ld_a, ld_ub, a_T, false, shm, shm_size);
+  }
+}
+
+template <class T>
+/* LR = alpha * LR * D + beta * old. Assumes alpha is not 0. */
+__device__ void blockGemm_lr_lr_d_shm(const T alpha, const T beta, T * U, T * __restrict__ VT, int * rank, const int nx, const int ny, 
+  const int ld_u, const int ld_vt, const int k, const T * U_A, const T * __restrict__ VT_A, const int * rank_a, const int ld_ua, const int ld_vta, 
+  const T * __restrict__ B, const int ld_b, const bool b_T, T * __restrict__ shm, const int shm_size)
+{
+  const int rank_a_ = *rank_a, rank_old = *rank, rank_ = rank_old + rank_a_;
+  __syncthreads();
+
+  if (rank_ == -2) /* Both LR are Denses. -> Normal Dense GEMM on Us. */
+  { 
+    blockDenseGemm_shm <T> (alpha, beta, U, U_A, B, ny, nx, k, ld_u, ld_ua, ld_b, false, b_T, shm, shm_size); 
+  }
+  else if (rank_a_ == -1) /* A is dense & M is LR. -> Convert M to dense and do normal GEMM. */
+  { 
+    blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size);
+    blockDenseGemm_shm <T> (alpha, beta, U, U_A, B, ny, nx, k, ld_u, ld_ua, ld_b, false, b_T, shm, shm_size);
+  }
+  else if (beta == 0.) /* M is reset & A is LR. -> M has same rank as A. */
+  {
+    if (thread_rank() == 0) 
+    { *rank = rank_a_; }
+    matrixCopy_fromRM <T> (U_A, U, rank_a_, ny, ld_ua, ld_u, false);
+    blockDenseGemm_shm <T> (alpha, 0., VT, B, VT_A, nx, rank_a_, k, ld_vt, ld_b, ld_vta, !b_T, false, shm, shm_size);
+  }
+  else if (rank_old == -1) /* M is dense, not being reset & A is LR. -> update M using U_A x V_A x B. */
+  { 
+    blockDenseGemm_3x_shm <T> (alpha, beta, U, U_A, VT_A, B, ny, nx, rank_a_, k, ld_u, ld_ua, ld_vta, ld_b, false, true, b_T, shm, shm_size); 
+  }
+  else if (U == U_A && rank == rank_a) /* M and A are LR, shared horizontal basis and rank. -> Update VT using BT * VT_A. */
+  { 
+    blockDenseGemm_shm <T> (alpha, beta, VT, B, VT_A, nx, rank_old, k, ld_vt, ld_b, ld_vta, !b_T, false, shm, shm_size); 
+  }
+  else if (rank_ >= nx || rank_ >= ny) /* M + A exceeds rank. -> Convert M to dense and do normal GEMM. */
+  {
+    blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size);
+    blockDenseGemm_3x_shm <T> (alpha, beta, U, U_A, VT_A, B, ny, nx, rank_a_, k, ld_u, ld_ua, ld_vta, ld_b, false, true, b_T, shm, shm_size); 
+  }
+  else /* M and A LR, M not being reset, and M maintains a LR. -> Concatenate U and V. */
+  {
+    if (thread_rank() == 0) 
+    { *rank = rank_; }
+    blockDenseScalar <T> (beta, VT, nx, rank_old, ld_vt);
+    matrixCopy_fromRM <T> (U_A, &U[rank_old], rank_a_, ny, ld_ua, ld_u, false);
+    blockDenseGemm_shm <T> (alpha, 0., &VT[rank_old], B, VT_A, nx, rank_a_, k, ld_vt, ld_b, ld_vta, !b_T, false, shm, shm_size);
+  }
+}
+
+template <class T>
+/* LR = alpha * LR * LR + beta * old. Assumes alpha is not 0. */
+__device__ void blockGemm_lr_lr_lr_shm (const T alpha, const T beta, T * U, T * VT, int * rank, const int nx, const int ny, const int ld_u, const int ld_vt, 
+  const int k, const T * U_A, const T * __restrict__ VT_A, const int * rank_a, const int ld_ua, const int ld_vta, const T * __restrict__ U_B, const T * VT_B, 
+  const int * rank_b, const int ld_ub, const int ld_vtb, T * __restrict__ shm, const int shm_size)
+{
+  const int rank_a_ = *rank_a, rank_b_ = *rank_b, rank_old = *rank;
+  __syncthreads();
+
+  if (rank_a_ == -1) /* A is dense. -> do GEMM LR-D-LR. */
+  { 
+    blockGemm_lr_d_lr_shm <T> (alpha, beta, U, VT, rank, nx, ny, ld_u, ld_vt, k, U_A, ld_ua, false, U_B, VT_B, rank_b, ld_ub, ld_vtb, shm, shm_size); 
+  }
+  else if (rank_b_ == -1) /* B is dense. -> do GEMM LR-LR-D. */
+  { 
+    blockGemm_lr_lr_d_shm <T> (alpha, beta, U, VT, rank, nx, ny, ld_u, ld_vt, k, U_A, VT_A, rank_a, ld_ua, ld_vta, U_B, ld_ub, false, shm, shm_size); 
+  }
+  else if (beta == 0.) /* M is reset & A, B are LR. -> M has same rank as smaller. */
+  {
+    if (rank_a_ < rank_b_)
+    {
+      if (thread_rank() == 0) 
+      { *rank = rank_a_; }
+      matrixCopy_fromRM <T> (U_A, U, rank_a_, ny, ld_ua, ld_u, false);
+      blockDenseGemm_3x_shm <T> (alpha, 0., VT, VT_B, U_B, VT_A, nx, rank_a_, rank_b_, k, ld_vt, ld_vtb, ld_ub, ld_vta, false, true, false, shm, shm_size);
+    }
+    else
+    {
+      if (thread_rank() == 0) 
+      { *rank = rank_b_; }
+      matrixCopy_fromRM <T> (VT_B, VT, rank_b_, nx, ld_vtb, ld_vt, false);
+      blockDenseGemm_3x_shm <T> (alpha, 0., U, U_A, VT_A, U_B, ny, rank_b_, rank_a_, k, ld_u, ld_ua, ld_vta, ld_ub, false, true, false, shm, shm_size);
+    }
+  }
+  else if (rank_old == -1) /* M is dense, not being reset & A, B are LR. -> update M using U_A x V_A x U_B x V_B. */
+  { 
+    blockDenseGemm_4x_shm <T> (alpha, beta, U, U_A, VT_A, U_B, VT_B, ny, nx, rank_a_, k, rank_b_, ld_u, ld_ua, ld_vta, ld_ub, ld_vtb, false, true, false, true, shm, shm_size); 
+  }
+  else if (VT == VT_B && rank == rank_b) /* M and B are LR, shared vertical basis and rank. -> Update U using U_A x V_A * U_B. */
+  { 
+    blockDenseGemm_3x_shm <T> (alpha, beta, U, U_A, VT_A, U_B, ny, rank_old, rank_a_, k, ld_u, ld_ua, ld_vta, ld_ub, false, true, false, shm, shm_size); 
+  }
+  else if (U == U_A && rank == rank_a) /* M and B are LR, shared horizontal basis and rank. -> Update VT using VT_B x UT_B * VT_A. */
+  {
+    blockDenseGemm_3x_shm <T> (alpha, beta, VT, VT_B, U_B, VT_A, nx, rank_old, rank_b_, k, ld_vt, ld_vtb, ld_ub, ld_vta, false, true, false, shm, shm_size); 
+  }
+  else /* M, A, B all LR, M not being reset. -> Concatenate U and V or convert M to dense */
+  {
+    if (rank_a_ < rank_b_) /* A has smaller rank. */
+    {
+      const int rank_ = rank_a_ + rank_old;
+      if (rank_ >= nx || rank_ >= ny)
+      {
+        blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size);
+        blockDenseGemm_4x_shm <T> (alpha, beta, U, U_A, VT_A, U_B, VT_B, ny, nx, rank_a_, k, rank_b_, ld_u, ld_ua, ld_vta, ld_ub, ld_vtb, false, true, false, true, shm, shm_size);
+      }
+      else
+      {
+        if (thread_rank() == 0) 
+        { *rank = rank_; }
+        blockDenseScalar <T> (beta, VT, nx, rank_old, ld_vt);
+        matrixCopy_fromRM <T> (U_A, &U[rank_old], rank_a_, ny, ld_ua, ld_u, false);
+        blockDenseGemm_3x_shm <T> (alpha, 0., &VT[rank_old], VT_B, U_B, VT_A, nx, rank_a_, rank_b_, k, ld_vt, ld_vtb, ld_ub, ld_vta, false, true, false, shm, shm_size);      
+      }
+    }
+    else /* B has smaller rank. */
+    {
+      const int rank_ = rank_b_ + rank_old;
+      if (rank_ >= nx || rank_ >= ny)
+      {
+        blockLrToDense <T> (U, VT, rank, nx, ny, ld_u, ld_vt, shm, shm_size);
+        blockDenseGemm_4x_shm <T> (alpha, beta, U, U_A, VT_A, U_B, VT_B, ny, nx, rank_a_, k, rank_b_, ld_u, ld_ua, ld_vta, ld_ub, ld_vtb, false, true, false, true, shm, shm_size); 
+      }
+      else
+      {
+        if (thread_rank() == 0) 
+        { *rank = rank_; }
+        blockDenseScalar <T> (beta, U, ny, rank_old, ld_u);
+        matrixCopy_fromRM <T> (VT_B, &VT[rank_old], rank_b_, nx, ld_vtb, ld_vt, false);
+        blockDenseGemm_3x_shm <T> (alpha, 0., &U[rank_old], U_A, VT_A, U_B, ny, rank_b_, rank_a_, k, ld_u, ld_ua, ld_vta, ld_ub, false, true, false, shm, shm_size);
+      }
+    }
+
+
+
+  }
+}
 
 #endif
