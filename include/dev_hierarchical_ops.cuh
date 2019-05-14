@@ -9,7 +9,11 @@ class h_ops
 protected:
 
   operation_t op_type;
+
+  int n_rw;
   h_index * read_and_write;
+
+  int n_ro;
   h_index * read_only;
 
 public:
@@ -17,20 +21,24 @@ public:
   __host__ h_ops ()
   {
     op_type = nop;
+    n_rw = 0;
     read_and_write = nullptr;
+    n_ro = 0;
     read_only = nullptr;
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M)
   {
-    if (op_in != getrf_d) 
+    if (op_in != getrf_d)
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
     read_and_write = new h_index[1]{};
     M -> clone(&read_and_write[0]);
+    n_rw = 1;
 
     read_only = nullptr;
+    n_ro = 0;
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2)
@@ -41,9 +49,11 @@ public:
 
     read_and_write = new h_index[1]{};
     M1 -> clone(&read_and_write[0]);
+    n_rw = 1;
 
     read_only = new h_index[1]{};
     M2 -> clone(&read_only[0]);
+    n_ro = 1;
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2, const h_index * M3)
@@ -54,10 +64,12 @@ public:
 
     read_and_write = new h_index[1]{};
     M1 -> clone(&read_and_write[0]);
+    n_rw = 1;
 
     read_only = new h_index[2]{};
     M2 -> clone(&read_only[0]);
     M3 -> clone(&read_only[1]);
+    n_ro = 2;
   }
 
   __host__ ~h_ops ()
@@ -71,29 +83,13 @@ public:
 
   __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
-    int wr_from = 0, r_from = 0, wr_to = 0, r_to = 0;
+    int rw_from = op_from -> n_rw, ro_from = op_from -> n_ro, rw_to = n_rw, ro_to = n_ro, dep = (int) no_dep;
 
-    if (op_from -> opType() >= gemm_d_d_d)
-    { r_from++; }
-    if (op_from -> opType() >= trsml_d)
-    { r_from++; }
-    if (op_from -> opType() >= getrf_d)
-    { wr_from++; }
-
-    if (opType() >= gemm_d_d_d)
-    { r_to++; }
-    if (opType() >= trsml_d)
-    { r_to++; }
-    if (opType() >= getrf_d)
-    { wr_to++; }
-
-    int dep = (int) no_dep;
-
-    for (int i = 0; i < wr_from * (wr_to + r_to); i++)
+    for (int i = 0; i < rw_from * (rw_to + ro_to); i++)
     {
-      const int to = i / wr_from, from = i - to * wr_from;
+      const int to = i / rw_from, from = i - to * rw_from;
 
-      if (to < wr_to)
+      if (to < rw_to)
       {
         relation_t relation = read_and_write[to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
@@ -106,7 +102,7 @@ public:
       }
       else
       {
-        relation_t relation = read_only[to - wr_to].compare(&(op_from -> read_and_write)[from]);
+        relation_t relation = read_only[to - rw_to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
         case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
@@ -117,9 +113,9 @@ public:
       }
     }
 
-    for (int i = 0; i < r_from * wr_to; i++)
+    for (int i = 0; i < ro_from * rw_to; i++)
     {
-      const int to = i / r_from, from = i - to * r_from;
+      const int to = i / ro_from, from = i - to * ro_from;
       relation_t relation = read_and_write[to].compare(&(op_from -> read_only)[from]);
       switch (relation)
       {
@@ -134,15 +130,65 @@ public:
   }
 
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
+  { return op_to -> checkDependencyFrom(this); }
+
+  __host__ void getDataPointers (const bool rw, const int index, void *** data_ptrs, int * n_ptrs) const
   {
-    return op_to -> checkDependencyFrom(this);
+    if (rw && index < n_rw)
+    { read_and_write[index].getDataPointers(data_ptrs, n_ptrs); }
+    else if (!rw && index < n_ro)
+    { read_only[index].getDataPointers(data_ptrs, n_ptrs); }
+    else
+    { *data_ptrs = nullptr; *n_ptrs = 0; }
   }
 
-  __host__ int writeParametersTo (int * inst) const
+  __host__ int writeIndexParametersTo (const bool rw, const int index, int * inst, const int mapping) const
   {
-    int l_dims = 0, l_lds = 0, l_ts = 0;
+    if (rw && index < n_rw)
+    { inst[0] = mapping; return 1 + read_and_write[index].writeParametersTo(&inst[1]); }
+    else if (!rw && index < n_ro)
+    { inst[0] = mapping; return 1 + read_only[index].writeParametersTo(&inst[1]); }
+    else
+    { return 0; }
+  }
 
-    return l_dims + l_lds + l_ts;
+  __host__ int writeOpParametersTo (int * inst) const
+  {
+    switch (opType())
+    {
+    case getrf_d:
+    {
+      int nx = read_and_write[0].getNx(), ny = read_and_write[0].getNy();
+      inst[0] = nx; inst[1] = ny;
+      return 2;
+    }
+    case trsml_d: case trsml_lr:
+    {
+      int nx_b = read_and_write[0].getNx(), ny_b = read_and_write[0].getNy(), dim_m = read_only[0].getNx();
+      ny_b = (ny_b > read_only[0].getNy()) ? read_only[0].getNy() : ny_b;
+      inst[0] = nx_b; inst[1] = ny_b; inst[2] = dim_m;
+      return 3;
+    }
+    case trsmr_d: case trsmr_lr:
+    {
+      int nx_b = read_and_write[0].getNx(), ny_b = read_and_write[0].getNy(), dim_m = read_only[0].getNy();
+      nx_b = (nx_b > read_only[0].getNx()) ? read_only[0].getNx() : nx_b;
+      inst[0] = nx_b; inst[1] = ny_b; inst[2] = dim_m;
+      return 3;
+    }
+    case gemm_d_d_d: case gemm_d_d_lr: case gemm_d_lr_d: case gemm_d_lr_lr:
+    case gemm_lr_d_d: case gemm_lr_d_lr: case gemm_lr_lr_d: case gemm_lr_lr_lr:
+    {
+      int m = read_and_write[0].getNy(), n = read_and_write[0].getNx(), k = read_only[0].getNx();
+      m = (m > read_only[0].getNy()) ? read_only[0].getNy() : m;
+      n = (n > read_only[1].getNx()) ? read_only[1].getNx() : n;
+      k = (k > read_only[1].getNy()) ? read_only[1].getNy() : k;
+      inst[0] = m; inst[1] = n; inst[2] = k;
+      return 3;
+    }
+    default:
+    { return 0; }
+    }
   }
 
   __host__ unsigned long long int getFops () const
@@ -257,33 +303,41 @@ public:
         addr -> op_type = op_type;
         addr -> read_and_write = new h_index[1];
         read_and_write[0].clone(&(addr -> read_and_write)[0]);
+        addr -> n_rw = 1;
 
         addr -> read_only = new h_index[2];
         read_only[0].clone(&(addr -> read_only)[0]);
         read_only[1].clone(&(addr -> read_only)[1]);
+        addr -> n_ro = 2;
       }
       else if (opType() >= trsml_d && opType() <= pivot_lr)
       {         
         addr -> op_type = op_type;
         addr -> read_and_write = new h_index[1];
         read_and_write[0].clone(&(addr -> read_and_write)[0]);
+        addr -> n_rw = 1;
 
         addr -> read_only = new h_index[1];
         read_only[0].clone(&(addr -> read_only)[0]);
+        addr -> n_ro = 1;
       }
       else if (opType() == getrf_d)
       {         
         addr -> op_type = op_type;
         addr -> read_and_write = new h_index[1];
         read_and_write[0].clone(&(addr -> read_and_write)[0]);
+        addr -> n_rw = 1;
 
         addr -> read_only = nullptr;
+        addr -> n_ro = 0;
       }
       else
       {
         addr -> op_type = op_type;
         addr -> read_and_write = nullptr;
+        addr -> n_rw = 0;
         addr -> read_only = nullptr;
+        addr -> n_ro = 0;
       }
 
       if (clone_child)

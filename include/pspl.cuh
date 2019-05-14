@@ -32,7 +32,11 @@
 
 #define _MAX_INST_LENGTH 32
 #define _MAX_SCHEDULER_ITERS 1024
+
 #define _RND_SEED_LENGTH 8192
+#define _DEFAULT_PTRS_LENGTH 1024
+#define _DEFAULT_INSTS_LENGTH 1024
+#define _DEFAULT_COMM_LENGTH 1024
 
 enum mark_t{ start, end };
 
@@ -82,7 +86,7 @@ class h_ops_dag;
 class inst_queue;
 class inst_scheduler;
 
-template <class T> class dev_instructions;
+class instructions_manager;
 
 class dependency_linked_list;
 class event_linked_list;
@@ -104,7 +108,7 @@ class timer;
 #include <dev_hierarchical_element.cuh>
 
 #include <inst_scheduler.cuh>
-//#include <dev_instructions.cuh>
+#include <dev_instructions.cuh>
 #include <kernel.cuh>
 
 #endif
