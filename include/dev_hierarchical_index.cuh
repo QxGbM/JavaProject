@@ -51,8 +51,8 @@ public:
     indexs = nullptr;
 
     type = hierarchical;
-    nx = h -> getNx();
-    ny = h -> getNy();
+    nx = h -> getNx_abs();
+    ny = h -> getNy_abs();
     ld_x = ld_y = 0;
     offset_x = offset_y = 0;
 
@@ -71,7 +71,7 @@ public:
     for (int i = 0; i < index -> index_lvls; i++)
     { indexs[i] = (index -> indexs)[i]; }
     
-    indexs[index_lvls - 1] = y * (h -> getX()) + x;
+    indexs[index_lvls - 1] = y * (h -> getNx_blocks()) + x;
 
     dev_h_element <T> * element = h -> getBlock(x, y);
     type = element -> getType();

@@ -114,7 +114,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   else if (workers < num_blocks)
   { printf("Launch Config: Number of launched blocks reduced from %d to %d. \n\n", num_blocks, workers); }
 
-  const int ny = h -> getNy(), nx = h -> getNx();
+  const int ny = h -> getNy_abs(), nx = h -> getNx_abs();
   printf("Start Testing Hierarchical - LU for: %d x %d.\n\n", ny, nx);
 
   timer myTimer = timer();

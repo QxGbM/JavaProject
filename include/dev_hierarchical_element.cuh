@@ -61,7 +61,7 @@ public:
     if (lr != nullptr)
     { return lr -> getNx(); }
     if (h != nullptr)
-    { return h -> getNx(); }
+    { return h -> getNx_abs(); }
 
     return 0;
   }
@@ -77,7 +77,7 @@ public:
     if (lr != nullptr)
     { return lr -> getNy(); }
     if (h != nullptr)
-    { return h -> getNy(); }
+    { return h -> getNy_abs(); }
 
     return 0;
   }
@@ -108,18 +108,18 @@ public:
     type = type_in;
   }
 
-  __host__ T getElement (const int x_in, const int y_in) const
+  __host__ T getElement (const int y_in, const int x_in) const
   {
     const dev_dense <T> *d = getElementDense();
     const dev_low_rank <T> *lr = getElementLowRank();
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return (d -> getElements(y_in * (d -> getLd()) + x_in))[0]; }
+    { return (d -> getElements())[y_in * (d -> getLd()) + x_in]; }
     if (lr != nullptr)
-    { return lr -> getElement(x_in, y_in); }
+    { return lr -> getElement(y_in, x_in); }
     if (h != nullptr)
-    { return h -> getElement(x_in, y_in); }
+    { return h -> getElement(y_in, x_in); }
 
     return 0;
   }
@@ -131,7 +131,7 @@ public:
     const dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return new dev_dense <T> (d -> getNx(), d -> getNy(), d -> getElements(), d -> getLd()); }
+    { return d; }
     if (lr != nullptr)
     { return lr -> convertToDense(); }
     if (h != nullptr)

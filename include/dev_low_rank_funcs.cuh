@@ -49,7 +49,7 @@ template <class T> __device__ double sumSquaredDifference (const T * A, const T 
 }
 
 template <class T> 
-__device__ bool blockJacobiSVD_iter (T * __restrict__ UxS, T * __restrict__ VT, const int nx, const int ny, const int ld_UxS, const int ld_VT, T * __restrict__ shm, const T epi)
+__device__ bool blockSingleSideJacobiSVD (T * __restrict__ UxS, T * __restrict__ VT, const int nx, const int ny, const int ld_UxS, const int ld_VT, T * __restrict__ shm, const T epi)
 {
   bool iter = false;
 
@@ -90,8 +90,7 @@ __device__ bool blockJacobiSVD_iter (T * __restrict__ UxS, T * __restrict__ VT, 
         if (lane_rank() == 0)
         {
           const double torque = (shm[col2] - shm[col]) / (shm[nx + col] * 2.);
-          const double sign_torque = signbit(torque) * -2 + 1;
-          const double tangent = sign_torque / (fabs(torque) + sqrt(1. + torque * torque));
+          const double tangent = (signbit(torque) * -2 + 1) / (fabs(torque) + sqrt(1. + torque * torque));
           cosine = rsqrt(1. + tangent * tangent);
           sine = cosine * tangent;
         }
@@ -273,13 +272,17 @@ __device__ void blockGivensRotation (T * __restrict__ M, T * __restrict__ Q, con
 
 template <class T> 
 __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
-  const int k, const double epi, const int iter_limit, T * __restrict__ shm, const int shm_size)
+  const int rank, const double epi, const int iter_limit, T * __restrict__ shm, const int shm_size)
 {
-  const int P = (2 * k > nx) ? nx : 2 * k;
+  const int P = rank > nx ? (nx > ny ? ny : nx) : (rank > ny ? ny : rank);
 
   T * X, ** X_ptr = (T **) &shm[0], *Y, **Y_ptr = (T **) &shm[1], *B, ** B_ptr = (T **) &shm[2];
   if (thread_rank() == 0)
-  { X = new T[ny * P]; *X_ptr = X; Y = new T[ny * ny]; *Y_ptr = Y; B = new T[P * nx]; *B_ptr = B; }
+  { 
+    X = new T[ny * P]; *X_ptr = X; 
+    Y = new T[ny * ny]; *Y_ptr = Y; 
+    B = new T[P * nx]; *B_ptr = B; 
+  }
   __syncthreads();
 
   X = *X_ptr; Y = *Y_ptr; B = *B_ptr;
@@ -302,7 +305,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
     if (thread_rank() == 0)
     { *iter = 0; (*loop_counter)++; }
 
-    if (blockJacobiSVD_iter(B, VT, nx, P, nx, ld_v, &shm[2], epi))
+    if (blockSingleSideJacobiSVD (B, VT, nx, P, nx, ld_v, &shm[2], epi))
     { *iter = 1; }
     __syncthreads();
   }
@@ -315,6 +318,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   return loops;
 
 }
+
 
 template <class T>
 /* Convert LR to dense by multiplying U with VT. VT is reset to Identity matrix and rank is set to -1. */

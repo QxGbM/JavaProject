@@ -14,16 +14,16 @@ private:
 
 public:
 
-  __host__ dev_low_rank (const int x, const int y)
+  __host__ dev_low_rank (const int x, const int y, const int rank_in = 0, dev_dense <T> * U_in = nullptr, dev_dense <T> * VT_in = nullptr)
   {
     nx = x;
     ny = y;
 
     cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
-    * rank = (x > y) ? y : x;
+    * rank = (rank_in > 0 && rank_in <= x && rank_in <= y) ? rank_in : (x > y ? y : x);
 
-    UxS = new dev_dense <T> (nx, ny);
-    VT = new dev_dense <T> (nx, nx);
+    UxS = (U_in == nullptr) ? new dev_dense <T> (nx, ny) : U_in;
+    VT = (VT_in == nullptr) ? new dev_dense <T> (nx, nx) : VT_in;
   }
 
   __host__ ~dev_low_rank ()
@@ -47,12 +47,49 @@ public:
     return offset >= getOffset_VT() ? VT -> getElements (offset - getOffset_VT()) : UxS -> getElements(offset); 
   }
 
-  __host__ T getElement (const int x, const int y) const
+  __host__ T getElement (const int y, const int x) const
   {
     T element = 0;
+    const int ld_u = UxS -> getLd(), ld_vt = VT -> getLd();
+    const T * UxS_E = UxS -> getElements(), * VT_E = VT -> getElements();
     for (int i = 0; i < * rank; i++)
-    { element += (UxS -> getElements())[x * UxS -> getLd() + i] * (VT -> getElements())[y * VT -> getLd() + i]; }
+    { element += UxS_E[y * ld_u + i] * VT_E[x * ld_vt + i]; }
     return element;
+  }
+
+  __host__ dev_low_rank <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
+  {
+    if ((x > 1 && y > 0) || (y > 1 && x > 0)) 
+    { 
+      dev_low_rank <T> ** list = new dev_low_rank <T> * [x * y];
+      const dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
+
+      for (int i = 0; i < y; i++)
+      {
+        const int ny_i = ys[i + 1] - ys[i];
+        const dev_dense <T> ** V_list = VT -> createPartitions (x, xs, 1, nullptr);
+
+        for (int j = 0; j < x; j++)
+        {
+          const int nx_i = xs[j + 1] - xs[j];
+          const dev_dense <T> ** U_dup = U_list[i] -> createPartitions (1, nullptr, 1, nullptr);
+          list[i * x + j] = new dev_low_rank <T> (nx_i, ny_i, *rank, U_dup[0], V_list[j]);
+          delete[] U_dup;
+        }
+
+        delete[] V_list;
+      }
+
+      delete[] U_list;
+      return list;
+    }
+    else
+    { 
+      const dev_dense <T> ** U_dup = UxS -> createPartitions (1, nullptr, 1, nullptr), ** V_dup = VT -> createPartitions (1, nullptr, 1, nullptr);
+      dev_low_rank <T> * ptr = new dev_low_rank <T> (nx, ny, *rank, U_dup[0], V_dup[0]);
+      delete[] U_dup; delete[] V_dup;
+      return new dev_low_rank <T> *[1] { ptr };
+    }
   }
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
@@ -122,21 +159,21 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
     h_ops_tree * op = new h_ops_tree (gemm_lr_d_d, self, index_a, index_b);
-    op -> resizeChildren(A -> getX() * A -> getY());
+    op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
-    int * y = new int[A -> getY()], * k = new int[A -> getX()], x = B -> getNx();
+    int * y = new int[A -> getNy_blocks()], * k = new int[A -> getNx_blocks()], x = B -> getNx();
     y[0] = 0; k[0] = 0; x = (nx > x) ? x : nx;
 
-    for (int i = 1; i < A -> getY(); i++)
+    for (int i = 1; i < A -> getNy_blocks(); i++)
     { y[i] = y[i - 1] + A -> getBlock(0, i - 1) -> getNy(); }
 
-    for (int i = 1; i < A -> getX(); i++)
+    for (int i = 1; i < A -> getNx_blocks(); i++)
     { k[i] = k[i - 1] + A -> getBlock(i - 1, 0) -> getNx(); }
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < A -> getX() * A -> getY(); i++)
+    for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
-      const int row = i / (A -> getX()), col = i - row * (A -> getX());
+      const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
       const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getBlock(col, row), &index_ai, B, &index_bj);
       op -> setChild(op_i, i);
@@ -177,21 +214,21 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
     h_ops_tree * op = new h_ops_tree (gemm_lr_d_lr, self, index_a, index_b);
-    op -> resizeChildren(A -> getX() * A -> getY());
+    op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
-    int * y = new int[A -> getY()], * k = new int[A -> getX()], x = B -> getNx();
+    int * y = new int[A -> getNy_blocks()], * k = new int[A -> getNx_blocks()], x = B -> getNx();
     y[0] = 0; k[0] = 0; x = (nx > x) ? x : nx;
 
-    for (int i = 1; i < A -> getY(); i++)
+    for (int i = 1; i < A -> getNy_blocks(); i++)
     { y[i] = y[i - 1] + A -> getBlock(0, i - 1) -> getNy(); }
 
-    for (int i = 1; i < A -> getX(); i++)
+    for (int i = 1; i < A -> getNx_blocks(); i++)
     { k[i] = k[i - 1] + A -> getBlock(i - 1, 0) -> getNx(); }
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < A -> getX() * A -> getY(); i++)
+    for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
-      const int row = i / (A -> getX()), col = i - row * (A -> getX());
+      const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
       const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getBlock(col, row), &index_ai, B, &index_bj);
       op -> setChild(op_i, i);
@@ -222,21 +259,21 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     h_ops_tree * op = new h_ops_tree (gemm_lr_d_d, self, index_a, index_b);
-    op -> resizeChildren(B -> getX() * B -> getY());
+    op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
-    int * x = new int[B -> getX()], * k = new int[B -> getY()], y = A -> getNy();
+    int * x = new int[B -> getNx_blocks()], * k = new int[B -> getNy_blocks()], y = A -> getNy();
     x[0] = 0; k[0] = 0; y = (ny > y) ? y : ny;
 
-    for (int i = 1; i < B -> getX(); i++)
+    for (int i = 1; i < B -> getNx_blocks(); i++)
     { x[i] = x[i - 1] + B -> getBlock(i - 1, 0) -> getNx(); }
 
-    for (int i = 1; i < B -> getY(); i++)
+    for (int i = 1; i < B -> getNy_blocks(); i++)
     { k[i] = k[i - 1] + B -> getBlock(0, i - 1) -> getNy(); }
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < B -> getX() * B -> getY(); i++)
+    for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
     {
-      const int row = i / (B -> getX()), col = i - row * (B -> getX());
+      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
       const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getBlock(col, row), &index_bj);
       op -> setChild(op_i, i);
@@ -251,21 +288,21 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     h_ops_tree * op = new h_ops_tree (gemm_lr_lr_d, self, index_a, index_b);
-    op -> resizeChildren(B -> getX() * B -> getY());
+    op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
-    int * x = new int[B -> getX()], * k = new int[B -> getY()], y = A -> getNy();
+    int * x = new int[B -> getNx_blocks()], * k = new int[B -> getNy_blocks()], y = A -> getNy();
     x[0] = 0; k[0] = 0; y = (ny > y) ? y : ny;
 
-    for (int i = 1; i < B -> getX(); i++)
+    for (int i = 1; i < B -> getNx_blocks(); i++)
     { x[i] = x[i - 1] + B -> getBlock(i - 1, 0) -> getNx(); }
 
-    for (int i = 1; i < B -> getY(); i++)
+    for (int i = 1; i < B -> getNy_blocks(); i++)
     { k[i] = k[i - 1] + B -> getBlock(0, i - 1) -> getNy(); }
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < B -> getX() * B -> getY(); i++)
+    for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
     {
-      const int row = i / (B -> getX()), col = i - row * (B -> getX());
+      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
       const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getBlock(col, row), &index_bj);
       op -> setChild(op_i, i);
@@ -279,30 +316,30 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
-    if (A -> getX() != B -> getY())
+    if (A -> getNx_blocks() != B -> getNy_blocks())
     { printf("Matrices are partitioned differently in LR.H-H GEMM.\n"); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm_lr_d_d, self, index_a, index_b);
-    op -> resizeChildren(A -> getY() * A -> getX() * B -> getX());
+    op -> resizeChildren(A -> getNy_blocks() * A -> getNx_blocks() * B -> getNx_blocks());
 
-    int * x = new int[A -> getY()], * y = new int[A -> getX()];
+    int * x = new int[A -> getNy_blocks()], * y = new int[A -> getNx_blocks()];
     x[0] = 0; y[0] = 0;
 
-    for (int i = 1; i < B -> getX(); i++)
+    for (int i = 1; i < B -> getNx_blocks(); i++)
     { x[i] = x[i - 1] + B -> getBlock(i - 1, 0) -> getNx(); }
 
-    for (int i = 1; i < A -> getY(); i++)
+    for (int i = 1; i < A -> getNy_blocks(); i++)
     { y[i] = y[i - 1] + A -> getBlock(0, i - 1) -> getNy(); }
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < B -> getX() * A -> getY(); i++)
+    for (int i = 0; i < B -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
-      const int row = i / (B -> getX()), col = i - row * (B -> getX());
-      for (int k = 0; k < A -> getX(); k++)
+      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
+      for (int k = 0; k < A -> getNx_blocks(); k++)
       {
         const h_index index_ai = h_index (A, index_a, row, k), index_bj = h_index (B, index_b, k, col), index_m = h_index (self, y[row], x[col], index_ai.getNy(), index_bj.getNx());
         h_ops_tree * op_k = generateOps_GEMM(&index_m, A -> getBlock(col, row), &index_ai, B, &index_bj);
-        op -> setChild(op_k, i * (B -> getX() * A -> getY()) + k);
+        op -> setChild(op_k, i * (B -> getNx_blocks() * A -> getNy_blocks()) + k);
         delete op_k;
       }
     }
@@ -405,7 +442,7 @@ public:
 
   __host__ void print() const
   {
-    printf("\n-- Low Rank: %d x %d, rank %d --\n", nx, ny, rank);
+    printf("\n-- LR: %d x %d, rank %d --\n", nx, ny, *rank);
     UxS -> print();
     VT -> print();
   }

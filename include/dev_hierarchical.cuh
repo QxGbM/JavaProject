@@ -9,37 +9,68 @@ template <class T> class dev_hierarchical
 private:
 
   int nx;
+  int * x_offsets;
+
   int ny;
+  int * y_offsets;
+
   dev_h_element <T> * elements;
 
 public:
   
-  __host__ dev_hierarchical (const int nx_in, const int ny_in)
+  __host__ dev_hierarchical (const int nx_in, const int ny_in, element_t type = empty, void ** elements_in = nullptr)
   {
-    nx = nx_in;
-    ny = ny_in;
+    nx = nx_in > 0 ? nx_in : 1;
+    x_offsets = new int [nx + 1];
+
+    ny = ny_in > 0 ? ny_in : 1;
+    y_offsets = new int [ny + 1];
+
     elements = new dev_h_element <T> [nx * ny];
-    for (int y = 0; y < ny; y++)
-    {
-      for (int x = 0; x < nx; x++)
-      { setElement(nullptr, empty, x, y); }
-    }
+    for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
+    { setElement((type == empty && elements_in == nullptr) ? nullptr : elements_in[y * nx + x], type, x, y); }
+
+    updateOffsets();
   }
 
   __host__ ~dev_hierarchical ()
   {
+    delete[] x_offsets;
+    delete[] y_offsets;
     delete[] elements;
   }
 
-  
-  __host__ inline int getX () const
+  __host__ inline int getNx_blocks () const
   { return nx; }
 
-  __host__ inline int getY () const
+  __host__ inline int getNy_blocks () const
   { return ny; }
 
-  __host__ inline dev_h_element <T> * getBlock (const int x, const int y) const
+  __host__ inline int getNx_abs () const
+  { return x_offsets[nx]; }
+
+  __host__ inline int getNy_abs () const
+  { return y_offsets[ny]; }
+
+  __host__ dev_h_element <T> * getBlock (const int x, const int y) const
   { return (x < nx && y < ny) ? &elements[y * nx + x] : nullptr; }
+
+  __host__ bool updateOffsets ()
+  {
+    x_offsets[0] = 0; y_offsets[0] = 0;
+    for (int y = 0; y < ny; y++)
+    { y_offsets[y + 1] = elements[y * nx].getNy() + y_offsets[y]; }
+    for (int x = 0; x < nx; x++)
+    { x_offsets[x + 1] = elements[x].getNx() + x_offsets[x]; }
+
+    for (int y = 1; y < ny; y++) for (int x = 1; x < nx; x++)
+    {
+      const int nx_i = elements[y * nx + x].getNx(), ny_i = elements[y * nx + x].getNy();
+      if ((nx_i != x_offsets[x + 1] - x_offsets[x]) && (ny_i != y_offsets[y + 1] - y_offsets[y]))
+      { return false; }
+    }
+    return true;
+  }
 
   __host__ void setElement (void * M, const element_t type, const int x, const int y) 
   {
@@ -47,97 +78,36 @@ public:
     { elements[y * nx + x].setElement(M, type); }
   }
 
-  __host__ h_index * getRootIndex () const
+  __host__ T getElement (const int y_in, const int x_in) const
   {
-    return new h_index (this);
-  }
+    int y = 0, x = 0;
 
-  __host__ bool dimIntegrityCheck () const
-  { 
-    for (int y = 0; y < ny; y++)
-    {
-      const int rows = elements[y * nx].getNy();
-      for (int x = 1; x < nx; x++)
-      {
-        const int rows_x = elements[y * nx + x].getNy();
-        if (rows != rows_x) 
-        { printf("-- Unmatched Dimensions: (%d, %d) with (%d, 0). --\n\n", y, x, y); return false; }
-      }
-    }
+    while (y < ny && y_in >= y_offsets[y + 1]) { y++; }
+    while (x < nx && x_in >= x_offsets[x + 1]) { x++; }
 
-    for (int x = 0; x < nx; x++)
-    {
-      const int cols = elements[x].getNx();
-      for (int y = 1; y < ny; y++)
-      {
-        const int cols_y = elements[y * nx + x].getNx();
-        if (cols != cols_y)
-        { printf("-- Unmatched Dimensions: (%d, %d) with (0, %d). --\n\n", y, x, x); return false; }
-      }
-    }
-
-    return true;
-  }
-
-  __host__ int getNx () const
-  {
-    if (dimIntegrityCheck())
-    {
-      int n = 0;
-      for (int i = 0; i < nx; i++)
-      { n += elements[i].getNx(); }
-      return n;
-    }
-    return 0;
-  }
-
-  __host__ int getNy () const
-  {
-    if (dimIntegrityCheck())
-    {
-      int n = 0;
-      for (int i = 0; i < ny; i++)
-      { n += elements[i * nx].getNy(); }
-      return n;
-    }
-    return 0;
-  }
-
-  __host__ T getElement (const int x_in, const int y_in) const
-  {
-    int y = 0, x = 0, r = 0, c = 0;
-
-    while (y < ny && x < nx)
-    {
-      int rs = elements[y * nx + x].getNy(), cs = elements[y * nx + x].getNx();
-      if (r + rs <= y_in)
-      { r += rs; y++; }
-      else if (c + cs <= x_in)
-      { c += cs; x++; }
-      else
-      { return elements[y * nx + x].getElement(x_in - c, y_in - r); }
-    }
-
-    return 0;
+    if (y < ny && x < nx)
+    { return elements[y * nx + x].getElement(y_in - y_offsets[y], x_in - x_offsets[x]); }
+    else
+    { return 0; }
   }
 
   __host__ dev_dense <T> * convertToDense() const
   {
-    const int nx_d = getNx(), ny_d = getNy();
+    const int nx_d = getNx_abs(), ny_d = getNy_abs();
     if (nx_d > 0 && ny_d > 0)
     {
       dev_dense <T> * d = new dev_dense <T> (nx_d, ny_d);
-      T * elements = d -> getElements();
-      for (int y = 0; y < ny_d; y++)
-      {
-        for (int x = 0; x < nx_d; x++)
-        { elements[y * nx_d + x] = getElement(x, y); }
-      }
+      T * d_elements = d -> getElements();
+      for (int y = 0; y < ny_d; y++) for (int x = 0; x < nx_d; x++)
+      { d_elements[y * nx_d + x] = getElement(y, x); }
       return d;
     }
     else
     { return nullptr; }
   }
+
+  __host__ h_index * getRootIndex () const
+  { return new h_index (this); }
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   {
@@ -888,7 +858,7 @@ public:
           dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
           e -> loadTestMatrix(levels - 1, dim, block_size, admis, x_offset, y_offset); 
           setElement(e, hierarchical, x, y);
-          x_offset += e -> getNx();
+          x_offset += e -> getNx_abs();
         }
         else
         {
@@ -911,7 +881,10 @@ public:
       y_offset += elements[y * nx].getNy();
     }
 
+    updateOffsets();
+
   }
+
 
 };
 
