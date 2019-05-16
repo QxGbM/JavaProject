@@ -124,6 +124,87 @@ public:
     return 0;
   }
 
+  __host__ bool partitionAccording (dev_h_element <T> * y = nullptr, dev_h_element <T> * x = nullptr)
+  {
+    dev_hierarchical <T> *h_y = (y == nullptr) ? nullptr : y -> getElementHierarchical();
+    dev_hierarchical <T> *h_x = (x == nullptr) ? nullptr : x -> getElementHierarchical();
+    if (h_y == nullptr && h_x == nullptr)
+    { return true; }
+
+    dev_dense <T> *d = getElementDense();
+    if (d != nullptr)
+    { return true; }
+
+    const int ny_i = (h_y == nullptr) ? 1 : h_y -> getNy_blocks(), nx_i = (h_x == nullptr) ? 1 : h_x -> getNx_blocks();
+    if (ny_i == 1 && nx_i == 1)
+    { return true; }
+
+    int * y_offsets = nullptr, * x_offsets = nullptr;
+    if (h_y != nullptr) { h_y -> getOffsets_y(&y_offsets); }
+    if (h_x != nullptr) { h_x -> getOffsets_x(&x_offsets); }
+
+    dev_low_rank <T> *lr = getElementLowRank();
+    dev_hierarchical <T> *h;
+
+    if (lr != nullptr)
+    {
+      dev_low_rank <T> ** list = lr -> createPartitions (ny_i, y_offsets, nx_i, x_offsets);
+      h = new dev_hierarchical <T> (nx_i, ny_i, low_rank, list);
+      delete lr;
+      element = h; type = hierarchical;
+    }
+    else
+    { h = getElementHierarchical(); }
+
+    if (h != nullptr)
+    {
+      const int ny_h = h -> getNy_blocks(), nx_h = h -> getNx_blocks();
+      int * y_offsets_h, * x_offsets_h;
+      bool success = true;
+      h -> getOffsets_y(&y_offsets_h);
+      h -> getOffsets_x(&x_offsets_h);
+
+      if ((ny_h != ny_i) || (nx_h != nx_i))
+      { 
+        printf("-- Partition Failed: Hierarchical Matrices are already partioned in a different way. y: %d vs %d, x: %d vs %d. --\n", ny_h, ny_i, nx_h, nx_i); 
+        success = false;
+      }
+      else
+      {
+        for (int i = 0; i < ny_i + 1 && success; i++)
+        {
+          if (y_offsets[i] != y_offsets_h[i]) 
+          { success = false; }
+        }
+
+        for (int i = 0; i < nx_i + 1 && success; i++)
+        {
+          if (x_offsets[i] != x_offsets_h[i]) 
+          { success = false; }
+        }
+
+        if (!success)
+        { printf("-- Partition Failed: Hierarchical Matrices are already partioned in a different way. y: %d vs %d, x: %d vs %d. --\n"); }
+      }
+
+      for (int i = 0; i < ny_i && success; i++) for (int j = 0; j < nx_i && success; j++)
+      { success = h -> getElement_blocks(y, x) -> partitionAccording(h_y -> getElement_blocks(y, 0), h_x -> getElement_blocks(0, x)); }
+
+      delete[] y_offsets_h;
+      delete[] x_offsets_h;
+      delete[] y_offsets;
+      delete[] x_offsets;
+      return success;
+    }
+    else
+    {
+      delete[] y_offsets;
+      delete[] x_offsets;
+      return true;
+    }
+
+  }
+
   __host__ dev_dense <T> * convertToDense() const
   {
     const dev_dense <T> *d = getElementDense();
