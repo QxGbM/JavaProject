@@ -83,8 +83,8 @@ class h_ops;
 class h_ops_tree;
 class h_ops_dag;
 
-class inst_queue;
-class inst_scheduler;
+class instructions_queue;
+class instructions_scheduler;
 
 class instructions_manager;
 
@@ -107,8 +107,8 @@ class timer;
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 
-#include <inst_scheduler.cuh>
-#include <dev_instructions.cuh>
+#include <instructions_scheduler.cuh>
+#include <instructions_manager.cuh>
 #include <kernel.cuh>
 
 #endif

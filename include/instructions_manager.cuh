@@ -1,5 +1,5 @@
-#ifndef _DEV_INSTRUCTIONS_CUH
-#define _DEV_INSTRUCTIONS_CUH
+#ifndef _INSTRUCTIONS_MANAGER_CUH
+#define _INSTRUCTIONS_MANAGER_CUH
 
 #include <pspl.cuh>
 
@@ -54,14 +54,14 @@ private:
     }
   }
 
-  __host__ int loadInsts (const int worker_id, const inst_queue * queue, const h_ops_dag * dag)
+  __host__ int loadInsts (const int worker_id, const instructions_queue * queue, const h_ops_dag * dag)
   {
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
 
     int loc = 0, *inst = &(insts[worker_id][loc]);
 
-    for (const inst_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
+    for (const instructions_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
     {
       const int signal_id = ptr -> getInst();
 
@@ -147,7 +147,7 @@ private:
 
 public:
 
-  __host__ instructions_manager (const int num_workers, const h_ops_dag * dag, const inst_scheduler * schedule)
+  __host__ instructions_manager (const int num_workers, const h_ops_dag * dag, const instructions_scheduler * schedule)
   {
     insts = new int * [num_workers];
     workers = num_workers;

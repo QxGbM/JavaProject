@@ -136,7 +136,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
   clock_start = omp_get_wtime();
-  inst_scheduler schedule = inst_scheduler (&dag, workers);
+  instructions_scheduler schedule = instructions_scheduler (&dag, workers);
   clock_end = omp_get_wtime();
   printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 

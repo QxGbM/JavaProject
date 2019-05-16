@@ -99,8 +99,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\dev_hierarchical_element.cuh" />
-    <ClInclude Include="include\dev_instructions.cuh" />
-    <ClInclude Include="include\inst_scheduler.cuh" />
+    <ClInclude Include="include\instructions_manager.cuh" />
+    <ClInclude Include="include\instructions_scheduler.cuh" />
     <ClInclude Include="include\dev_low_rank_funcs.cuh" />
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\timer.cuh" />

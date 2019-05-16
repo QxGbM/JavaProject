@@ -164,9 +164,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
-
-    return op;
+    return nullptr;
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_h_element <T> *B, const h_index *index_b) const

@@ -222,14 +222,14 @@ public:
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
     {
-      const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], 0, index_i.getNy(), index_b -> getNx());
+      const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], -1, index_i.getNy(), index_b -> getNx());
       h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSML(&index_i, B, &index_bi);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < ny; j++)
       {
-        const h_index index_j = h_index (this, self, j, i), index_bj = h_index (index_b, y_offsets[j], 0, index_j.getNy(), index_b -> getNx());
+        const h_index index_j = h_index (this, self, j, i), index_bj = h_index (index_b, y_offsets[j], -1, index_j.getNy(), index_b -> getNx());
         h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
@@ -346,14 +346,14 @@ public:
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
     {
-      const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, 0, x_offsets[i], index_b -> getNy(), index_i.getNx());
+      const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, -1, x_offsets[i], index_b -> getNy(), index_i.getNx());
       h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSMR(&index_i, B, &index_bi);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < nx; j++)
       {
-        const h_index index_j = h_index (this, self, i, j), index_bj = h_index (index_b, 0, x_offsets[j], index_b -> getNy(), index_j.getNx());
+        const h_index index_j = h_index (this, self, i, j), index_bj = h_index (index_b, -1, x_offsets[j], index_b -> getNy(), index_j.getNx());
         h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;

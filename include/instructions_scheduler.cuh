@@ -1,18 +1,18 @@
-#ifndef _INST_SCHEDULER_CUH
-#define _INST_SCHEDULER_CUH
+#ifndef _INSTRUCTIONS_SCHEDULER_CUH
+#define _INSTRUCTIONS_SCHEDULER_CUH
 
 #include <pspl.cuh>
 
-class inst_queue
+class instructions_queue
 {
 private:
   int inst;
   int n_deps;
   bool ex_w;
-  inst_queue * next;
+  instructions_queue * next;
 
 public:
-  __host__ inst_queue (const int inst_in, const int n_deps_in, const bool ex_w_in, inst_queue * next_q = nullptr)
+  __host__ instructions_queue (const int inst_in, const int n_deps_in, const bool ex_w_in, instructions_queue * next_q = nullptr)
   {
     inst = inst_in;
     n_deps = (n_deps_in > 0) ? n_deps_in : 0;
@@ -20,7 +20,7 @@ public:
     next = next_q;
   }
 
-  __host__ ~inst_queue ()
+  __host__ ~instructions_queue ()
   { delete next; }
 
   __host__ inline int getInst () const
@@ -32,13 +32,13 @@ public:
   __host__ inline bool getExW () const
   { return ex_w; }
 
-  __host__ inline inst_queue * getNext() const
+  __host__ inline instructions_queue * getNext() const
   { return next; }
 
   __host__ int getInst_Index (const int index) const
   {
     int i = 0;
-    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { if (i == index) { return ptr -> inst; } else { i++; } }
     return -1;
   }
@@ -46,7 +46,7 @@ public:
   __host__ int getIndex_InstExe (const int inst_in) const
   {
     int i = 0;
-    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { if (ptr -> inst == inst_in && ptr -> ex_w) { return i; } else { i++; } }
     return -1;
   }
@@ -54,18 +54,18 @@ public:
   __host__ int getNumInsts() const
   {
     int i = 0;
-    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) { i++; }
+    for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) { i++; }
     return i;
   }
 
-  __host__ inst_queue * removeFirst (const int index)
+  __host__ instructions_queue * removeFirst (const int index)
   { 
     int i = 0;
-    for (inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    for (instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     {
       if (i == index - 1)
       {
-        inst_queue * p = ptr -> next;
+        instructions_queue * p = ptr -> next;
         ptr -> next = nullptr;
         delete this;
         return p;
@@ -79,14 +79,14 @@ public:
   __host__ int hookup (const int inst_in, const int n_deps_in, const bool ex_w_in)
   {
     int i = 0;
-    for (inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    for (instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
       if (ptr -> inst == inst_in)
       { return i; }
       else if (ptr -> next == nullptr) 
-      { ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in); return i + 1; }
+      { ptr -> next = new instructions_queue (inst_in, n_deps_in, ex_w_in); return i + 1; }
       else if ((ptr -> next -> n_deps) < n_deps_in)
-      { ptr -> next = new inst_queue (inst_in, n_deps_in, ex_w_in, ptr -> next); return i + 1; }
+      { ptr -> next = new instructions_queue (inst_in, n_deps_in, ex_w_in, ptr -> next); return i + 1; }
       else
       { i++; }
     }
@@ -95,7 +95,7 @@ public:
 
   __host__ void print() const
   {
-    for (const inst_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
+    for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
     {
       if (!(ptr -> ex_w)) { printf("w"); }
       printf("%d ", ptr -> inst);
@@ -104,13 +104,13 @@ public:
   }
 };
 
-class inst_scheduler
+class instructions_scheduler
 {
 private:
   int length;
   int workers;
-  inst_queue * working_queue;
-  inst_queue ** result_queues;
+  instructions_queue * working_queue;
+  instructions_queue ** result_queues;
   int * inward_deps_counter;
   int * state;
 
@@ -122,9 +122,9 @@ private:
       {
         const int dep_count = dag -> getDepCount_from(i);
         if (working_queue == nullptr)
-        { working_queue = new inst_queue(i, dep_count, true); }
+        { working_queue = new instructions_queue(i, dep_count, true); }
         else if (working_queue -> getNDeps() < dep_count)
-        { working_queue = new inst_queue(i, dep_count, true, working_queue); }
+        { working_queue = new instructions_queue(i, dep_count, true, working_queue); }
         else
         { working_queue -> hookup(i, dep_count, true); }
       }
@@ -134,7 +134,7 @@ private:
   __host__ int add_inst (const int inst, const bool ex_w, const int worker_id)
   {
     if (result_queues[worker_id] == nullptr)
-    { result_queues[worker_id] = new inst_queue(inst, 0, ex_w); return 0; }
+    { result_queues[worker_id] = new instructions_queue(inst, 0, ex_w); return 0; }
     else
     { return result_queues[worker_id] -> hookup(inst, 0, ex_w); }
   }
@@ -218,12 +218,12 @@ private:
 
 public:
 
-  __host__ inst_scheduler (const h_ops_dag * dag, const int num_workers_limit)
+  __host__ instructions_scheduler (const h_ops_dag * dag, const int num_workers_limit)
   {
     length = dag -> getLength();
     workers = num_workers_limit;
     working_queue = nullptr;
-    result_queues = new inst_queue * [workers];
+    result_queues = new instructions_queue * [workers];
     inward_deps_counter = new int [length];
     state = new int [length * workers];
 
@@ -240,7 +240,7 @@ public:
     schedule (dag);
   }
 
-  __host__ ~inst_scheduler ()
+  __host__ ~instructions_scheduler ()
   {
     delete working_queue;
 
@@ -252,7 +252,7 @@ public:
     delete[] state;
   }
 
-  __host__ inline inst_queue * getSchedule (const int worker_id) const
+  __host__ inline instructions_queue * getSchedule (const int worker_id) const
   { return (worker_id >= 0 && worker_id < workers) ? result_queues[worker_id] : nullptr; }
 
   __host__ void print () const
