@@ -73,7 +73,7 @@ public:
     
     indexs[index_lvls - 1] = y * (h -> getNx_blocks()) + x;
 
-    dev_h_element <T> * element = h -> getBlock(x, y);
+    dev_h_element <T> * element = h -> getElement_blocks(y, x);
     type = element -> getType();
     nx = element -> getNx();
     ny = element -> getNy();

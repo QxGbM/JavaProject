@@ -119,7 +119,7 @@ public:
     if (lr != nullptr)
     { return lr -> getElement(y_in, x_in); }
     if (h != nullptr)
-    { return h -> getElement(y_in, x_in); }
+    { return h -> getElement_abs(y_in, x_in); }
 
     return 0;
   }

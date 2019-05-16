@@ -24,7 +24,6 @@ template <class T> __host__ int test0()
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
-  a->print();
 
   const int blocks = 160, threads = 1024;
 

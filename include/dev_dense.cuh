@@ -231,21 +231,17 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
     op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
-    int * y = new int[A -> getNy_blocks()], * k = new int[A -> getNx_blocks()], x = B -> getNx();
-    y[0] = 0; k[0] = 0; x = (nx > x) ? x : nx;
-
-    for (int i = 1; i < A -> getNy_blocks(); i++)
-    { y[i] = y[i - 1] + A -> getBlock(0, i - 1) -> getNy(); }
-
-    for (int i = 1; i < A -> getNx_blocks(); i++)
-    { k[i] = k[i - 1] + A -> getBlock(i - 1, 0) -> getNx(); }
+    int * y, * k, x = B -> getNx();
+    x = (nx > x) ? x : nx;
+    A -> getOffsets_y(&y);
+    A -> getOffsets_x(&k);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
       const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
       const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
-      h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getBlock(col, row), &index_ai, B, &index_bj);
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -286,21 +282,17 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm_d_d_lr, self, index_a, index_b);
     op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
-    int * y = new int[A -> getNy_blocks()], * k = new int[A -> getNx_blocks()], x = B -> getNx();
-    y[0] = 0; k[0] = 0; x = (nx > x) ? x : nx;
-
-    for (int i = 1; i < A -> getNy_blocks(); i++)
-    { y[i] = y[i - 1] + A -> getBlock(0, i - 1) -> getNy(); }
-
-    for (int i = 1; i < A -> getNx_blocks(); i++)
-    { k[i] = k[i - 1] + A -> getBlock(i - 1, 0) -> getNx(); }
+    int * y, * k, x = B -> getNx();
+    x = (nx > x) ? x : nx;
+    A -> getOffsets_y(&y);
+    A -> getOffsets_x(&k);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
       const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
       const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
-      h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getBlock(col, row), &index_ai, B, &index_bj);
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -331,21 +323,17 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
     op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
-    int * x = new int[B -> getNx_blocks()], * k = new int[B -> getNy_blocks()], y = A -> getNy();
-    x[0] = 0; k[0] = 0; y = (ny > y) ? y : ny;
-
-    for (int i = 1; i < B -> getNx_blocks(); i++)
-    { x[i] = x[i - 1] + B -> getBlock(i - 1, 0) -> getNx(); }
-
-    for (int i = 1; i < B -> getNy_blocks(); i++)
-    { k[i] = k[i - 1] + B -> getBlock(0, i - 1) -> getNy(); }
+    int * x, * k, y = A -> getNy();
+    y = (ny > y) ? y : ny;
+    B -> getOffsets_y(&k);
+    B -> getOffsets_x(&x);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
     {
       const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
       const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
-      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getBlock(col, row), &index_bj);
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -360,21 +348,17 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm_d_lr_d, self, index_a, index_b);
     op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
-    int * x = new int[B -> getNx_blocks()], * k = new int[B -> getNy_blocks()], y = A -> getNy();
-    x[0] = 0; k[0] = 0; y = (ny > y) ? y : ny;
-
-    for (int i = 1; i < B -> getNx_blocks(); i++)
-    { x[i] = x[i - 1] + B -> getBlock(i - 1, 0) -> getNx(); }
-
-    for (int i = 1; i < B -> getNy_blocks(); i++)
-    { k[i] = k[i - 1] + B -> getBlock(0, i - 1) -> getNy(); }
+    int * x, * k, y = A -> getNy();
+    y = (ny > y) ? y : ny;
+    B -> getOffsets_y(&k);
+    B -> getOffsets_x(&x);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
     {
       const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
       const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
-      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getBlock(col, row), &index_bj);
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -392,14 +376,9 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
     op -> resizeChildren(A -> getNy_blocks() * A -> getNx_blocks() * B -> getNx_blocks());
 
-    int * x = new int[A -> getNy_blocks()], * y = new int[A -> getNx_blocks()];
-    x[0] = 0; y[0] = 0;
-
-    for (int i = 1; i < B -> getNx_blocks(); i++)
-    { x[i] = x[i - 1] + B -> getBlock(i - 1, 0) -> getNx(); }
-
-    for (int i = 1; i < A -> getNy_blocks(); i++)
-    { y[i] = y[i - 1] + A -> getBlock(0, i - 1) -> getNy(); }
+    int * x, * y;
+    A -> getOffsets_y(&y);
+    B -> getOffsets_x(&x);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < B -> getNx_blocks() * A -> getNy_blocks(); i++)
@@ -408,7 +387,7 @@ public:
       for (int k = 0; k < A -> getNx_blocks(); k++)
       {
         const h_index index_ai = h_index (A, index_a, row, k), index_bj = h_index (B, index_b, k, col), index_m = h_index (self, y[row], x[col], index_ai.getNy(), index_bj.getNx());
-        h_ops_tree * op_k = generateOps_GEMM(&index_m, A -> getBlock(col, row), &index_ai, B, &index_bj);
+        h_ops_tree * op_k = generateOps_GEMM(&index_m, A -> getElement_blocks(row, k), &index_ai, B -> getElement_blocks(k, col), &index_bj);
         op -> setChild(op_k, i * (B -> getNx_blocks() * A -> getNy_blocks()) + k);
         delete op_k;
       }
