@@ -123,13 +123,19 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   double clock_start, clock_end;
 
-  const h_index * root = h -> getRootIndex();
   clock_start = omp_get_wtime();
+  if (!(h -> partitionForLU()))
+  { printf("-- Partition Failed. Aborting. --\n"); return cudaErrorUnknown; }
+  clock_end = omp_get_wtime();
+  printf("LU partition finishes in %f ms.\n\n", 1000. * (clock_end - clock_start));
+
+  clock_start = omp_get_wtime();
+  const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root);
   clock_end = omp_get_wtime();
   printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  clock_start = omp_get_wtime();
+  /*clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
   clock_end = omp_get_wtime();
   delete tree;
@@ -200,7 +206,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   }
   printf("FLOPS/S.\n\n");
 
-  cudaStreamDestroy(main_stream);
+  cudaStreamDestroy(main_stream);*/
 
   return cudaSuccess;
 }

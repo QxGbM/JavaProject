@@ -120,8 +120,35 @@ public:
     { return nullptr; }
   }
 
-  __host__ h_index * getRootIndex () const
+  __host__ inline h_index * getRootIndex () const
   { return new h_index (this); }
+
+  __host__ bool partitionForLU ()
+  {
+    const int n = nx > ny ? ny : nx;
+    bool success = true;
+
+    for (int i = 0; i < n; i++)
+    {
+      dev_hierarchical <T> * h_i = elements[i * nx + i].getElementHierarchical();
+      if (h_i != nullptr)
+      { 
+        success = h_i -> partitionForLU (); 
+        if (!success) { return false; }
+      }
+    }
+
+    for (int i = 0; i < n; i++)
+    {
+      for (int j = i + 1; j < ny; j++) for (int k = i + 1; k < nx; k++)
+      { 
+        success = elements[j * nx + k].partitionAccording(&elements[j * nx + i], &elements[i * nx + k]); 
+        if (!success) { return false; }
+      }
+    }
+
+    return true;
+  }
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   {

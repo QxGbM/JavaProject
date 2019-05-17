@@ -59,20 +59,20 @@ public:
 
   __host__ dev_low_rank <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
   {
-    if ((x > 1 && y > 0) || (y > 1 && x > 0)) 
+    if (x > 1 && y > 1) 
     { 
       dev_low_rank <T> ** list = new dev_low_rank <T> * [x * y];
-      const dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
+      dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
 
       for (int i = 0; i < y; i++)
       {
         const int ny_i = ys[i + 1] - ys[i];
-        const dev_dense <T> ** V_list = VT -> createPartitions (x, xs, 1, nullptr);
+        dev_dense <T> ** V_list = VT -> createPartitions (x, xs, 1, nullptr);
 
         for (int j = 0; j < x; j++)
         {
           const int nx_i = xs[j + 1] - xs[j];
-          const dev_dense <T> ** U_dup = U_list[i] -> createPartitions (1, nullptr, 1, nullptr);
+          dev_dense <T> ** U_dup = U_list[i] -> createPartitions (1, nullptr, 1, nullptr);
           list[i * x + j] = new dev_low_rank <T> (nx_i, ny_i, *rank, U_dup[0], V_list[j]);
           delete[] U_dup;
         }
@@ -83,9 +83,41 @@ public:
       delete[] U_list;
       return list;
     }
+    else if (x > 1 && y <= 1)
+    {
+      dev_low_rank <T> ** list = new dev_low_rank <T> * [x];
+      dev_dense <T> ** V_list = VT -> createPartitions (x, xs, 1, nullptr);
+
+      for (int j = 0; j < x; j++)
+      {
+        const int nx_i = xs[j + 1] - xs[j];
+        dev_dense <T> ** U_dup = UxS -> createPartitions (1, nullptr, 1, nullptr);
+        list[j] = new dev_low_rank <T> (nx_i, ny, *rank, U_dup[0], V_list[j]);
+        delete[] U_dup;
+      }
+
+      delete[] V_list;
+      return list;
+    }
+    else if (x <= 1 && y > 1)
+    {
+      dev_low_rank <T> ** list = new dev_low_rank <T> * [y];
+      dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
+
+      for (int i = 0; i < y; i++)
+      {
+        const int ny_i = ys[i + 1] - ys[i];
+        dev_dense <T> ** V_dup = VT -> createPartitions (1, nullptr, 1, nullptr);
+        list[i] = new dev_low_rank <T> (nx, ny_i, *rank, U_list[i], V_dup[0]);
+        delete[] V_dup;
+      }
+
+      delete[] U_list;
+      return list;
+    }
     else
     { 
-      const dev_dense <T> ** U_dup = UxS -> createPartitions (1, nullptr, 1, nullptr), ** V_dup = VT -> createPartitions (1, nullptr, 1, nullptr);
+      dev_dense <T> ** U_dup = UxS -> createPartitions (1, nullptr, 1, nullptr), ** V_dup = VT -> createPartitions (1, nullptr, 1, nullptr);
       dev_low_rank <T> * ptr = new dev_low_rank <T> (nx, ny, *rank, U_dup[0], V_dup[0]);
       delete[] U_dup; delete[] V_dup;
       return new dev_low_rank <T> *[1] { ptr };
