@@ -127,7 +127,7 @@ public:
       dev_dense <T> ** list = new dev_dense <T> * [x * y];
       for (int i = 0; i < y; i++)
       {
-        const int y_start = ys[i], ny_i = ys[i + 1];
+        const int y_start = ys[i], ny_i = ys[i + 1] - y_start;
         for (int j = 0; j < x; j++)
         {
           int x_start = xs[j], nx_i = xs[j + 1] - x_start;
@@ -157,7 +157,7 @@ public:
       dev_dense <T> ** list = new dev_dense <T> * [y];
       for (int i = 0; i < y; i++)
       {
-        const int y_start = ys[i], ny_i = ys[i + 1];
+        const int y_start = ys[i], ny_i = ys[i + 1] - y_start;
         dev_dense <T> * ptr = new dev_dense <T> (nx, ny_i, nx, pivoted, device_id);
         for (int k = 0; k < ny_i; k++) for (int l = 0; l < nx; l++)
         { (ptr -> elements)[k * nx + l] = elements[(y_start + k) * ld + l]; }

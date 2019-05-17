@@ -668,7 +668,7 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
-    { printf("Matrices are partitioned differently in H-H.H GEMM.\n"); return nullptr; }
+    { printf("Matrices are partitioned differently in H-H.H GEMM.\n"); self -> print(); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
     op -> resizeChildren(nx * ny * A -> nx);

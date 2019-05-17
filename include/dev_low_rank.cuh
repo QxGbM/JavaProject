@@ -14,16 +14,20 @@ private:
 
 public:
 
-  __host__ dev_low_rank (const int x, const int y, const int rank_in = 0, dev_dense <T> * U_in = nullptr, dev_dense <T> * VT_in = nullptr)
+  __host__ dev_low_rank (const int x, const int y, const int rank_in = -1, dev_dense <T> * U_in = nullptr, dev_dense <T> * VT_in = nullptr)
   {
     nx = x;
     ny = y;
 
     cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
-    * rank = (rank_in > 0 && rank_in <= x && rank_in <= y) ? rank_in : (x > y ? y : x);
+    * rank = (rank_in == -1) ? -1 : ((rank_in > 0 && rank_in <= x && rank_in <= y) ? rank_in : (x > y ? y : x));
 
     UxS = (U_in == nullptr) ? new dev_dense <T> (nx, ny) : U_in;
-    VT = (VT_in == nullptr) ? new dev_dense <T> (nx, nx) : VT_in;
+    
+    if (VT_in == nullptr)
+    { VT = new dev_dense <T> (nx, nx); VT -> loadIdentityMatrix(); }
+    else
+    { VT = VT_in; }
   }
 
   __host__ ~dev_low_rank ()
@@ -56,28 +60,31 @@ public:
     { element += UxS_E[y * ld_u + i] * VT_E[x * ld_vt + i]; }
     return element;
   }
-
+  
   __host__ dev_low_rank <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
   {
-    if (x > 1 && y > 1) 
+    if (* rank != -1)
+    { 
+      printf("-- Shouldn't be partitioning a low-rank object that is already compressed. --\n");
+      dev_dense <T> ** U_dup = UxS -> createPartitions(1, nullptr, 1, nullptr), ** V_dup = VT -> createPartitions(1, nullptr, 1, nullptr);
+      dev_low_rank <T> * ptr = new dev_low_rank <T> (nx, ny, *rank, U_dup[0], V_dup[0]);
+      delete[] U_dup; delete[] V_dup;
+      return new dev_low_rank <T> *[1]{ ptr };
+    }
+    else if (x > 1 && y > 1) 
     { 
       dev_low_rank <T> ** list = new dev_low_rank <T> * [x * y];
-      dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
+      dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, x, xs);
 
       for (int i = 0; i < y; i++)
       {
         const int ny_i = ys[i + 1] - ys[i];
-        dev_dense <T> ** V_list = VT -> createPartitions (x, xs, 1, nullptr);
 
         for (int j = 0; j < x; j++)
         {
           const int nx_i = xs[j + 1] - xs[j];
-          dev_dense <T> ** U_dup = U_list[i] -> createPartitions (1, nullptr, 1, nullptr);
-          list[i * x + j] = new dev_low_rank <T> (nx_i, ny_i, *rank, U_dup[0], V_list[j]);
-          delete[] U_dup;
+          list[i * x + j] = new dev_low_rank <T> (nx_i, ny_i, -1, U_list[i * x + j], nullptr);
         }
-
-        delete[] V_list;
       }
 
       delete[] U_list;
@@ -86,17 +93,15 @@ public:
     else if (x > 1 && y <= 1)
     {
       dev_low_rank <T> ** list = new dev_low_rank <T> * [x];
-      dev_dense <T> ** V_list = VT -> createPartitions (x, xs, 1, nullptr);
+      dev_dense <T> ** U_list = UxS -> createPartitions (1, nullptr, x, xs);
 
       for (int j = 0; j < x; j++)
       {
         const int nx_i = xs[j + 1] - xs[j];
-        dev_dense <T> ** U_dup = UxS -> createPartitions (1, nullptr, 1, nullptr);
-        list[j] = new dev_low_rank <T> (nx_i, ny, *rank, U_dup[0], V_list[j]);
-        delete[] U_dup;
+        list[j] = new dev_low_rank <T> (nx_i, ny, -1, U_list[j], nullptr);
       }
 
-      delete[] V_list;
+      delete[] U_list;
       return list;
     }
     else if (x <= 1 && y > 1)
@@ -107,9 +112,7 @@ public:
       for (int i = 0; i < y; i++)
       {
         const int ny_i = ys[i + 1] - ys[i];
-        dev_dense <T> ** V_dup = VT -> createPartitions (1, nullptr, 1, nullptr);
-        list[i] = new dev_low_rank <T> (nx, ny_i, *rank, U_list[i], V_dup[0]);
-        delete[] V_dup;
+        list[i] = new dev_low_rank <T> (nx, ny_i, -1, U_list[i], nullptr);
       }
 
       delete[] U_list;
@@ -453,7 +456,7 @@ public:
 
   __host__ void print() const
   {
-    printf("\n-- LR: %d x %d, rank %d --\n", nx, ny, *rank);
+    printf("\n-- LR: %d x %d, rank %d --\n", ny, nx, *rank);
     UxS -> print();
     VT -> print();
   }
@@ -462,6 +465,7 @@ public:
   {
     UxS -> loadTestMatrix (x_start, y_start);
     VT -> loadIdentityMatrix();
+    *rank = -1;
   }
 
 };
