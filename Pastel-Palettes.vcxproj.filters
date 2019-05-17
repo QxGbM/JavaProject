@@ -22,5 +22,6 @@
   <ItemGroup>
     <None Include="docs\README.md" />
     <None Include="Makefile" />
+    <None Include="docs\CONTRIBUTING.md" />
   </ItemGroup>
 </Project>

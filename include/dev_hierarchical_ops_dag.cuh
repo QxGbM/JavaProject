@@ -99,19 +99,14 @@ public:
     for (int i = 0; i < length; i++)
     { delete deps_graph[i]; }
     delete[] deps_graph;
-
     delete ops_list;
   }
 
-  __host__ int getLength () const
-  {
-    return length;
-  }
+  __host__ inline int getLength () const
+  { return length; }
 
-  __host__ h_ops * getOp (const int index) const
-  {
-    return ops_list -> getChild(index);
-  }
+  __host__ inline h_ops * getOp (const int index) const
+  { return ops_list -> getChild(index); }
 
   __host__ dependency_t getDep (const int from, const int to) const
   {
@@ -121,7 +116,7 @@ public:
     { return deps_graph[from] -> lookupDependency(to); }
   }
 
-  __host__ inline int getDepCount_from (const int from) const
+  __host__ int getDepCount_from (const int from) const
   { return (deps_graph[from] == nullptr) ? 0 : deps_graph[from] -> length(); }
 
   __host__ int getDepCount_to (const int to) const
@@ -132,10 +127,8 @@ public:
     return sum;
   }
 
-  __host__ unsigned long long int getFops () const
-  {
-    return fops;
-  }
+  __host__ inline unsigned long long int getFops () const
+  { return fops; }
 
   __host__ void print() const
   {

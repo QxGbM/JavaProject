@@ -165,13 +165,13 @@ public:
   {
     h_ops_tree * op = new h_ops_tree (getrf_d, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + (nx - i + 1) * (ny - i + 1); }
 
-    op -> resizeChildren(child_offset[n - 1] + (nx - n + 1) * (ny - n + 1));
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -216,13 +216,13 @@ public:
   {
     h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + ny - i + 1; }
 
-    op -> resizeChildren(child_offset[n - 1] + ny - n + 1);
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -249,13 +249,13 @@ public:
   {
     h_ops_tree * op = new h_ops_tree (trsml_lr, index_b, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + ny - i + 1; }
 
-    op -> resizeChildren(child_offset[n - 1] + ny - n + 1);
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -285,13 +285,13 @@ public:
 
     h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + (B -> nx) * (ny - i + 1); }
 
-    op -> resizeChildren(child_offset[n - 1] + (B -> nx) * (ny - n + 1));
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -340,13 +340,13 @@ public:
   {
     h_ops_tree * op = new h_ops_tree (trsmr_d, index_b, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + nx - i + 1; }
 
-    op -> resizeChildren(child_offset[n - 1] + nx - n + 1);
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -373,13 +373,13 @@ public:
   {
     h_ops_tree * op = new h_ops_tree (trsmr_lr, index_b, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + nx - i + 1; }
 
-    op -> resizeChildren(child_offset[n - 1] + nx - n + 1);
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -409,13 +409,13 @@ public:
 
     h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
 
-    int n = nx > ny ? ny : nx, * child_offset = new int[n];
+    int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
 
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i <= n; i++)
     { child_offset[i] = child_offset[i - 1] + (B -> ny) * (nx - i + 1); }
 
-    op -> resizeChildren(child_offset[n - 1] + (B -> ny) * (nx - n + 1));
+    op -> resizeChildren(child_offset[n]);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n; i++)
@@ -678,11 +678,17 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
-    if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
+    if (ny < A -> ny || nx < B -> nx)
     { printf("Partition error in H-H.H GEMM.\n"); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
-    const int nk = (A -> nx > B -> ny) ? B -> ny : A -> nx;
+
+    int nk, * k_offsets;
+    if (A -> nx > B -> ny)
+    { nk = A -> nx; A -> getOffsets_x(&k_offsets); }
+    else
+    { nk = B -> ny; B -> getOffsets_y(&k_offsets); }
+
     op -> resizeChildren(nx * ny * nk);
 
 #pragma omp parallel for num_threads(2)
@@ -690,14 +696,20 @@ public:
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col);
+      const int ny_m = index_m.getNy(), nx_m = index_m.getNx();
       for (int k = 0; k < nk; k++)
       {
-        const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (B, index_b, k, col);
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk);
-        op -> setChild(op_k, i * (A -> nx) + k);
+        int a_y, a_x, b_y, b_x, k_start = k_offsets[k], k_size = k_offsets[k + 1] - k_start;
+        const h_index index_ak = h_index (A, index_a, y_offsets[row], k_start, ny_m, k_size, &a_y, &a_x);
+        const h_index index_bk = h_index (B, index_b, k_start, x_offsets[col], k_size, nx_m, &b_y, &b_x);
+
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[a_y * (A -> nx) + a_x], &index_ak, &(B -> elements)[b_y * (B -> nx) + b_x], &index_bk);
+        op -> setChild(op_k, i * nk + k);
         delete op_k;
       }
     }
+
+    delete[] k_offsets;
     return op;
   }
 

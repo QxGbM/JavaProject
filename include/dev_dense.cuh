@@ -186,7 +186,8 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (trsml_lr, index_b, self);
+    h_index index_lr; index_b -> getUxS(&index_lr); 
+    return new h_ops_tree (trsml_lr, &index_lr, self);
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
@@ -217,7 +218,8 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (trsmr_lr, index_b, self);
+    h_index index_lr; index_b -> getVT(&index_lr);
+    return new h_ops_tree (trsmr_lr, &index_lr, self);
   }
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const

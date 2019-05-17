@@ -114,6 +114,7 @@
     <ClInclude Include="include\dev_hierarchical_ops.cuh" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="docs\CONTRIBUTING.md" />
     <None Include="docs\README.md" />
     <None Include="Makefile" />
   </ItemGroup>

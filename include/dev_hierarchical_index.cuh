@@ -162,7 +162,7 @@ public:
     
     indexs[index_lvls - 1] = (* y) * (h -> getNx_blocks()) + (* x);
 
-    dev_h_element <T> * element = h -> getElement_blocks(y, x);
+    dev_h_element <T> * element = h -> getElement_blocks(* y, * x);
     type = element -> getType();
     nx = nx_block;
     ny = ny_block;
@@ -208,6 +208,12 @@ public:
 
   __host__ inline int getNy() const
   { return ny; }
+
+  __host__ h_index * getUxS (h_index * addr = nullptr) const
+  { clone(addr); addr -> offset_x = -1; return addr; }
+
+  __host__ h_index * getVT (h_index * addr = nullptr) const
+  { clone(addr); addr -> offset_y = -1; return addr; }
 
   __host__ relation_t compare (const h_index * index) const
   {
