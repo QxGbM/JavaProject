@@ -14,20 +14,30 @@ private:
 
 public:
 
-  __host__ dev_low_rank (const int x, const int y, const int rank_in = -1, dev_dense <T> * U_in = nullptr, dev_dense <T> * VT_in = nullptr)
+  __host__ dev_low_rank (const int x, const int y, const int rank_in = -1)
   {
     nx = x;
     ny = y;
 
     cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
-    * rank = (rank_in == -1) ? -1 : ((rank_in > 0 && rank_in <= x && rank_in <= y) ? rank_in : (x > y ? y : x));
+    const int n = (nx > ny) ? ny : nx;
 
-    UxS = (U_in == nullptr) ? new dev_dense <T> (nx, ny) : U_in;
-    
-    if (VT_in == nullptr)
-    { VT = new dev_dense <T> (nx, nx); VT -> loadIdentityMatrix(); }
-    else
-    { VT = VT_in; }
+    *rank = (rank_in == -1) ? -1 : ((rank_in > 0 && rank_in <= n) ? rank_in : n);
+
+    UxS = new dev_dense <T> (ny, nx); 
+    VT = new dev_dense <T> (nx, nx);
+  }
+
+  __host__ dev_low_rank (dev_dense <T> * data_in)
+  {
+    nx = data_in -> getNx();
+    ny = data_in -> getNy();
+
+    cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
+    *rank = -1;
+
+    UxS = data_in;
+    VT = new dev_dense <T> (nx, nx); VT -> loadIdentityMatrix();
   }
 
   __host__ ~dev_low_rank ()
@@ -66,26 +76,15 @@ public:
     if (* rank != -1)
     { 
       printf("-- Shouldn't be partitioning a low-rank object that is already compressed. --\n");
-      dev_dense <T> ** U_dup = UxS -> createPartitions(1, nullptr, 1, nullptr), ** V_dup = VT -> createPartitions(1, nullptr, 1, nullptr);
-      dev_low_rank <T> * ptr = new dev_low_rank <T> (nx, ny, *rank, U_dup[0], V_dup[0]);
-      delete[] U_dup; delete[] V_dup;
-      return new dev_low_rank <T> *[1]{ ptr };
+      return nullptr;
     }
     else if (x > 1 && y > 1) 
     { 
       dev_low_rank <T> ** list = new dev_low_rank <T> * [x * y];
       dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, x, xs);
 
-      for (int i = 0; i < y; i++)
-      {
-        const int ny_i = ys[i + 1] - ys[i];
-
-        for (int j = 0; j < x; j++)
-        {
-          const int nx_i = xs[j + 1] - xs[j];
-          list[i * x + j] = new dev_low_rank <T> (nx_i, ny_i, -1, U_list[i * x + j], nullptr);
-        }
-      }
+      for (int i = 0; i < x * y; i++)
+      { list[i] = new dev_low_rank <T> (U_list[i]); }
 
       delete[] U_list;
       return list;
@@ -95,11 +94,8 @@ public:
       dev_low_rank <T> ** list = new dev_low_rank <T> * [x];
       dev_dense <T> ** U_list = UxS -> createPartitions (1, nullptr, x, xs);
 
-      for (int j = 0; j < x; j++)
-      {
-        const int nx_i = xs[j + 1] - xs[j];
-        list[j] = new dev_low_rank <T> (nx_i, ny, -1, U_list[j], nullptr);
-      }
+      for (int i = 0; i < x; i++)
+      { list[i] = new dev_low_rank <T> (U_list[i]); }
 
       delete[] U_list;
       return list;
@@ -110,20 +106,14 @@ public:
       dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
 
       for (int i = 0; i < y; i++)
-      {
-        const int ny_i = ys[i + 1] - ys[i];
-        list[i] = new dev_low_rank <T> (nx, ny_i, -1, U_list[i], nullptr);
-      }
+      { list[i] = new dev_low_rank <T> (U_list[i]); }
 
       delete[] U_list;
       return list;
     }
     else
     { 
-      dev_dense <T> ** U_dup = UxS -> createPartitions (1, nullptr, 1, nullptr), ** V_dup = VT -> createPartitions (1, nullptr, 1, nullptr);
-      dev_low_rank <T> * ptr = new dev_low_rank <T> (nx, ny, *rank, U_dup[0], V_dup[0]);
-      delete[] U_dup; delete[] V_dup;
-      return new dev_low_rank <T> *[1] { ptr };
+      return nullptr;
     }
   }
 

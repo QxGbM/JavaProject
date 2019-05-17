@@ -145,6 +145,64 @@ public:
     root_ptr = index -> root_ptr;
   }
 
+  template <class T>
+  __host__ h_index (const dev_hierarchical <T> * h, const h_index * index, const int y_start, const int x_start, const int ny_block, const int nx_block, int *y, int *x)
+  {
+    index_lvls = index -> index_lvls + 1;
+
+    indexs = new int [index_lvls];
+
+    for (int i = 0; i < index -> index_lvls; i++)
+    { indexs[i] = (index -> indexs)[i]; }
+
+    offset_y = y_start;
+    offset_x = x_start;
+
+    h -> getElement_loc (&offset_y, &offset_x, y, x);
+    
+    indexs[index_lvls - 1] = (* y) * (h -> getNx_blocks()) + (* x);
+
+    dev_h_element <T> * element = h -> getElement_blocks(y, x);
+    type = element -> getType();
+    nx = nx_block;
+    ny = ny_block;
+
+    if (type == hierarchical)
+    {
+      ld_x = ld_y = 0;
+      n_ptrs = 0;
+      data_ptrs = nullptr;
+      struct_ptr = element -> getElementHierarchical();
+    }
+    else if (type == low_rank)
+    {
+      n_ptrs = 3;
+      dev_low_rank <T> * lr = element -> getElementLowRank();
+      ld_x = lr -> getUxS() -> getLd();
+      ld_y = lr -> getVT() -> getLd();
+      data_ptrs = new void *[3] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements(), lr -> getRank() };
+      struct_ptr = lr;
+    }
+    else if (type == dense)
+    {
+      n_ptrs = 1;
+      dev_dense <T> * d = element -> getElementDense();
+      ld_x = d -> getLd();
+      ld_y = 0;
+      data_ptrs = new void *[1] { d -> getElements() };
+      struct_ptr = d;
+    }
+    else
+    {
+      ld_x = ld_y = 0;
+      n_ptrs = 0;
+      data_ptrs = nullptr;
+      struct_ptr = nullptr;
+    }
+
+    root_ptr = index -> root_ptr;
+  }
+
   __host__ inline int getNx() const
   { return nx; }
 

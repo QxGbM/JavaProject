@@ -80,15 +80,26 @@ public:
 
   __host__ T getElement_abs (const int y_in, const int x_in) const
   {
-    int y = 0, x = 0;
+    int block_y, block_x, offset_y = y_in, offset_x = x_in;
 
+    getElement_loc(&offset_y, &offset_x, &block_y, &block_x);
+
+    if (block_y >= 0 && block_x >= 0)
+    { return elements[block_y * nx + block_x].getElement(offset_y, offset_x); }
+    else
+    { return 0; }
+  }
+
+  __host__ void getElement_loc (int * offset_y, int * offset_x, int * block_y, int * block_x) const
+  {
+    int y = 0, x = 0, y_in = * offset_y, x_in = * offset_x;
     while (y < ny && y_in >= y_offsets[y + 1]) { y++; }
     while (x < nx && x_in >= x_offsets[x + 1]) { x++; }
 
     if (y < ny && x < nx)
-    { return elements[y * nx + x].getElement(y_in - y_offsets[y], x_in - x_offsets[x]); }
+    { * offset_y = y_in - y_offsets[y]; * offset_x = x_in - x_offsets[x]; * block_y = y; * block_x = x; }
     else
-    { return 0; }
+    { * block_y = -1; * block_x = -1; }
   }
 
   __host__ void getOffsets_x (int ** x) const
@@ -668,17 +679,18 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
     if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
-    { printf("Matrices are partitioned differently in H-H.H GEMM.\n"); self -> print(); return nullptr; }
+    { printf("Partition error in H-H.H GEMM.\n"); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
-    op -> resizeChildren(nx * ny * A -> nx);
+    const int nk = (A -> nx > B -> ny) ? B -> ny : A -> nx;
+    op -> resizeChildren(nx * ny * nk);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col);
-      for (int k = 0; k < A -> nx; k++)
+      for (int k = 0; k < nk; k++)
       {
         const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (B, index_b, k, col);
         h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk);
