@@ -124,7 +124,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   double clock_start, clock_end;
 
   clock_start = omp_get_wtime();
-  if (!(h -> partitionForLU()))
+  if (!(h -> partition_GETRF()))
   { printf("-- Partition Failed. Aborting. --\n"); return cudaErrorUnknown; }
   clock_end = omp_get_wtime();
   printf("LU partition finishes in %f ms.\n\n", 1000. * (clock_end - clock_start));

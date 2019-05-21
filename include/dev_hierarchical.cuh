@@ -134,7 +134,7 @@ public:
   __host__ inline h_index * getRootIndex () const
   { return new h_index (this); }
 
-  __host__ bool partitionForLU ()
+  __host__ bool partition_GETRF ()
   {
     const int n = nx > ny ? ny : nx;
     bool success = true;
@@ -144,22 +144,113 @@ public:
       dev_hierarchical <T> * h_i = elements[i * nx + i].getElementHierarchical();
       if (h_i != nullptr)
       { 
-        success = h_i -> partitionForLU (); 
-        if (!success) { return false; }
-      }
-    }
+        success = h_i -> partition_GETRF (); 
+        if (!success) 
+        { return false; }
 
-    for (int i = 0; i < n; i++)
-    {
+        for (int j = i + 1; j < nx; j++)
+        {
+          dev_hierarchical <T> * h_j = elements[i * nx + j].getElementHierarchical();
+          if (h_j != nullptr)
+          { success = h_j -> partition_TRSML (h_i); }
+          if (!success)
+          { return false; }
+        }
+
+        for (int j = i + 1; j < ny; j++)
+        {
+          dev_hierarchical <T> * h_j = elements[j * nx + i].getElementHierarchical();
+          if (h_j != nullptr)
+          { success = h_j -> partition_TRSMR (h_i); }
+          if (!success)
+          { return false; }
+        }
+      }
+
       for (int j = i + 1; j < ny; j++) for (int k = i + 1; k < nx; k++)
       { 
         success = elements[j * nx + k].partitionAccording(&elements[j * nx + i], &elements[i * nx + k]); 
-        if (!success) { return false; }
+        if (!success) 
+        { return false; }
       }
     }
 
     return true;
   }
+
+  __host__ bool partition_TRSML (const dev_hierarchical <T> * L)
+  {
+    if (ny != L -> ny) 
+    { printf("-- Partition Failed : Hierarchical Matrices are already partioned in a different way.y : %d vs %d. --\n", ny, L -> ny); return false; }
+
+    const int nx_l = L -> nx, n = nx_l > ny ? ny : nx_l;
+    bool success = true;
+
+    for (int i = 0; i < n; i++)
+    {
+      const dev_hierarchical <T> * h_i = L -> elements[i * nx_l + i].getElementHierarchical();
+
+      if (h_i != nullptr)
+      {
+        for (int j = 0; j < nx; j++)
+        {
+          dev_hierarchical <T> * h_j = elements[i * nx + j].getElementHierarchical();
+          if (h_j != nullptr)
+          { success = h_j -> partition_TRSML(h_i); }
+          if (!success)
+          { return false; }
+        }
+      }
+
+      for (int j = i; j < ny; j++)
+      {
+        for (int k = 0; k < nx; k++)
+        {
+          success = elements[j * nx + k].partitionAccording(&(L -> elements)[j * nx_l + i], &elements[i * nx + k]);
+          if (!success) 
+          { return false; }
+        }
+      }
+    }
+
+    return true;
+  }
+
+  __host__ bool partition_TRSMR (const dev_hierarchical <T> * U)
+  {
+    if (nx != U -> nx) 
+    { printf("-- Partition Failed : Hierarchical Matrices are already partioned in a different way.x : %d vs %d. --\n", nx, U -> nx); return false; }
+
+    const int nx_u = U -> nx, n = U -> ny > nx ? nx : U -> ny;
+    bool success = true;
+
+    for (int i = 0; i < n; i++)
+    {
+      const dev_hierarchical <T> * h_i = U -> elements[i * nx_u + i].getElementHierarchical();
+
+      if (h_i != nullptr)
+      {
+        for (int j = 0; j < ny; j++)
+        {
+          dev_hierarchical <T> * h_j = elements[j * nx + i].getElementHierarchical();
+          if (h_j != nullptr)
+          { success = h_j -> partition_TRSMR (h_i); }
+          if (!success)
+          { return false; }
+        }
+      }
+
+      for (int j = i; j < nx; j++) for (int k = 0; k < ny; k++)
+      {
+        success = elements[k * nx + j].partitionAccording(&elements[k * nx + i], &(U -> elements)[i * nx_u + k]);
+        if (!success) 
+        { return false; }
+      }
+    }
+
+    return true;
+  }
+
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   {
