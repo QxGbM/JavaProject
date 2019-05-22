@@ -56,9 +56,10 @@ public:
 
   __host__ inline dev_dense <T> * getVT () const { return VT; }
 
-  __host__ inline T * getElements (const int offset = 0) const 
+  __host__ T * getElements (const int offset = 0) const 
   { 
-    return offset >= getOffset_VT() ? VT -> getElements (offset - getOffset_VT()) : UxS -> getElements(offset); 
+    const int offset_vt = getNy() * (*getRank());
+    return offset >= offset_vt ? VT -> getElements (offset - offset_vt) : UxS -> getElements(offset); 
   }
 
   __host__ T getElement (const int y, const int x) const
