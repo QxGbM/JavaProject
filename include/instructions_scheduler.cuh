@@ -225,7 +225,9 @@ public:
     working_queue = nullptr;
     result_queues = new instructions_queue * [workers];
     inward_deps_counter = new int [length];
-    state = new int [length * workers];
+
+    const int size = length * workers;
+    state = new int [size];
 
 #pragma omp parallel for
     for (int i = 0; i < workers; i++)
@@ -235,7 +237,7 @@ public:
     for (int i = 0; i < length; i++)
     { inward_deps_counter[i] = dag -> getDepCount_to(i); }
 
-    memset(state, 0xffffffff, length * workers * sizeof(int));
+    memset(state, 0xffffffff, size * sizeof(int));
 
     schedule (dag);
   }

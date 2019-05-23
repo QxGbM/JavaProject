@@ -172,100 +172,107 @@ template <class T> __device__ void blockGramSchmidt (T * __restrict__ M, const i
 }
 
 template <class T> 
-__device__ void blockGivensRotation (T * __restrict__ M, T * __restrict__ Q, const int nx, const int ny, const int ld_m, const int ld_q)
+__device__ void blockGivensRotation (T * M, const int nx, const int ny, const int ld_m)
 {
-  for (int i = 0; i < nx && i < ny - 1; i++)
+  const int n = nx >= ny ? ny - 1 : nx;
+
+  for (int i = 0; i < n; i++)
   {
     const int cols = ny - i;
     int last_step = cols;
+
     for (int step = cols / 2; step > 0; step /= 2)
     {
-      for (int row = i + warp_rank(); row < i + step; row += num_warps())
+      const int rows_step = i + step, rows_total = i + last_step;
+
+      for (int row = i + warp_rank(); row < rows_step; row += num_warps())
       {
-        const int row2 = row + step;
-        double cosine, sine;
+        const int row2 = row + step, row3 = row + step + step;
 
-        if (lane_rank() == 0)
+        if (row3 < rows_total)
         {
-          const T a = M[row * ld_m + i], b = M[row2 * ld_m + i];
-          double r;
+          double cosine1, sine1, cosine2, sine2;
+          
+          if (lane_rank() == 0)
+          {
+            T a = M[row * ld_m + i], b = M[row2 * ld_m + i], c = M[row3 * ld_m + i], r;
 
-          if (b == 0)
-          { cosine = signbit(a) * -2 + 1; sine = 0; r = fabs(a); }
-          else if (a == 0)
-          { cosine = 0; sine = signbit(b) * -2 + 1; r = fabs(b); }
-          else if (fabs(b) > fabs(a))
-          { const double t = a / b; sine = (signbit(b) * 2 - 1) * rsqrt(1. + t * t); cosine = (-sine) * t; r = fabs(b) * sqrt(1. + t * t); }
-          else
-          { const double t = b / a; cosine = (signbit(a) * -2 + 1) * rsqrt(1. + t * t); sine = (-cosine) * t; r = fabs(a) * sqrt(1. + t * t); }
+            if (b == 0)
+            { cosine1 = signbit(a) * -2 + 1; sine1 = 0; r = fabs(a); }
+            else if (a == 0)
+            { cosine1 = 0; sine1 = signbit(b) * -2 + 1; r = fabs(b); }
+            else if (fabs(b) > fabs(a))
+            { T t = a / b; sine1 = (signbit(b) * 2 - 1) * rsqrt(1. + t * t); cosine1 = (-sine1) * t; r = fabs(b) * sqrt(1. + t * t); }
+            else
+            { T t = b / a; cosine1 = (signbit(a) * -2 + 1) * rsqrt(1. + t * t); sine1 = (-cosine1) * t; r = fabs(a) * sqrt(1. + t * t); }
 
-          M[row * ld_m + i] = r;
-          M[row2 * ld_m + i] = 0.;
+            if (c == 0)
+            { cosine2 = 1; sine2 = 0; }
+            else if (r == 0)
+            { cosine2 = 0; sine2 = signbit(c) * -2 + 1; r = fabs(c); }
+            else if (fabs(c) > r)
+            { T t = r / c; sine2 = (signbit(c) * 2 - 1) * rsqrt(1. + t * t); cosine2 = (-sine2) * t; r = fabs(c) * sqrt(1. + t * t); }
+            else
+            { T t = c / r; cosine2 = rsqrt(1. + t * t); sine2 = (-cosine2) * t; r = r * sqrt(1. + t * t); }
+
+            M[row * ld_m + i] = r;
+            M[row2 * ld_m + i] = 0;
+            M[row3 * ld_m + i] = 0;
+          }
+          __syncwarp();
+
+          cosine1 = __shfl_sync(0xffffffff, cosine1, 0, warpSize);
+          sine1 = __shfl_sync(0xffffffff, sine1, 0, warpSize);
+          cosine2 = __shfl_sync(0xffffffff, cosine2, 0, warpSize);
+          sine2 = __shfl_sync(0xffffffff, sine2, 0, warpSize);
+
+          for (int col = i + lane_rank() + 1; col < nx; col += warpSize)
+          {
+            const T a = M[row * ld_m + col], b = M[row2 * ld_m + col], c = M[row3 * ld_m + col];
+            const T r = cosine1 * a - sine1 * b;
+            M[row * ld_m + col] = cosine2 * r - sine2 * c;
+            M[row2 * ld_m + col] = sine1 * a + cosine1 * b;
+            M[row3 * ld_m + col] = sine2 * r + cosine2 * c;
+          }
+          __syncwarp();
         }
-        __syncwarp();
-        cosine = __shfl_sync(0xffffffff, cosine, 0, warpSize);
-        sine = __shfl_sync(0xffffffff, sine, 0, warpSize);
-
-        for (int col = i + lane_rank() + 1; col < nx; col += warpSize)
+        else
         {
-          const T a = M[row * ld_m + col], b = M[row2 * ld_m + col];
-          M[row * ld_m + col] = cosine * a - sine * b;
-          M[row2 * ld_m + col] = sine * a + cosine * b;
-        }
+          double cosine, sine;
 
-        for (int col = lane_rank(); col < ny; col += warpSize)
-        {
-          const T a = Q[col * ld_q + row], b = Q[col * ld_q + row2];
-          Q[col * ld_q + row] = cosine * a - sine * b;
-          Q[col * ld_q + row2] = sine * a + cosine * b;
-        }
-        __syncwarp();
+          if (lane_rank() == 0)
+          {
+            const T a = M[row * ld_m + i], b = M[row2 * ld_m + i];
+            double r;
 
+            if (b == 0)
+            { cosine = signbit(a) * -2 + 1; sine = 0; r = fabs(a); }
+            else if (a == 0)
+            { cosine = 0; sine = signbit(b) * -2 + 1; r = fabs(b); }
+            else if (fabs(b) > fabs(a))
+            { const double t = a / b; sine = (signbit(b) * 2 - 1) * rsqrt(1. + t * t); cosine = (-sine) * t; r = fabs(b) * sqrt(1. + t * t); }
+            else
+            { const double t = b / a; cosine = (signbit(a) * -2 + 1) * rsqrt(1. + t * t); sine = (-cosine) * t; r = fabs(a) * sqrt(1. + t * t); }
+
+            M[row * ld_m + i] = r;
+            M[row2 * ld_m + i] = 0;
+          }
+          __syncwarp();
+
+          cosine = __shfl_sync(0xffffffff, cosine, 0, warpSize);
+          sine = __shfl_sync(0xffffffff, sine, 0, warpSize);
+
+          for (int col = i + lane_rank() + 1; col < nx; col += warpSize)
+          {
+            const T a = M[row * ld_m + col], b = M[row2 * ld_m + col];
+            M[row * ld_m + col] = cosine * a - sine * b;
+            M[row2 * ld_m + col] = sine * a + cosine * b;
+          }
+          __syncwarp();
+        }
       }
       __syncthreads();
 
-      for (int row = i + warp_rank(); row < i + last_step - step * 2; row += num_warps())
-      {
-        const int row2 = row + 2 * step;
-        double cosine, sine;
-
-        if (lane_rank() == 0)
-        {
-          const T a = M[row * ld_m + i], b = M[row2 * ld_m + i];
-          double r;
-
-          if (b == 0)
-          { cosine = signbit(a) * -2 + 1; sine = 0; r = fabs(a); }
-          else if (a == 0)
-          { cosine = 0; sine = signbit(b) * -2 + 1; r = fabs(b); }
-          else if (fabs(b) > fabs(a))
-          { const double t = a / b; sine = (signbit(b) * 2 - 1) * rsqrt(1. + t * t); cosine = (-sine) * t; r = fabs(b) * sqrt(1. + t * t); }
-          else
-          { const double t = b / a; cosine = (signbit(a) * -2 + 1) * rsqrt(1. + t * t); sine = (-cosine) * t; r = fabs(a) * sqrt(1. + t * t); }
-
-          M[row * ld_m + i] = r;
-          M[row2 * ld_m + i] = 0.;
-        }
-        __syncwarp();
-        cosine = __shfl_sync(0xffffffff, cosine, 0, warpSize);
-        sine = __shfl_sync(0xffffffff, sine, 0, warpSize);
-
-        for (int col = i + lane_rank() + 1; col < nx; col += warpSize)
-        {
-          const T a = M[row * ld_m + col], b = M[row2 * ld_m + col];
-          M[row * ld_m + col] = cosine * a - sine * b;
-          M[row2 * ld_m + col] = sine * a + cosine * b;
-        }
-
-        for (int col = lane_rank(); col < ny; col += warpSize)
-        {
-          const T a = Q[col * ld_q + row], b = Q[col * ld_q + row2];
-          Q[col * ld_q + row] = cosine * a - sine * b;
-          Q[col * ld_q + row2] = sine * a + cosine * b;
-        }
-        __syncwarp();
-      }
-      __syncthreads();
     }
   }
 }
@@ -280,7 +287,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   if (thread_rank() == 0)
   { 
     X = new T[ny * P]; *X_ptr = X; 
-    Y = new T[ny * ny]; *Y_ptr = Y; 
+    Y = new T[ny * P]; *Y_ptr = Y; 
     B = new T[P * nx]; *B_ptr = B; 
   }
   __syncthreads();
@@ -290,10 +297,12 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
 
   blockDenseGemm_shm (1., 0., X, A, seed, ny, P, nx, P, ld_a, P, false, false, shm, shm_size);
 
-  loadIdentity (Y, ny, ny, ny);
-  blockGivensRotation (X, Y, P, ny, P, ny);
+  matrixCopy_fromRM (X, Y, P, ny, P, P, false);
+  blockGivensRotation (X, P, ny, P);
+  //blockGramSchmidt (Y, P, ny, P, shm);
+  blockDenseTrsmR_shm (Y, X, P, ny, P, P, P, false, shm, shm_size);
 
-  blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, ny, ld_a, true, false, shm, shm_size);
+  blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);
 
   int * iter = (int *) &shm[0], *loop_counter = (int *) &shm[1];
   if (thread_rank() == 0)
@@ -311,7 +320,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   }
   int loops = *loop_counter;
   
-  blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, ny, nx, false, false, shm, shm_size);
+  blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
   if (thread_rank() == 0)
   { delete X; delete Y; delete B; }
 

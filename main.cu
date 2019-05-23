@@ -59,12 +59,21 @@ __global__ void svd_kernel (double * U, double * VT, const int nx, const int ny,
   if (thread_rank() == 0) { printf("iters: %d\n", i); }
 }
 
+__global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, const int ld_q, const int ld_r)
+{
+  __shared__ double shm[6144];
+  matrixCopy_fromRM (R, Q, nx, ny, ld_r, ld_q, false);
+  blockGivensRotation (R, nx, ny, ld_r);
+  blockDenseTrsmR_shm (Q, R, nx, ny, nx, ld_q, ld_r, false, shm, 6144);
+
+}
+
 int test1()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 16, ny = 16;
+  const int nx = 4, ny = 4;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -75,20 +84,27 @@ int test1()
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
-  A -> getUxS() -> loadTestMatrix(20000);
-  A -> getVT() -> loadIdentityMatrix();
+  //A -> getUxS() -> loadTestMatrix(20);
+  //A -> getVT() -> loadIdentityMatrix();
+  A->getVT()->loadTestMatrix();
+  *(A->getRank()) = nx;
 
   timer myTimer = timer();
 
   myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024>>> (A -> getUxS() -> getElements(), A -> getVT() -> getElements(), nx, ny, nx, nx);
+  //svd_kernel <<<1, 1024>>> (A -> getUxS() -> getElements(), A -> getVT() -> getElements(), nx, ny, nx, nx);
+  qr_kernel <<<1, 1024 >>> (A->getUxS()->getElements(), A->getVT()->getElements(), nx, ny, nx, nx);
   myTimer.newEvent("SVD", end);
 
   myTimer.dumpAllEvents_Sync();
+  A->getUxS()->print();
+  A->getVT()->print();
 
   dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix(20000);
+  c->loadTestMatrix();
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
+  dev_dense <double>* d = A->getUxS()->matrixMultiplication(A->getUxS()->transpose());
+  d->print();
 
   delete A; delete b; delete c;
 
@@ -132,11 +148,16 @@ __host__ int test2()
   return 0;
 }
 
+void test3()
+{
+  
+}
+
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
-  //test1();
+  //test0 <double> ();
+  test1();
   //test2();
 
   return 0;
