@@ -143,7 +143,7 @@ private:
   {
     if (state[worker_dest * length + dep_src] >= 0) { return -1; }
 
-    int worker_src, signal_src = -1;
+    int worker_src = -1, signal_src = -1;
 
     for (int i = 0; i < workers && signal_src == -1; i++)
     { 

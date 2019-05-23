@@ -100,7 +100,7 @@ int test1()
   A->getUxS()->print();
   A->getVT()->print();
 
-  dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
+  dev_dense <double> *b = A->getUxS()->matrixMultiplication(A->getVT()), *c = new dev_dense<double>(nx, ny);
   c->loadTestMatrix();
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
   dev_dense <double>* d = A->getUxS()->matrixMultiplication(A->getUxS()->transpose());
