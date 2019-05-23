@@ -15,6 +15,7 @@
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\instructions_scheduler.cuh" />
     <ClInclude Include="include\instructions_manager.cuh" />
+    <ClInclude Include="include\compressor.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />

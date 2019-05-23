@@ -205,7 +205,7 @@ private:
 
     if (scheduled_insts == length)
     { 
-      const double DOP = 100. * length / (iter * workers), CPI = 1. * comm_wait_counts / length;
+      const double DOP = 100. * length / iter / workers, CPI = 1. * comm_wait_counts / length;
       printf("-- Scheduler --\n"
         "Total # of Instructions: %d. \n"
         "Successfully scheduled with %d iterations. \n"

@@ -3,7 +3,6 @@
 
 #include <pspl.cuh>
 
-__constant__ double seed[_RND_SEED_LENGTH];
 
 template <class T> __device__ T warpAllReduceSum (T value)
 {
@@ -291,8 +290,8 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   U = *U_ptr; V = *V_ptr; V = *V_ptr;
   __syncthreads();
 
-  blockDenseGemm_shm <T> (1., 0, U, U1, seed, ny, k1, k1, k1, k1, k1, false, false, shm, shm_size);
-  blockDenseGemm_shm <T> (1., 1., U, U2, seed, ny, k1, k2, k1, k2, k1, false, false, shm, shm_size);
+  blockDenseGemm_shm <T> (1., 0, U, U1, dev_rnd_seed, ny, k1, k1, k1, k1, k1, false, false, shm, shm_size);
+  blockDenseGemm_shm <T> (1., 1., U, U2, dev_rnd_seed, ny, k1, k2, k1, k2, k1, false, false, shm, shm_size);
 
   matrixCopy_fromRM <T> (U, Q, k1, ny, k1, k1, false);
   blockGivensRotation <T> (U, k1, ny, k1);
@@ -327,7 +326,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   X = *X_ptr; Y = *Y_ptr; B = *B_ptr;
   __syncthreads();
 
-  blockDenseGemm_shm (1., 0., X, A, seed, ny, P, nx, P, ld_a, P, false, false, shm, shm_size);
+  blockDenseGemm_shm (1., 0., X, A, dev_rnd_seed, ny, P, nx, P, ld_a, P, false, false, shm, shm_size);
 
   matrixCopy_fromRM (X, Y, P, ny, P, P, false);
   blockGivensRotation (X, P, ny, P);

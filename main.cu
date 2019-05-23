@@ -80,14 +80,13 @@ int test1()
 #pragma omp parallel for
   for (int i = 0; i < _RND_SEED_LENGTH; i++) { rnd_seed[i] = (double) rand() / RAND_MAX; }
 
-  cudaMemcpyToSymbol(seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
+  cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
 
   dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
 
   //A -> getUxS() -> loadTestMatrix(20);
   //A -> getVT() -> loadIdentityMatrix();
   A->getVT()->loadTestMatrix();
-  *(A->getRank()) = nx;
 
   timer myTimer = timer();
 

@@ -30,13 +30,16 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
+#define _DEFAULT_COMPRESSOR_LENGTH 1024
+
 #define _MAX_INST_LENGTH 32
 #define _MAX_SCHEDULER_ITERS 1024
 
-#define _RND_SEED_LENGTH 8192
 #define _DEFAULT_PTRS_LENGTH 1024
 #define _DEFAULT_INSTS_LENGTH 1024
 #define _DEFAULT_COMM_LENGTH 1024
+
+#define _RND_SEED_LENGTH 8192
 
 enum mark_t{ start, end };
 
@@ -51,6 +54,8 @@ enum operation_t { nop, getrf_d,
 enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_node_no_overlap, same_node_overlapped, same_index };
 
 enum opcode_t { execute, signal_wait, signal_write, finish };
+
+__constant__ double dev_rnd_seed [_RND_SEED_LENGTH];
 
 __device__ inline int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
@@ -73,6 +78,8 @@ __device__ inline int lane_rank()
 __device__ inline int num_warps()
 { return (block_dim() + warpSize - 1) / warpSize; }
 
+class compressor;
+
 template <class T> class dev_dense;
 template <class T> class dev_low_rank;
 template <class T> class dev_hierarchical;
@@ -93,6 +100,7 @@ class event_linked_list;
 class timer;
 
 #include <timer.cuh>
+#include <compressor.cuh>
 
 #include <dev_hierarchical_index.cuh>
 #include <dev_hierarchical_ops.cuh>

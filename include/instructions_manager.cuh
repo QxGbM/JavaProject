@@ -216,8 +216,8 @@ public:
 
     for (int i = 0; i < workers; i++)
     {
-      cudaMalloc(&insts_temp[i], (inst_lengths[i] + _MAX_INST_LENGTH) * sizeof(int));
-      cudaMemcpy(insts_temp[i], insts[i], inst_lengths[i] * sizeof(int), cudaMemcpyHostToDevice);
+      cudaMalloc(&insts_temp[i], ((size_t) inst_lengths[i] + _MAX_INST_LENGTH) * sizeof(int));
+      cudaMemcpy(insts_temp[i], insts[i], (size_t) inst_lengths[i] * sizeof(int), cudaMemcpyHostToDevice);
     }
 
     cudaMemcpy(*dev_insts, insts_temp, workers * sizeof(int *), cudaMemcpyHostToDevice);

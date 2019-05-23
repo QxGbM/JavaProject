@@ -5,10 +5,11 @@
 
 template <class T> class dev_low_rank 
 {
+
 private:
   int nx;
   int ny;
-  int * rank;
+  int rank;
   dev_dense <T> * UxS;
   dev_dense <T> * VT;
 
@@ -19,13 +20,12 @@ public:
     nx = x;
     ny = y;
 
-    cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
     const int n = (nx > ny) ? ny : nx;
 
-    *rank = (rank_in == -1) ? -1 : ((rank_in > 0 && rank_in <= n) ? rank_in : n);
+    rank = (rank_in > 0 && rank_in <= n) ? rank_in : n;
 
-    UxS = new dev_dense <T> (ny, nx); 
-    VT = new dev_dense <T> (nx, nx);
+    UxS = new dev_dense <T> (ny, rank); 
+    VT = new dev_dense <T> (nx, rank);
   }
 
   __host__ dev_low_rank (dev_dense <T> * data_in)
@@ -33,8 +33,7 @@ public:
     nx = data_in -> getNx();
     ny = data_in -> getNy();
 
-    cudaMallocManaged(&rank, sizeof(int), cudaMemAttachGlobal);
-    *rank = -1;
+    rank = nx;
 
     UxS = data_in;
     VT = new dev_dense <T> (nx, nx); VT -> loadIdentityMatrix();
@@ -50,7 +49,7 @@ public:
 
   __host__ inline int getNy () const { return ny; }
 
-  __host__ inline int * getRank () const { return rank; }
+  __host__ inline int getRank () const { return rank; }
 
   __host__ inline dev_dense <T> * getUxS () const { return UxS; }
 
@@ -67,14 +66,14 @@ public:
     T element = 0;
     const int ld_u = UxS -> getLd(), ld_vt = VT -> getLd();
     const T * UxS_E = UxS -> getElements(), * VT_E = VT -> getElements();
-    for (int i = 0; i < * rank; i++)
+    for (int i = 0; i < rank; i++)
     { element += UxS_E[y * ld_u + i] * VT_E[x * ld_vt + i]; }
     return element;
   }
   
   __host__ dev_low_rank <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
   {
-    if (* rank != -1)
+    if (rank >= nx || rank >= ny)
     { 
       printf("-- Shouldn't be partitioning a low-rank object that is already compressed. --\n");
       return nullptr;
@@ -447,16 +446,15 @@ public:
 
   __host__ void print() const
   {
-    printf("\n-- LR: %d x %d, rank %d --\n", ny, nx, *rank);
+    printf("\n-- LR: %d x %d, rank %d --\n", ny, nx, rank);
     UxS -> print();
     VT -> print();
   }
 
-  __host__ void loadTestMatrix(const int x_start = 0, const int y_start = 0) const
+  __host__ void loadTestMatrix (const int x_start = 0, const int y_start = 0)
   {
     UxS -> loadTestMatrix (x_start, y_start);
     VT -> loadIdentityMatrix();
-    *rank = -1;
   }
 
 };
