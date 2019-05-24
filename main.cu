@@ -73,7 +73,7 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 4, ny = 4;
+  const int nx = 4, ny = 16;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -82,30 +82,27 @@ int test1()
 
   cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
 
-  dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
+  dev_dense <double> *A = new dev_dense <double> (nx, ny), *B = new dev_dense <double> (nx, ny);
 
-  //A -> getUxS() -> loadTestMatrix(20);
-  //A -> getVT() -> loadIdentityMatrix();
-  A->getVT()->loadTestMatrix();
+  B->loadTestMatrix(200);
 
   timer myTimer = timer();
 
-  myTimer.newEvent("SVD", start);
-  //svd_kernel <<<1, 1024>>> (A -> getUxS() -> getElements(), A -> getVT() -> getElements(), nx, ny, nx, nx);
-  qr_kernel <<<1, 1024 >>> (A->getUxS()->getElements(), A->getVT()->getElements(), nx, ny, nx, nx);
-  myTimer.newEvent("SVD", end);
+  myTimer.newEvent("qr", start);
+  qr_kernel <<<1, 1024 >>> (A->getElements(), B->getElements(), nx, ny, nx, nx);
+  myTimer.newEvent("qr", end);
 
   myTimer.dumpAllEvents_Sync();
-  A->getUxS()->print();
-  A->getVT()->print();
 
-  dev_dense <double> *b = A->getUxS()->matrixMultiplication(A->getVT()), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix();
+  dev_dense <double> *b = A->matrixMultiplication(B), *c = new dev_dense<double>(nx, ny);
+  c->loadTestMatrix(200);
   printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
-  dev_dense <double>* d = A->getUxS()->matrixMultiplication(A->getUxS()->transpose());
-  d->print();
+  dev_dense <double>* d = A->transpose()->matrixMultiplication(A), * e = new dev_dense<double>(nx, nx);
+  e->loadIdentityMatrix();
+  printf("Rel. L2 Error: %e\n\n", e->L2Error(d));
 
-  delete A; delete b; delete c;
+
+  delete A; delete b; delete c; delete d; delete e;
 
 
   return 0;
