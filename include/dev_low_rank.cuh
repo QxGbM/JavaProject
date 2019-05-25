@@ -70,6 +70,18 @@ public:
     { element += UxS_E[y * ld_u + i] * VT_E[x * ld_vt + i]; }
     return element;
   }
+
+  __host__ cudaError_t adjustRank (const int rank_in)
+  {
+    if (rank_in > 0 && rank_in != rank)
+    {
+      const int rank_new = (rank_in <= nx && rank_in <= ny) ? rank_in : (nx < ny ? ny : nx);
+      cudaError_t error = UxS -> resizeColumn (rank_new);
+      return error == cudaSuccess ? VT -> resizeColumn (rank_new) : error;
+    }
+    else
+    { return cudaSuccess; }
+  }
   
   __host__ dev_low_rank <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
   {
@@ -451,10 +463,11 @@ public:
     VT -> print();
   }
 
-  __host__ void loadTestMatrix (const int x_start = 0, const int y_start = 0)
+  __host__ void loadTestMatrix (compressor * comp, const int x_start = 0, const int y_start = 0)
   {
-    UxS -> loadTestMatrix (x_start, y_start);
-    VT -> loadIdentityMatrix();
+    comp -> compress <T> (this);
+    UxS -> loadIdentityMatrix();
+    VT -> loadTestMatrix (x_start, y_start);
   }
 
 };

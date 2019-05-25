@@ -65,6 +65,7 @@ __global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, con
   matrixCopy_fromRM (R, Q, nx, ny, ld_r, ld_q, false);
   blockGivensRotation (R, nx, ny, ld_r);
   blockDenseTrsmR_shm (Q, R, nx, ny, nx, ld_q, ld_r, false, shm, 6144);
+  blockGramSchmidt (Q, nx, ny, ld_q, shm);
 
 }
 
@@ -73,7 +74,7 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 4, ny = 16;
+  const int nx = 32, ny = 512;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -84,7 +85,7 @@ int test1()
 
   dev_dense <double> *A = new dev_dense <double> (nx, ny), *B = new dev_dense <double> (nx, ny);
 
-  B->loadTestMatrix(200);
+  B->loadTestMatrix(2000);
 
   timer myTimer = timer();
 
@@ -94,15 +95,19 @@ int test1()
 
   myTimer.dumpAllEvents_Sync();
 
-  dev_dense <double> *b = A->matrixMultiplication(B), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix(200);
-  printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
-  dev_dense <double>* d = A->transpose()->matrixMultiplication(A), * e = new dev_dense<double>(nx, nx);
-  e->loadIdentityMatrix();
-  printf("Rel. L2 Error: %e\n\n", e->L2Error(d));
+  dev_dense <double> *m1 = A->matrixMultiplication(B), *m2 = new dev_dense<double>(nx, ny);
+  m2->loadTestMatrix(2000);
+  printf("Rel. L2 Error: %e\n\n", m2->L2Error(m1));
+  dev_dense <double>* m3 = A->transpose()->matrixMultiplication(A), * m4 = new dev_dense<double>(nx, nx);
+  m4->loadIdentityMatrix();
+  printf("Rel. L2 Error: %e\n\n", m4->L2Error(m3));
+
+  dev_dense <double>* m5 = A->matrixMultiplication(A->transpose()->matrixMultiplication(m2));
+  printf("Rel. L2 Error: %e\n\n", m2->L2Error(m5));
 
 
-  delete A; delete b; delete c; delete d; delete e;
+
+  delete A; delete B; delete m1; delete m2; delete m3; delete m4; delete m5;
 
 
   return 0;

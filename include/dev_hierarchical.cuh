@@ -902,44 +902,55 @@ public:
     delete root;
   }
 
-  __host__ void loadTestMatrix (const int levels, const int dim, const int block_size, const int admis, const int x_start = 0, const int y_start = 0)
+  __host__ cudaError_t loadTestMatrix (const int levels, const int dim, const int dim_e, const int admis, compressor * comp = nullptr, const int x_start = 0, const int y_start = 0)
   {
-    int l = block_size, cl = levels;
-    while (cl > 0) { l *= dim; cl--; }
+    bool new_comp = false;
+    if (comp == nullptr) 
+    { comp = new compressor (); new_comp = true; }
+
+    const int block_size = dim_e / dim;
 
     for (int y = 0, y_offset = y_start; y < ny; y++)
     {
       for (int x = 0, x_offset = x_start; x < nx; x++)
       {
-        if (levels > 0 && (abs(x_offset - y_offset) < l + admis * block_size))
+        bool admis_b = abs(x_offset - y_offset) < admis + block_size;
+        if (levels > 0 && admis_b)
         { 
           dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
-          e -> loadTestMatrix(levels - 1, dim, block_size, admis, x_offset, y_offset); 
+          e -> loadTestMatrix(levels - 1, dim, block_size, admis, comp, x_offset, y_offset);
           setElement(e, hierarchical, x, y);
-          x_offset += e -> getNx_abs();
         }
         else
         {
-          if (abs(x_offset - y_offset) <= admis * block_size)
+          if (admis_b)
           {
-            dev_dense <T> *e = new dev_dense <T> (l, l);
+            dev_dense <T> *e = new dev_dense <T> (block_size, block_size);
             e -> loadTestMatrix(x_offset, y_offset);
             setElement(e, dense, x, y);
-            x_offset += e -> getNx();
           }
           else
           {
-            dev_low_rank <T> *e = new dev_low_rank <T> (l, l);
-            e -> loadTestMatrix (x_offset, y_offset);
+            dev_low_rank <T> *e = new dev_low_rank <T> (block_size, block_size);
+            e -> loadTestMatrix (comp, x_offset, y_offset);
             setElement(e, low_rank, x, y);
-            x_offset += e -> getNx();
           }
         }
+        x_offset += block_size;
       }
-      y_offset += elements[y * nx].getNy();
+      y_offset += block_size;
     }
 
     updateOffsets();
+    cudaError_t error = cudaSuccess;
+
+    if (new_comp)
+    {
+      error = comp -> launch <T> ();
+      delete comp;
+    }
+
+    return error;
 
   }
 

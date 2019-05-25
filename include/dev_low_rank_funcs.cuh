@@ -270,6 +270,7 @@ __device__ void blockGivensRotation (T * M, const int nx, const int ny, const in
         }
       }
       __syncthreads();
+      last_step = step;
 
     }
   }
