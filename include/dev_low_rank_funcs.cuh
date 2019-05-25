@@ -171,7 +171,7 @@ template <class T> __device__ void blockGramSchmidt (T * __restrict__ M, const i
 }
 
 template <class T> 
-__device__ void blockGivensRotation (T * M, const int nx, const int ny, const int ld)
+__device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int ny, const int ld)
 {
   const int n = nx >= ny ? ny - 1 : nx;
 
@@ -309,6 +309,39 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   __syncthreads();
 }
 
+template <class T>
+__device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, const int ld, const double epi_sqr, T * __restrict__ shm, const int shm_size)
+{
+  const int step = shm_size / nx, total = step * nx;
+
+  for (int i = thread_rank(); i < total; i++)
+  { shm[i] = 0; }
+  __syncthreads();
+
+  for (int i = 0; i < ny; i += step)
+  {
+    for (int j = thread_rank(); j < total; j++)
+    {
+      const int row = i + j / nx, col = j - (row - i) * nx;
+      const T e = A[row * ld + col];
+      shm[j] += e * e;
+    }
+  }
+  __syncthreads();
+
+  int r = 0;
+  for (int i = thread_rank(); i < nx; i++)
+  {
+    T norm = 0;
+    for (int j = 0; j < step; j++)
+    { norm += shm[j * nx + i]; }
+    r += (int) (norm >= epi_sqr);
+  }
+  __syncthreads();
+  
+  return blockAllReduceSum <int> (r, (int *) shm);
+}
+
 template <class T> 
 __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
   const int rank, const double epi, const int iter_limit, T * __restrict__ shm, const int shm_size)
@@ -331,8 +364,8 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
 
   matrixCopy_fromRM (X, Y, P, ny, P, P, false);
   blockGivensRotation (X, P, ny, P);
-  //blockGramSchmidt (Y, P, ny, P, shm);
   blockDenseTrsmR_shm (Y, X, P, ny, P, P, P, false, shm, shm_size);
+  blockGramSchmidt (Y, P, ny, P, shm);
 
   blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);
 
@@ -350,13 +383,12 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
     { *iter = 1; }
     __syncthreads();
   }
-  int loops = *loop_counter;
   
   blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
   if (thread_rank() == 0)
   { delete X; delete Y; delete B; }
 
-  return loops;
+  return blockReadRank(A, nx, ny, ld_a, epi * epi, shm, shm_size);
 
 }
 

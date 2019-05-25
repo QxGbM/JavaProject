@@ -99,6 +99,9 @@ class dependency_linked_list;
 class event_linked_list;
 class timer;
 
+#include <dev_dense_funcs.cuh>
+#include <dev_low_rank_funcs.cuh>
+
 #include <timer.cuh>
 #include <compressor.cuh>
 
@@ -107,11 +110,7 @@ class timer;
 #include <dev_hierarchical_ops_dag.cuh>
 
 #include <dev_dense.cuh>
-#include <dev_dense_funcs.cuh>
-
 #include <dev_low_rank.cuh>
-#include <dev_low_rank_funcs.cuh>
-
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 

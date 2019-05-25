@@ -4,11 +4,19 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size>
+template <class T, int shm_size, int rank>
 __global__ void compressor_kernel (const int length, T ** __restrict__ U_ptrs, T ** __restrict__ V_ptrs, int * __restrict__ ranks, const int * __restrict__ dims)
 {
   __shared__ int shm[shm_size];
 
+  for (int i = block_rank(); i < length; i += grid_dim())
+  {
+    const int i_3 = i * 3;
+    int r = blockRandomizedSVD <T> (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], rank, 1.e-14, 100, (T *) shm, shm_size * 4 / sizeof(T));
+    if (thread_rank() == 0)
+    { ranks[i] = r; }
+    __syncthreads();
+  }
 
 }
 
@@ -132,7 +140,7 @@ public:
     { resize(size * 2); }
 
     const int nx = M -> getNx(), ny = M -> getNy(), n = nx > ny ? ny : nx, i_3 = length * 3;
-    M -> adjustRank(n);
+    M -> adjustRank(nx);
 
     dims[i_3] = nx; dims[i_3 + 1] = ny; dims[i_3 + 2] = n;
 

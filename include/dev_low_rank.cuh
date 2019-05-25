@@ -75,7 +75,7 @@ public:
   {
     if (rank_in > 0 && rank_in != rank)
     {
-      const int rank_new = (rank_in <= nx && rank_in <= ny) ? rank_in : (nx < ny ? ny : nx);
+      const int rank_new = (rank_in <= nx || rank_in <= ny) ? rank_in : (nx < ny ? ny : nx);
       cudaError_t error = UxS -> resizeColumn (rank_new);
       return error == cudaSuccess ? VT -> resizeColumn (rank_new) : error;
     }
@@ -466,8 +466,8 @@ public:
   __host__ void loadTestMatrix (compressor * comp, const int x_start = 0, const int y_start = 0)
   {
     comp -> compress <T> (this);
-    UxS -> loadIdentityMatrix();
-    VT -> loadTestMatrix (x_start, y_start);
+    UxS -> loadTestMatrix(x_start, y_start);
+    VT -> loadIdentityMatrix();
   }
 
 };
