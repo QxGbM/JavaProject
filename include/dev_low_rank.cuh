@@ -76,6 +76,7 @@ public:
     if (rank_in > 0 && rank_in != rank)
     {
       const int rank_new = (rank_in <= nx || rank_in <= ny) ? rank_in : (nx < ny ? ny : nx);
+      rank = rank_new;
       cudaError_t error = UxS -> resizeColumn (rank_new);
       return error == cudaSuccess ? VT -> resizeColumn (rank_new) : error;
     }

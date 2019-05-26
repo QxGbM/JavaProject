@@ -20,19 +20,18 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 1, dim = 256, admis = 2;
+  const int n = 2, levels = 1, dim = 64, admis = 0;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
   //a->print();
 
-  const int blocks = 160, threads = 1024;
+  //const int blocks = 160, threads = 1024;
 
 #ifdef ref
   dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
   b -> loadTestMatrix();
-  printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
-  printf("Reference Matrix converted to dense.\n");
+  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
 #endif // ref
 
  /* cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);

@@ -314,13 +314,13 @@ __device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, co
 {
   const int step = shm_size / nx, total = step * nx;
 
-  for (int i = thread_rank(); i < total; i++)
+  for (int i = thread_rank(); i < total; i += block_dim())
   { shm[i] = 0; }
   __syncthreads();
 
   for (int i = 0; i < ny; i += step)
   {
-    for (int j = thread_rank(); j < total; j++)
+    for (int j = thread_rank(); j < total; j += block_dim())
     {
       const int row = i + j / nx, col = j - (row - i) * nx;
       const T e = A[row * ld + col];
@@ -339,7 +339,7 @@ __device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, co
   }
   __syncthreads();
   
-  int r_ = blockAllReduceSum <int> (r, (int *) shm);
+  const int r_ = blockAllReduceSum <int> (r, (int *) shm);
   __syncthreads();
 
   return r_;
@@ -381,9 +381,11 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   {
     if (thread_rank() == 0)
     { *iter = 0; (*loop_counter)++; }
+    __syncthreads();
 
-    if (blockSingleSideJacobiSVD (A, VT, nx, ny, ld_a, ld_v, &shm[2], epi))
-    { *iter = 1; }
+    bool iter_result = blockSingleSideJacobiSVD(A, VT, nx, ny, ld_a, ld_v, &shm[2], epi);
+    if (thread_rank() == 0)
+    { *iter = (int) iter_result; }
     __syncthreads();
   }
 
@@ -395,8 +397,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   { delete X; delete Y; delete B; }
   __syncthreads();*/
 
-  const int r = blockReadRank <T> (A, nx, ny, nx, 1.e-11, shm, shm_size);
-
+  const int r = blockReadRank <T> (A, nx, ny, nx, epi, shm, shm_size);
 
   return r;
 
