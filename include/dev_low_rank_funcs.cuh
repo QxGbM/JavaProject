@@ -269,8 +269,8 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
           __syncwarp();
         }
       }
-      __syncthreads();
       last_step = step;
+      __syncthreads();
 
     }
   }
@@ -310,7 +310,7 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
 }
 
 template <class T>
-__device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, const int ld, const double epi_sqr, T * __restrict__ shm, const int shm_size)
+__device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, const int ld, const double epi, T * __restrict__ shm, const int shm_size)
 {
   const int step = shm_size / nx, total = step * nx;
 
@@ -330,16 +330,19 @@ __device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, co
   __syncthreads();
 
   int r = 0;
-  for (int i = thread_rank(); i < nx; i++)
+  for (int i = thread_rank(); i < nx; i += block_dim())
   {
     T norm = 0;
     for (int j = 0; j < step; j++)
     { norm += shm[j * nx + i]; }
-    r += (int) (norm >= epi_sqr);
+    r += (int) (norm >= epi);
   }
   __syncthreads();
   
-  return blockAllReduceSum <int> (r, (int *) shm);
+  int r_ = blockAllReduceSum <int> (r, (int *) shm);
+  __syncthreads();
+
+  return r_;
 }
 
 template <class T> 
@@ -383,12 +386,16 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
     { *iter = 1; }
     __syncthreads();
   }
-  
+
   blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
+  const int r = blockReadRank <T> (B, nx, P, nx, epi, shm, shm_size);
+  __syncthreads();
+
   if (thread_rank() == 0)
   { delete X; delete Y; delete B; }
+  __syncthreads();
 
-  return blockReadRank(A, nx, ny, ld_a, epi * epi, shm, shm_size);
+  return r;
 
 }
 

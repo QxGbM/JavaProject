@@ -12,7 +12,7 @@ __global__ void compressor_kernel (const int length, T ** __restrict__ U_ptrs, T
   for (int i = block_rank(); i < length; i += grid_dim())
   {
     const int i_3 = i * 3;
-    int r = blockRandomizedSVD <T> (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], rank, 1.e-14, 100, (T *) shm, shm_size * 4 / sizeof(T));
+    int r = blockRandomizedSVD <T> (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], rank, 1.e-7, 100, (T *) shm, shm_size * 4 / sizeof(T));
     if (thread_rank() == 0)
     { ranks[i] = r; }
     __syncthreads();
@@ -33,6 +33,8 @@ private:
   int * ranks;
   int * dims;
 
+  void ** str_ptrs;
+
 public:
   __host__ compressor (const int rnd_seed_in = 0, const int default_size = _DEFAULT_COMPRESSOR_LENGTH)
   {
@@ -45,10 +47,12 @@ public:
     ranks = new int [size];
     U_ptrs = new void * [size];
     V_ptrs = new void * [size];
+    str_ptrs = new void * [size];
 
     size_t size_b = size * sizeof (void *);
     memset (U_ptrs, 0, size_b);
     memset (V_ptrs, 0, size_b);
+    memset (str_ptrs, 0, size_b);
 
     size_b = size * sizeof (int);
     memset (ranks, 0, size_b);
@@ -74,6 +78,7 @@ public:
     delete[] V_ptrs;
     delete[] ranks;
     delete[] dims;
+    delete[] str_ptrs;
 
   }
 
@@ -86,6 +91,7 @@ public:
       int * ranks_new = new int [size_in];
       void ** U_ptrs_new = new void * [size_in];
       void ** V_ptrs_new = new void * [size_in];
+      void ** str_ptrs_new = new void * [size_in];
 
       const int n = size_in > size ? size : size_in;
 
@@ -100,6 +106,7 @@ public:
         dims_new[i_3] = dims[i_3];
         dims_new[i_3 + 1] = dims[i_3 + 1];
         dims_new[i_3 + 2] = dims[i_3 + 2];
+        str_ptrs_new[i] = str_ptrs[i];
       }
 
       if (n < size_in)
@@ -115,6 +122,7 @@ public:
           dims_new[i_3 + 1] = 0;
           dims_new[i_3 + 2] = 0;
           ranks_new[i] = 0;
+          str_ptrs_new[i] = nullptr;
         }
       }
 
@@ -122,11 +130,13 @@ public:
       delete[] V_ptrs;
       delete[] ranks;
       delete[] dims;
+      delete[] str_ptrs;
 
       U_ptrs = U_ptrs_new;
       V_ptrs = V_ptrs_new;
       ranks = ranks_new;
       dims = dims_new;
+      str_ptrs = str_ptrs_new;
 
       size = size_in;
       length = (length > size_in) ? size_in : length;
@@ -146,6 +156,7 @@ public:
 
     U_ptrs[length] = M -> getUxS() -> getElements();
     V_ptrs[length] = M -> getVT() -> getElements();
+    str_ptrs[length] = M;
 
     length++;
   }
@@ -170,6 +181,13 @@ public:
 
     error = cudaDeviceSynchronize();
     fprintf(stderr, "Device: %s\n\n", cudaGetErrorString(error));
+
+    cudaMemcpy(ranks, dev_ranks, length * sizeof(int), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < length; i++)
+    { 
+      printf("%d: %d\n", i, ranks[i]);
+      ((dev_low_rank <T> *) str_ptrs[i]) -> adjustRank(ranks[i]);
+    }
 
     delete[] args;
     cudaFree(dev_U_ptrs);
