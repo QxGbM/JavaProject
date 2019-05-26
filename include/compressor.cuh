@@ -186,7 +186,12 @@ public:
     for (int i = 0; i < length; i++)
     { 
       printf("%d: %d\n", i, ranks[i]);
+      dev_dense <T> * a = ((dev_low_rank <T>*) str_ptrs[i]) -> convertToDense();
       ((dev_low_rank <T> *) str_ptrs[i]) -> adjustRank(ranks[i]);
+      dev_dense <T>* b = ((dev_low_rank <T>*) str_ptrs[i])->convertToDense();
+      printf("Rel. L2 Error: %e\n\n", b->L2Error(a));
+
+
     }
 
     delete[] args;

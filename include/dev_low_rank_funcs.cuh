@@ -349,7 +349,7 @@ template <class T>
 __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
   const int rank, const double epi, const int iter_limit, T * __restrict__ shm, const int shm_size)
 {
-  const int P = rank > nx ? (nx > ny ? ny : nx) : (rank > ny ? ny : rank);
+  /*const int P = rank > nx ? (nx > ny ? ny : nx) : (rank > ny ? ny : rank);
 
   T * X, ** X_ptr = (T **) &shm[0], *Y, **Y_ptr = (T **) &shm[1], *B, ** B_ptr = (T **) &shm[2];
   if (thread_rank() == 0)
@@ -370,7 +370,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   blockDenseTrsmR_shm (Y, X, P, ny, P, P, P, false, shm, shm_size);
   blockGramSchmidt (Y, P, ny, P, shm);
 
-  blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);
+  blockDenseGemm_shm (1., 0., B, Y, A, P, nx, ny, nx, P, ld_a, true, false, shm, shm_size);*/
 
   int * iter = (int *) &shm[0], *loop_counter = (int *) &shm[1];
   if (thread_rank() == 0)
@@ -382,18 +382,21 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
     if (thread_rank() == 0)
     { *iter = 0; (*loop_counter)++; }
 
-    if (blockSingleSideJacobiSVD (B, VT, nx, P, nx, ld_v, &shm[2], epi))
+    if (blockSingleSideJacobiSVD (A, VT, nx, ny, ld_a, ld_v, &shm[2], epi))
     { *iter = 1; }
     __syncthreads();
   }
 
-  blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
+  /*blockDenseGemm_shm (1., 0., A, Y, B, ny, nx, P, ld_a, P, nx, false, false, shm, shm_size);
   const int r = blockReadRank <T> (B, nx, P, nx, epi, shm, shm_size);
   __syncthreads();
 
   if (thread_rank() == 0)
   { delete X; delete Y; delete B; }
-  __syncthreads();
+  __syncthreads();*/
+
+  const int r = blockReadRank <T> (A, nx, ny, nx, 1.e-11, shm, shm_size);
+
 
   return r;
 
