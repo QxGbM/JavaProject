@@ -914,27 +914,26 @@ public:
     {
       for (int x = 0, x_offset = x_start; x < nx; x++)
       {
-        bool admis_b = abs(x_offset - y_offset) < admis + block_size;
-        if (levels > 0 && admis_b)
+        const int loc = abs(x_offset - y_offset);
+        const bool admis_block = loc < admis + block_size, admis_leaf = loc < (admis + 1) * block_size;
+
+        if (levels > 0 && admis_block)
         { 
           dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
-          e -> loadTestMatrix(levels - 1, dim, block_size, admis, comp, x_offset, y_offset);
-          setElement(e, hierarchical, x, y);
+          e -> loadTestMatrix (levels - 1, dim, block_size, admis, comp, x_offset, y_offset);
+          setElement (e, hierarchical, x, y);
+        }
+        else if (admis_leaf)
+        {
+          dev_dense <T> *e = new dev_dense <T> (block_size, block_size);
+          e -> loadTestMatrix (x_offset, y_offset);
+          setElement (e, dense, x, y);
         }
         else
         {
-          if (admis_b)
-          {
-            dev_dense <T> *e = new dev_dense <T> (block_size, block_size);
-            e -> loadTestMatrix(x_offset, y_offset);
-            setElement(e, dense, x, y);
-          }
-          else
-          {
-            dev_low_rank <T> *e = new dev_low_rank <T> (block_size, block_size);
-            e -> loadTestMatrix (comp, x_offset, y_offset);
-            setElement(e, low_rank, x, y);
-          }
+          dev_low_rank <T> *e = new dev_low_rank <T> (block_size, block_size);
+          e -> loadTestMatrix (comp, x_offset, y_offset);
+          setElement (e, low_rank, x, y);
         }
         x_offset += block_size;
       }
@@ -946,7 +945,7 @@ public:
 
     if (new_comp)
     {
-      error = comp -> launch <T> ();
+      error = comp -> launch <T, 12288, 32> ();
       delete comp;
     }
 

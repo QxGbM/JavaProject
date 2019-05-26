@@ -20,12 +20,13 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 1, dim = 4, admis = 3;
+  const int n = 2, levels = 1, dim = 16, admis = 0;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
+  a->print();
 
-  const int blocks = 160, threads = 1024;
+  /*const int blocks = 160, threads = 1024;
 
 #ifdef ref
   dev_dense <T> *c = a -> convertToDense();
@@ -45,7 +46,7 @@ template <class T> __host__ int test0()
     delete b;
   }
   delete c;
-#endif // ref
+#endif // ref*/
 
   delete a;
 
@@ -157,8 +158,8 @@ void test3()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
-  test1();
+  test0 <double> ();
+  //test1();
   //test2();
 
   return 0;

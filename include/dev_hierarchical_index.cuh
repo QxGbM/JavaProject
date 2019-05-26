@@ -89,11 +89,11 @@ public:
     }
     else if (type == low_rank)
     {
-      n_ptrs = 3;
+      n_ptrs = 2;
       dev_low_rank <T> * lr = element -> getElementLowRank();
       ld_x = lr -> getUxS() -> getLd();
       ld_y = lr -> getVT() -> getLd();
-      data_ptrs = new void *[3] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements(), lr -> getRank() };
+      data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
       struct_ptr = lr;
     }
     else if (type == dense)
@@ -176,11 +176,11 @@ public:
     }
     else if (type == low_rank)
     {
-      n_ptrs = 3;
+      n_ptrs = 2;
       dev_low_rank <T> * lr = element -> getElementLowRank();
       ld_x = lr -> getUxS() -> getLd();
       ld_y = lr -> getVT() -> getLd();
-      data_ptrs = new void *[3] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements(), lr -> getRank() };
+      data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
       struct_ptr = lr;
     }
     else if (type == dense)
@@ -287,7 +287,7 @@ public:
     case dense: 
       inst[0] = offset_x * ld_x + offset_y; inst[1] = ld_x; return 2;
     case low_rank:
-      inst[0] = offset_x; inst[1] = offset_y; inst[2] = ld_x; inst[3] = ld_x; return 4;
+      inst[0] = offset_x; inst[1] = offset_y; inst[2] = ld_x; inst[3] = ld_y; return 4;
     default:
       return 0;
     }

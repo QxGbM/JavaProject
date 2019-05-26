@@ -150,11 +150,43 @@ public:
     length++;
   }
 
-  template <class T> __host__ cudaError_t launch ()
+  template <class T, int shm_size, int rank> __host__ cudaError_t launch ()
   {
+    T ** dev_U_ptrs, ** dev_V_ptrs;
+    int * dev_ranks, * dev_dims;
 
+    cudaMalloc(&dev_U_ptrs, length * sizeof(T *));
+    cudaMalloc(&dev_V_ptrs, length * sizeof(T *));
+    cudaMalloc(&dev_ranks, length * sizeof(int));
+    cudaMalloc(&dev_dims, 3 * length * sizeof(int));
 
-    return cudaSuccess;
+    cudaMemcpy(dev_U_ptrs, U_ptrs, length * sizeof(T *), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_V_ptrs, V_ptrs, length * sizeof(T *), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_ranks, ranks, length * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_dims, dims, 3 * length * sizeof(int), cudaMemcpyHostToDevice);
+
+    void ** args = new void *[5] { &length, &dev_U_ptrs, &dev_V_ptrs, &dev_ranks, &dev_dims };
+    cudaError_t error = cudaLaunchKernel((void *) compressor_kernel <T, shm_size, rank>, 16, 1024, args, 0, 0);
+
+    error = cudaDeviceSynchronize();
+    fprintf(stderr, "Device: %s\n\n", cudaGetErrorString(error));
+
+    delete[] args;
+    cudaFree(dev_U_ptrs);
+    cudaFree(dev_V_ptrs);
+    cudaFree(dev_ranks);
+    cudaFree(dev_dims);
+
+    return error;
+  }
+
+  __host__ void print()
+  {
+    for (int i = 0; i < length; i++)
+    {
+      const int i_3 = i * 3;
+      printf("%d: %d x %d.\n", i, dims[i_3 + 1], dims[i_3]);
+    }
   }
 
 };
