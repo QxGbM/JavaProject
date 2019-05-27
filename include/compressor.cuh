@@ -203,7 +203,7 @@ public:
     for (int i = 0; i < length; i++)
     {
       const int i_3 = i * 3;
-      printf("%d: %d x %d.\n", i, dims[i_3 + 1], dims[i_3]);
+      printf("%d: %d x %d => %d.\n", i, dims[i_3 + 1], dims[i_3], ranks[i]);
     }
   }
 

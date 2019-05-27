@@ -923,7 +923,7 @@ public:
           e -> loadTestMatrix (levels - 1, dim, block_size, admis, comp, x_offset, y_offset);
           setElement (e, hierarchical, x, y);
         }
-        else if (admis_leaf)
+        else if (levels <= 0 && admis_leaf)
         {
           dev_dense <T> *e = new dev_dense <T> (block_size, block_size);
           e -> loadTestMatrix (x_offset, y_offset);

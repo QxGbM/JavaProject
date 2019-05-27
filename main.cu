@@ -20,13 +20,10 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 1, dim = 64, admis = 0;
+  const int n = 2, levels = 2, dim = 32, admis = 2;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
-  //a->print();
-
-  //const int blocks = 160, threads = 1024;
 
 #ifdef ref
   dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
@@ -34,7 +31,9 @@ template <class T> __host__ int test0()
   printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
 #endif // ref
 
- /* cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
+ /* 
+   const int blocks = 160, threads = 1024;
+   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
 #ifdef ref
   if (error == cudaSuccess)
