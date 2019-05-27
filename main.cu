@@ -20,7 +20,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 32, admis = 2;
+  const int n = 2, levels = 1, dim = 32, admis = 0;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
@@ -29,36 +29,30 @@ template <class T> __host__ int test0()
   dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
   b -> loadTestMatrix();
   printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
+  delete c; c = nullptr;
 #endif // ref
 
- /* 
-   const int blocks = 160, threads = 1024;
-   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
+  const int blocks = 160, threads = 1024;
+  cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
 #ifdef ref
   if (error == cudaSuccess)
   {
-    dev_dense <T> *b = a -> convertToDense();
-    partial_pivot_kernel <<<1, 1024, 0, 0 >>> (c -> getElements(), a -> getNx_abs(), a -> getNy_abs(), a -> getNx_abs(), nullptr);
+    c = a -> convertToDense();
+    partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
     cudaDeviceSynchronize();
 
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
-    delete b;
+    delete b; b = nullptr;
   }
-  delete c;
-#endif // ref*/
+  delete c; c = nullptr;
+#endif // ref
 
   delete a;
 
   return 0;
 }
 
-__global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
-{
-  __shared__ double shm[6144];
-  int i = blockRandomizedSVD <double> (U, VT, nx, ny, ld_u, ld_v, 8, 1.0e-14, 100, shm, 6144);
-  if (thread_rank() == 0) { printf("iters: %d\n", i); }
-}
 
 __global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, const int ld_q, const int ld_r)
 {

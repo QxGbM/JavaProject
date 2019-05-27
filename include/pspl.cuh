@@ -30,14 +30,13 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
-#define _DEFAULT_COMPRESSOR_LENGTH 1024
-
 #define _MAX_INST_LENGTH 32
 #define _MAX_SCHEDULER_ITERS 1024
 
 #define _DEFAULT_PTRS_LENGTH 1024
 #define _DEFAULT_INSTS_LENGTH 1024
 #define _DEFAULT_COMM_LENGTH 1024
+#define _DEFAULT_COMPRESSOR_LENGTH 1024
 
 #define _RND_SEED_LENGTH 8192
 
@@ -78,12 +77,11 @@ __device__ inline int lane_rank()
 __device__ inline int num_warps()
 { return (block_dim() + warpSize - 1) / warpSize; }
 
-class compressor;
-
 template <class T> class dev_dense;
 template <class T> class dev_low_rank;
 template <class T> class dev_hierarchical;
 template <class T> class dev_h_element;
+class dev_temp;
 
 class h_index;
 class h_ops;
@@ -98,6 +96,8 @@ class instructions_manager;
 class dependency_linked_list;
 class event_linked_list;
 class timer;
+class compressor;
+
 
 #include <dev_dense_funcs.cuh>
 #include <dev_low_rank_funcs.cuh>
@@ -113,6 +113,7 @@ class timer;
 #include <dev_low_rank.cuh>
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
+#include <dev_temp.cuh>
 
 #include <instructions_scheduler.cuh>
 #include <instructions_manager.cuh>

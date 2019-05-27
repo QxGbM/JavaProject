@@ -16,6 +16,7 @@
     <ClInclude Include="include\instructions_scheduler.cuh" />
     <ClInclude Include="include\instructions_manager.cuh" />
     <ClInclude Include="include\compressor.cuh" />
+    <ClInclude Include="include\dev_temp.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
@@ -24,5 +25,6 @@
     <None Include="docs\README.md" />
     <None Include="Makefile" />
     <None Include="docs\CONTRIBUTING.md" />
+    <None Include=".gitignore" />
   </ItemGroup>
 </Project>

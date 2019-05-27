@@ -17,6 +17,7 @@ private:
   int ld_y;
   int offset_x;
   int offset_y;
+  int rank;
 
   int n_ptrs;
   void ** data_ptrs;
@@ -32,7 +33,7 @@ public:
     indexs = nullptr;
     type = empty;
     nx = ny = ld_x = ld_y = 0;
-    offset_x = offset_y = 0;
+    offset_x = offset_y = rank = 0;
     n_ptrs = 0;
     data_ptrs = nullptr;
     struct_ptr = nullptr;
@@ -54,7 +55,7 @@ public:
     nx = h -> getNx_abs();
     ny = h -> getNy_abs();
     ld_x = ld_y = 0;
-    offset_x = offset_y = 0;
+    offset_x = offset_y = rank = 0;
 
     n_ptrs = 0;
     data_ptrs = nullptr;
@@ -82,7 +83,7 @@ public:
 
     if (type == hierarchical)
     {
-      ld_x = ld_y = 0;
+      ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
       struct_ptr = element -> getElementHierarchical();
@@ -93,6 +94,7 @@ public:
       dev_low_rank <T> * lr = element -> getElementLowRank();
       ld_x = lr -> getUxS() -> getLd();
       ld_y = lr -> getVT() -> getLd();
+      rank = lr -> getRank();
       data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
       struct_ptr = lr;
     }
@@ -101,13 +103,13 @@ public:
       n_ptrs = 1;
       dev_dense <T> * d = element -> getElementDense();
       ld_x = d -> getLd();
-      ld_y = 0;
+      ld_y = rank = 0;
       data_ptrs = new void *[1] { d -> getElements() };
       struct_ptr = d;
     }
     else
     {
-      ld_x = ld_y = 0;
+      ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
       struct_ptr = nullptr;
@@ -134,6 +136,7 @@ public:
 
     offset_x = index -> offset_x + x_start;
     offset_y = index -> offset_y + y_start;
+    rank = index -> rank;
 
     n_ptrs = index -> n_ptrs;
     data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
@@ -169,7 +172,7 @@ public:
 
     if (type == hierarchical)
     {
-      ld_x = ld_y = 0;
+      ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
       struct_ptr = element -> getElementHierarchical();
@@ -180,6 +183,7 @@ public:
       dev_low_rank <T> * lr = element -> getElementLowRank();
       ld_x = lr -> getUxS() -> getLd();
       ld_y = lr -> getVT() -> getLd();
+      rank = lr -> getRank();
       data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
       struct_ptr = lr;
     }
@@ -188,13 +192,13 @@ public:
       n_ptrs = 1;
       dev_dense <T> * d = element -> getElementDense();
       ld_x = d -> getLd();
-      ld_y = 0;
+      ld_y = rank = 0;
       data_ptrs = new void *[1] { d -> getElements() };
       struct_ptr = d;
     }
     else
     {
-      ld_x = ld_y = 0;
+      ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
       struct_ptr = nullptr;
@@ -261,6 +265,7 @@ public:
       addr -> ld_y = ld_y;
       addr -> offset_x = offset_x;
       addr -> offset_y = offset_y;
+      addr -> rank = rank;
       addr -> n_ptrs = n_ptrs;
       addr -> struct_ptr = struct_ptr;
       addr -> root_ptr = root_ptr;
@@ -287,7 +292,7 @@ public:
     case dense: 
       inst[0] = offset_x * ld_x + offset_y; inst[1] = ld_x; return 2;
     case low_rank:
-      inst[0] = offset_x; inst[1] = offset_y; inst[2] = ld_x; inst[3] = ld_y; return 4;
+      inst[0] = offset_x; inst[1] = offset_y; inst[2] = ld_x; inst[3] = ld_y; inst[4] = rank; return 5;
     default:
       return 0;
     }
@@ -301,11 +306,10 @@ public:
     switch (type)
     {
     case empty: printf(" E "); break;
-    case dense: printf(" D "); break;
-    case low_rank: printf(" LR "); break;
-    case hierarchical: printf(" H "); break;
+    case dense: printf(" D (%d %d) (%d x %d b %d)] ", offset_y, offset_x, ny, nx, ld_x); break;
+    case low_rank: printf(" LR @%d (%d %d) (%d x %d b %d, %d)] ", rank, offset_y, offset_x, ny, nx, ld_y, ld_x); break;
+    case hierarchical: printf(" H (%d %d) (%d x %d)] ", offset_y, offset_x, ny, nx); break;
     }
-    printf("(%d %d) (%d b %d x %d b %d)] ", offset_y, offset_x, ny, ld_y, nx, ld_x);
   }
 
 };

@@ -124,17 +124,11 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   double clock_start, clock_end;
 
   clock_start = omp_get_wtime();
-  if (!(h -> partition_GETRF()))
-  { printf("-- Partition Failed. Aborting. --\n"); return cudaErrorUnknown; }
-  clock_end = omp_get_wtime();
-  printf("LU partition finishes in %f ms.\n\n", 1000. * (clock_end - clock_start));
-
-  clock_start = omp_get_wtime();
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root);
   clock_end = omp_get_wtime();
   printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
-
+  tree->print();
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
@@ -168,7 +162,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   delete args;
 
   const unsigned long long int exeFLOPS = dag.getFops(), estFLOPS = dense_op.getFops();
-  const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = 100. * exeFLOPS / estFLOPS;
+  const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
   printf("-- Kernel Running Summary --\n"
     "Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", 
@@ -191,7 +185,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   }
   printf("FLOPS/S.\n");
 
-  gpuflops *= 100. / compressRatio;
+  gpuflops *= compressRatio == 0 ? 0 : 100. / compressRatio;
 
   while (power < 4 && gpuflops > 1.e3) 
   { gpuflops *= 1.e-3; power ++; }
