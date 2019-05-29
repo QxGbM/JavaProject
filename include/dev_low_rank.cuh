@@ -186,18 +186,56 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
+    op -> resizeChildren (2);
+
+    h_index index_tmp; self -> generateTemp_Dense (&index_tmp);
+    dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
+
+    printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");
+
+    op_ = new h_ops_tree (gemm, &index_tmp, index_a, index_b);
+    op -> setChild (op_, 0);
+    delete op_;
+
+    op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
+    op -> resizeChildren (2);
+
+    h_index index_tmp, index_tmpv, index_av;
+    index_a -> generateTemp_LR_SameU (&index_tmp);
+    index_tmp.getVT (&index_tmpv);
+    index_a -> getVT (&index_av);
+
+    op_ = new h_ops_tree (gemm, &index_tmpv, index_b, &index_av);
+    op -> setChild (op_, 0);
+    delete op_;
+
+    op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
+    const int n_k = A -> getNx_blocks(), n_mk = n_k * A -> getNy_blocks();
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
+    op -> resizeChildren(n_mk + 1);
+
+    h_index index_tmp; self -> generateTemp_Dense (&index_tmp);
+    dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
+
+    printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");
 
     int * y, * k, x = B -> getNx();
     x = (nx > x) ? x : nx;
@@ -205,10 +243,10 @@ public:
     A -> getOffsets_x(&k);
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
+    for (int i = 0; i < n_mk; i++)
     {
-      const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
-      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
+      const int row = i / n_k, col = i - row * n_k;
+      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmp, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
@@ -216,6 +254,11 @@ public:
 
     delete[] y;
     delete[] k;
+
+    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, n_mk);
+    delete op_;
+
     return op;
   }
 
@@ -237,36 +280,92 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
+    op -> resizeChildren (2);
+
+    h_index index_tmp, index_tmpu, index_bu;
+    index_b -> generateTemp_LR_SameV (&index_tmp);
+    index_tmp.getU (&index_tmpu);
+    index_b -> getU (&index_bu);
+
+    op_ = new h_ops_tree (gemm, &index_tmpu, index_a, &index_bu);
+    op -> setChild (op_, 0);
+    delete op_;
+
+    op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
+    op -> resizeChildren (2);
+
+    h_index index_tmp;
+
+    const int r_a = A -> getRank(), r_b = B -> getRank();
+    if (r_a < r_b)
+    {
+      h_index index_tmpv, index_av;
+      index_a -> generateTemp_LR_SameU (&index_tmp);
+      index_tmp.getVT (&index_tmpv);
+      index_a -> getVT (&index_av);
+
+      op_ = new h_ops_tree (gemm, &index_tmpv, index_b, &index_av);
+    }
+    else
+    {
+      h_index index_tmpu, index_bu;
+      index_b -> generateTemp_LR_SameV (&index_tmp);
+      index_tmp.getU (&index_tmpu);
+      index_b -> getU (&index_bu);
+
+      op_ = new h_ops_tree (gemm, &index_tmpu, index_a, &index_bu);
+    }
+
+    op -> setChild (op_, 0);
+    delete op_;
+
+    op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
+    const int n_k = A -> getNx_blocks(), n_mk = n_k * A -> getNy_blocks();
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
+    op -> resizeChildren (n_mk + 1);
 
-    int * y, * k, x = B -> getNx();
-    x = (nx > x) ? x : nx;
+    h_index index_tmp, index_tmpu, index_bu; 
+    index_b -> generateTemp_LR_SameV (&index_tmp);
+    index_tmp.getU (&index_tmpu);
+    index_b -> getU (&index_bu);
+
+    int * y, r = B -> getRank();
     A -> getOffsets_y(&y);
-    A -> getOffsets_x(&k);
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
+    for (int i = 0; i < n_mk; i++)
     {
-      const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
-      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
+      const int row = i / n_k, col = i - row * n_k;
+      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmpu, y[row], 0, index_ai.getNy(), r), index_bj = h_index (&index_bu, y[row], 0, index_ai.getNx(), r);
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
     }
 
     delete[] y;
-    delete[] k;
+
+    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, n_mk);
+    delete op_;
+
     return op;
   }
 
@@ -288,8 +387,14 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
+    const int n_n = B -> getNx_blocks(), n_nk = n_n * B -> getNy_blocks();
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
+    op -> resizeChildren (n_nk + 1);
+
+    h_index index_tmp; self -> generateTemp_Dense (&index_tmp);
+    dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
+
+    printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");
 
     int * x, * k, y = A -> getNy();
     y = (ny > y) ? y : ny;
@@ -297,10 +402,10 @@ public:
     B -> getOffsets_x(&x);
 
 #pragma omp parallel for num_threads(2)
-    for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
+    for (int i = 0; i < n_nk; i++)
     {
-      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
-      const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
+      const int row = i / n_n, col = i - row * n_n;
+      const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (&index_tmp, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj);
       op -> setChild(op_i, i);
       delete op_i;
@@ -308,6 +413,11 @@ public:
 
     delete[] x;
     delete[] k;
+
+    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, n_nk);
+    delete op_;
+
     return op;
   }
 
@@ -323,14 +433,14 @@ public:
     index_tmp.getVT (&index_tmpv);
     index_a -> getVT (&index_av);
 
-    int * x, y = A -> getNy();
+    int * x, r = A -> getRank();
     B -> getOffsets_x(&x);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < n_nk; i++)
     {
       const int row = i / n_n, col = i - row * n_n;
-      const h_index index_bj = h_index (B, index_b, row, col), index_tmpi = h_index (&index_tmpv, 0, x[col], y, index_bj.getNx()), index_ai = h_index (&index_av, 0, x[col], y, index_bj.getNx());
+      const h_index index_bj = h_index (B, index_b, row, col), index_tmpi = h_index (&index_tmpv, 0, x[col], r, index_bj.getNy()), index_ai = h_index (&index_av, 0, x[col], r, index_bj.getNx());
       h_ops_tree * op_i = generateOps_GEMM(&index_tmpi, B -> getElement_blocks(row, col), &index_bj, A, &index_ai);
       op -> setChild(op_i, i);
       delete op_i;
