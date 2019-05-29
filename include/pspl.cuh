@@ -40,15 +40,13 @@
 
 #define _RND_SEED_LENGTH 8192
 
-enum mark_t{ start, end };
+enum mark_t { start, end };
 
-enum element_t { empty, dense, low_rank, hierarchical };
+enum element_t { empty, dense, low_rank, hierarchical, temp_dense, temp_low_rank };
 
 enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
-enum operation_t { nop, getrf_d, 
-  trsml_d, trsml_lr, trsmr_d, trsmr_lr, pivot_d, pivot_lr,
-  gemm_d_d_d, gemm_d_d_lr, gemm_d_lr_d, gemm_d_lr_lr, gemm_lr_d_d, gemm_lr_d_lr, gemm_lr_lr_d, gemm_lr_lr_lr };
+enum operation_t { nop, getrf, trsml, trsmr, accum, pivot, gemm, dev_gemm_3x, dev_gemm_4x };
 
 enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_node_no_overlap, same_node_overlapped, same_index };
 

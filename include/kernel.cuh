@@ -30,7 +30,7 @@ load_inst:
 exe:
   switch ((operation_t) shm[1])
   {
-  case getrf_d:
+  case getrf:
   {
     T * M = (T *) ptrs[shm[2]]; 
     const int offset = shm[3], ld = shm[4], nx = shm[5], ny = shm[6];
@@ -39,7 +39,7 @@ exe:
     next_pc = 7; goto sync;  
   }
 
-  case trsml_d:
+  case trsml:
   {
     T * B = (T *) ptrs[shm[2]], * L = (T *) ptrs[shm[5]];
     const int offset_b = shm[3], ld_b = shm[4], offset_l = shm[6], ld_l = shm[7], nx_b = shm[8], ny_b = shm[9], nx_l = shm[10];
@@ -48,7 +48,7 @@ exe:
     next_pc = 11; goto sync;  
   }
 
-  case trsmr_d:
+  case trsmr:
   {
     T * B = (T *) ptrs[shm[2]], * U = (T *) ptrs[shm[5]];
     const int offset_b = shm[3], ld_b = shm[4], offset_u = shm[6], ld_u = shm[7], nx_b = shm[8], ny_b = shm[9], ny_u = shm[10];
@@ -57,7 +57,7 @@ exe:
     next_pc = 11; goto sync;  
   }
 
-  case gemm_d_d_d:
+  case gemm:
   {
     T * M = (T *) ptrs[shm[2]], * A = (T *) ptrs[shm[5]], * B = (T *) ptrs[shm[8]];
     const int offset_m = shm[3], ld_m = shm[4], offset_a = shm[6], ld_a = shm[7], offset_b = shm[9], ld_b = shm[10], m = shm[11], n = shm[12], k = shm[13];
@@ -157,7 +157,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
-  h_ops dense_op = h_ops (getrf_d, root);
+  h_ops dense_op = h_ops (getrf, root);
   delete root;
   delete args;
 

@@ -19,27 +19,34 @@ private:
   int * pivot;
 
 public:
-  __host__ dev_dense (const int nx_in, const int ny_in, const int ld_in = 0, const bool alloc_pivot = false, const int device_id_in = -1)
+
+  __host__ dev_dense (const int nx_in = 0, const int ny_in = 0, const int ld_in = 0, const int device_id_in = 0, const bool alloc_pivot = false)
   {
     nx = nx_in;
     ny = ny_in;
     ld = (nx > ld_in) ? nx : ld_in;
 
     if (device_id_in >= 0 && cudaSetDevice(device_id_in) == cudaSuccess)
-    { device_id = device_id_in; }
-    else
-    { device_id = 0; }
+    { 
+      device_id = device_id_in;
 
-    if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) == cudaSuccess)
-    { cudaMemset(elements, 0, ld * ny * sizeof(T)); }
-    else
-    { elements = nullptr; }
+      if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) == cudaSuccess)
+      { cudaMemset(elements, 0, ld * ny * sizeof(T)); }
+      else
+      { elements = nullptr; }
     
-    if (alloc_pivot && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) == cudaSuccess)
-    { cudaMemset(pivot, 0, ny * sizeof(int)); pivoted = true; }
+      if (alloc_pivot && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) == cudaSuccess)
+      { cudaMemset(pivot, 0, ny * sizeof(int)); pivoted = true; }
+      else
+      { pivot = nullptr; pivoted = false; }
+    }
     else
-    { pivot = nullptr; pivoted = false; }
-
+    { 
+      device_id = -1;
+      elements = nullptr;
+      pivoted = false;
+      pivot = nullptr;
+    }
   }
 
   __host__ ~dev_dense ()
@@ -176,18 +183,18 @@ public:
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   { 
-    return new h_ops_tree (getrf_d, self); 
+    return new h_ops_tree (getrf, self); 
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (trsml_d, index_b, self);
+    return new h_ops_tree (trsml, index_b, self);
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_index index_lr; index_b -> getUxS(&index_lr); 
-    return new h_ops_tree (trsml_lr, &index_lr, self);
+    h_index index_lr; index_b -> getU (&index_lr); 
+    return new h_ops_tree (trsml, &index_lr, self);
   }
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
@@ -213,13 +220,13 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (trsmr_d, index_b, self);
+    return new h_ops_tree (trsmr, index_b, self);
   }
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_index index_lr; index_b -> getVT(&index_lr);
-    return new h_ops_tree (trsmr_lr, &index_lr, self);
+    h_index index_lr; index_b -> getVT (&index_lr);
+    return new h_ops_tree (trsmr, &index_lr, self);
   }
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
@@ -245,17 +252,17 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm_d_d_d, self, index_a, index_b); 
+    return new h_ops_tree (gemm, self, index_a, index_b); 
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm_d_lr_d, self, index_a, index_b); 
+    return new h_ops_tree (gemm, self, index_a, index_b); 
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
     int * y, * k, x = B -> getNx();
@@ -296,17 +303,17 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm_d_d_lr, self, index_a, index_b);
+    return new h_ops_tree (gemm, self, index_a, index_b);
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    return new h_ops_tree (gemm_d_lr_lr, self, index_a, index_b);
+    return new h_ops_tree (gemm, self, index_a, index_b);
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_lr, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
     int * y, * k, x = B -> getNx();
@@ -347,7 +354,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
     int * x, * k, y = A -> getNy();
@@ -372,7 +379,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_lr_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
     int * x, * k, y = A -> getNy();
@@ -400,7 +407,7 @@ public:
     if (A -> getNx_blocks() != B -> getNy_blocks())
     { printf("Matrices are partitioned differently in D.H-H GEMM.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(A -> getNy_blocks() * A -> getNx_blocks() * B -> getNx_blocks());
 
     int * x, * y;
@@ -533,7 +540,7 @@ public:
     printf("\n");
   }
 
-  __host__ void loadTestMatrix(const int x_start = 0, const int y_start = 0)
+  __host__ void loadTestMatrix (const int x_start = 0, const int y_start = 0)
   {
     for(int i = 0; i < ny; i++)
     {
@@ -546,7 +553,7 @@ public:
     }
   }
 
-  __host__ void loadIdentityMatrix()
+  __host__ void loadIdentityMatrix ()
   {
     for (int x = 0; x < nx; x++) for (int y = 0; y < ny; y++)
     { elements[y * ld + x] = (T) ((x == y) ? 1 : 0); }

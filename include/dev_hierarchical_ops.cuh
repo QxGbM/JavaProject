@@ -29,7 +29,7 @@ public:
 
   __host__ h_ops (const operation_t op_in, const h_index * M)
   {
-    if (op_in != getrf_d)
+    if (op_in != getrf)
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
@@ -43,7 +43,7 @@ public:
 
   __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2)
   {
-    if (op_in < trsml_d || op_in > pivot_lr)
+    if (op_in < trsml || op_in > pivot)
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
@@ -58,7 +58,7 @@ public:
 
   __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2, const h_index * M3)
   {
-    if (op_in < gemm_d_d_d || op_in > gemm_lr_lr_lr) 
+    if (op_in != gemm) 
     { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
@@ -156,28 +156,27 @@ public:
   {
     switch (opType())
     {
-    case getrf_d:
+    case getrf:
     {
       int nx = read_and_write[0].getNx(), ny = read_and_write[0].getNy();
       inst[0] = nx; inst[1] = ny;
       return 2;
     }
-    case trsml_d: case trsml_lr:
+    case trsml:
     {
       int nx_b = read_and_write[0].getNx(), ny_b = read_and_write[0].getNy(), dim_m = read_only[0].getNx();
       ny_b = (ny_b > read_only[0].getNy()) ? read_only[0].getNy() : ny_b;
       inst[0] = nx_b; inst[1] = ny_b; inst[2] = dim_m;
       return 3;
     }
-    case trsmr_d: case trsmr_lr:
+    case trsmr:
     {
       int nx_b = read_and_write[0].getNx(), ny_b = read_and_write[0].getNy(), dim_m = read_only[0].getNy();
       nx_b = (nx_b > read_only[0].getNx()) ? read_only[0].getNx() : nx_b;
       inst[0] = nx_b; inst[1] = ny_b; inst[2] = dim_m;
       return 3;
     }
-    case gemm_d_d_d: case gemm_d_d_lr: case gemm_d_lr_d: case gemm_d_lr_lr:
-    case gemm_lr_d_d: case gemm_lr_d_lr: case gemm_lr_lr_d: case gemm_lr_lr_lr:
+    case gemm:
     {
       int m = read_and_write[0].getNy(), n = read_and_write[0].getNx(), k = read_only[0].getNx();
       m = (m > read_only[0].getNy()) ? read_only[0].getNy() : m;
@@ -200,11 +199,17 @@ public:
 
   __host__ void print() const
   {
-    if (opType() >= gemm_d_d_d)
+    if (opType() == gemm)
     { printf("GEMM "); read_and_write[0].print(); read_only[0].print(); read_only[1].print(); printf("\n"); }
-    else if (opType() >= trsml_d && opType() <= trsmr_lr)
-    { printf("TRSM "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
-    else if (opType() == getrf_d)
+    else if (opType() == pivot)
+    { printf("PVT "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
+    else if (opType() == accum)
+    { printf("ACCM "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
+    else if (opType() == trsmr)
+    { printf("TRSMR "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
+    else if (opType() == trsml)
+    { printf("TRSML "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
+    else if (opType() == getrf)
     { printf("GETRF "); read_and_write[0].print(); printf("\n"); }
     else
     { printf("NOP\n"); }
@@ -298,7 +303,7 @@ public:
     { h_ops_tree * op = new h_ops_tree(); clone(op); return op; }
     else
     {
-      if (opType() >= gemm_d_d_d)
+      if (opType() == gemm)
       { 
         addr -> op_type = op_type;
         addr -> read_and_write = new h_index[1];
@@ -310,7 +315,7 @@ public:
         read_only[1].clone(&(addr -> read_only)[1]);
         addr -> n_ro = 2;
       }
-      else if (opType() >= trsml_d && opType() <= pivot_lr)
+      else if (opType() >= trsml && opType() <= pivot)
       {         
         addr -> op_type = op_type;
         addr -> read_and_write = new h_index[1];
@@ -321,7 +326,7 @@ public:
         read_only[0].clone(&(addr -> read_only)[0]);
         addr -> n_ro = 1;
       }
-      else if (opType() == getrf_d)
+      else if (opType() == getrf)
       {         
         addr -> op_type = op_type;
         addr -> read_and_write = new h_index[1];

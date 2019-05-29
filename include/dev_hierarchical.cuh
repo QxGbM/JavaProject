@@ -254,7 +254,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
   {
-    h_ops_tree * op = new h_ops_tree (getrf_d, self);
+    h_ops_tree * op = new h_ops_tree (getrf, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -305,7 +305,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> *B, const h_index * index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -338,7 +338,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (trsml_lr, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -374,7 +374,7 @@ public:
     if (ny != B -> ny) 
     { printf("Matrices are partitioned differently in H-H TRSML.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -429,7 +429,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (trsmr_d, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -462,7 +462,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (trsmr_lr, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -498,7 +498,7 @@ public:
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-H TRSMR.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (trsml_d, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
@@ -553,7 +553,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
 
     int k = A -> getNx();
@@ -574,7 +574,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_lr_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
 
     int k = A -> getNx();
@@ -598,7 +598,7 @@ public:
     if (ny != A -> ny)
     { printf("Matrices are partitioned differently in H-H.D GEMM.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny * A -> nx);
 
 #pragma omp parallel for num_threads(2)
@@ -636,7 +636,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_lr, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
 
     int k = A -> getNx();
@@ -657,7 +657,7 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm_d_lr_lr, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
 
     int k = A -> getNx();
@@ -681,7 +681,7 @@ public:
     if (ny != A -> ny)
     { printf("Matrices are partitioned differently in H-H.LR GEMM.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_lr, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny * A -> nx);
 
 #pragma omp parallel for num_threads(2)
@@ -722,7 +722,7 @@ public:
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-D.H GEMM.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren (nx * ny * B -> ny);
 
 #pragma omp parallel for num_threads(2)
@@ -747,7 +747,7 @@ public:
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-LR.H GEMM.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (gemm_d_lr_d, self, index_a, index_b);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren (nx * ny * B -> ny);
 
 #pragma omp parallel for num_threads(2)
@@ -769,38 +769,25 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
   {
-    if (ny < A -> ny || nx < B -> nx)
+    if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
     { printf("Partition error in H-H.H GEMM.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (gemm_d_d_d, self, index_a, index_b);
-
-    int nk, * k_offsets;
-    if (A -> nx > B -> ny)
-    { nk = A -> nx; A -> getOffsets_x(&k_offsets); }
-    else
-    { nk = B -> ny; B -> getOffsets_y(&k_offsets); }
-
-    op -> resizeChildren(nx * ny * nk);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
 #pragma omp parallel for num_threads(2)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col);
-      const int ny_m = index_m.getNy(), nx_m = index_m.getNx();
-      for (int k = 0; k < nk; k++)
+      for (int k = 0; k < A -> nx; k++)
       {
-        int a_y, a_x, b_y, b_x, k_start = k_offsets[k], k_size = k_offsets[k + 1] - k_start;
-        const h_index index_ak = h_index (A, index_a, y_offsets[row], k_start, ny_m, k_size, &a_y, &a_x);
-        const h_index index_bk = h_index (B, index_b, k_start, x_offsets[col], k_size, nx_m, &b_y, &b_x);
-
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[a_y * (A -> nx) + a_x], &index_ak, &(B -> elements)[b_y * (B -> nx) + b_x], &index_bk);
-        op -> setChild(op_k, i * nk + k);
+        const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (B, index_b, k, col);
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk);
+        op -> setChild(op_k, i * A -> nx + k);
         delete op_k;
       }
     }
 
-    delete[] k_offsets;
     return op;
   }
 

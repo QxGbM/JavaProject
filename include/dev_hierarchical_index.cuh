@@ -213,12 +213,6 @@ public:
   __host__ inline int getNy() const
   { return ny; }
 
-  __host__ h_index * getUxS (h_index * addr = nullptr) const
-  { clone(addr); addr -> offset_x = -1; return addr; }
-
-  __host__ h_index * getVT (h_index * addr = nullptr) const
-  { clone(addr); addr -> offset_y = -1; return addr; }
-
   __host__ relation_t compare (const h_index * index) const
   {
     if (this == nullptr || index == nullptr || root_ptr != index -> root_ptr) 
@@ -282,6 +276,110 @@ public:
     }
   }
 
+  __host__ h_index * getU (h_index * addr = nullptr) const
+  { clone(addr); addr -> offset_x = -1; return addr; }
+
+  __host__ h_index * getVT (h_index * addr = nullptr) const
+  { clone(addr); addr -> offset_y = -1; return addr; }
+
+  __host__ h_index * generateTemp_Dense (h_index * addr = nullptr) const
+  {
+    if (this == nullptr || type != low_rank)
+    { return nullptr; }
+    else if (addr == nullptr)
+    { h_index * id = new h_index(); return generateTemp_Dense(id); }
+    else
+    {
+      addr -> index_lvls = index_lvls;
+      addr -> type = temp_dense;
+      addr -> nx = nx;
+      addr -> ny = ny;
+      addr -> ld_x = ld_x;
+      addr -> ld_y = 0;
+      addr -> offset_x = offset_x;
+      addr -> offset_y = offset_y;
+      addr -> rank = 0;
+      addr -> n_ptrs = 1;
+      addr -> struct_ptr = nullptr;
+      addr -> root_ptr = nullptr;
+
+      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
+      for (int i = 0; i < index_lvls; i++)
+      { (addr -> indexs)[i] = indexs[i]; }
+
+      addr -> data_ptrs = new void * [1];
+      (addr -> data_ptrs)[0] = nullptr;
+
+      return addr;
+    }
+  }
+
+  __host__ h_index * generateTemp_LR_SameU (h_index * addr = nullptr) const
+  {
+    if (this == nullptr || type != low_rank)
+    { return nullptr; }
+    else if (addr == nullptr)
+    { h_index * id = new h_index(); return generateTemp_LR_SameU(id); }
+    else
+    {
+      addr -> index_lvls = index_lvls;
+      addr -> type = temp_low_rank;
+      addr -> nx = nx;
+      addr -> ny = ny;
+      addr -> ld_x = ld_x;
+      addr -> ld_y = rank;
+      addr -> offset_x = offset_x;
+      addr -> offset_y = offset_y;
+      addr -> rank = rank;
+      addr -> n_ptrs = 2;
+      addr -> struct_ptr = nullptr;
+      addr -> root_ptr = nullptr;
+
+      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
+      for (int i = 0; i < index_lvls; i++)
+      { (addr -> indexs)[i] = indexs[i]; }
+
+      addr -> data_ptrs = new void * [2];
+      (addr -> data_ptrs)[0] = data_ptrs[0];
+      (addr -> data_ptrs)[1] = nullptr;
+
+      return addr;
+    }
+  }
+
+  __host__ h_index * generateTemp_LR_SameV (h_index * addr = nullptr) const
+  {
+    if (this == nullptr || type != low_rank)
+    { return nullptr; }
+    else if (addr == nullptr)
+    { h_index * id = new h_index(); return generateTemp_LR_SameV(id); }
+    else
+    {
+      addr -> index_lvls = index_lvls;
+      addr -> type = temp_low_rank;
+      addr -> nx = nx;
+      addr -> ny = ny;
+      addr -> ld_x = rank;
+      addr -> ld_y = ld_y;
+      addr -> offset_x = offset_x;
+      addr -> offset_y = offset_y;
+      addr -> rank = rank;
+      addr -> n_ptrs = 2;
+      addr -> struct_ptr = nullptr;
+      addr -> root_ptr = nullptr;
+
+      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
+      for (int i = 0; i < index_lvls; i++)
+      { (addr -> indexs)[i] = indexs[i]; }
+
+      addr -> data_ptrs = new void * [2];
+      (addr -> data_ptrs)[0] = nullptr;
+      (addr -> data_ptrs)[1] = data_ptrs[1];
+
+      return addr;
+    }
+  }
+
   __host__ inline void getDataPointers (void *** data_ptrs_in, int * n_ptrs_in) const
   { *data_ptrs_in = data_ptrs; *n_ptrs_in = n_ptrs; }
 
@@ -291,12 +389,18 @@ public:
     {
     case dense: 
       inst[0] = offset_x * ld_x + offset_y; inst[1] = ld_x; return 2;
-    case low_rank:
+    case low_rank: case temp_low_rank:
       inst[0] = offset_x; inst[1] = offset_y; inst[2] = ld_x; inst[3] = ld_y; inst[4] = rank; return 5;
     default:
       return 0;
     }
   }
+
+  __host__ inline bool isU () const
+  { return (type == low_rank || type == temp_low_rank) && offset_x == -1; }
+
+  __host__ inline bool isVT () const
+  { return (type == low_rank || type == temp_low_rank) && offset_y == -1; }
 
   __host__ void print() const
   {
@@ -305,10 +409,40 @@ public:
     { printf("%d", indexs[i]); }
     switch (type)
     {
-    case empty: printf(" E "); break;
-    case dense: printf(" D (%d %d) (%d x %d b %d)] ", offset_y, offset_x, ny, nx, ld_x); break;
-    case low_rank: printf(" LR @%d (%d %d) (%d x %d b %d, %d)] ", rank, offset_y, offset_x, ny, nx, ld_y, ld_x); break;
-    case hierarchical: printf(" H (%d %d) (%d x %d)] ", offset_y, offset_x, ny, nx); break;
+    case empty: 
+    { printf(" E "); break; }
+
+    case dense: 
+    { printf(" D (%d %d) (%d x %d b %d)] ", offset_y, offset_x, ny, nx, ld_x); break; }
+
+    case low_rank:
+    {
+      if (isU())
+      { printf(" LR-U (%d) (%d x %d b %d)] ", offset_y, ny, rank, ld_y); }
+      else if (isVT())
+      { printf(" LR-VT (%d) (%d x %d b %d)] ", offset_x, nx, rank, ld_x); }
+      else
+      { printf(" LR @%d (%d %d) (%d x %d b %d, %d)] ", rank, offset_y, offset_x, ny, nx, ld_y, ld_x); }
+      break; 
+    }
+
+    case hierarchical: 
+    { printf(" H (%d %d) (%d x %d)] ", offset_y, offset_x, ny, nx); break; }
+
+    case temp_dense: 
+    { printf(" T-D (%d %d) (%d x %d b %d)] ", offset_y, offset_x, ny, nx, ld_x); break; }
+
+    case temp_low_rank: 
+    { 
+      if (isU())
+      { printf(" T-LR-U (%d) (%d x %d b %d)] ", offset_y, ny, rank, ld_y); }
+      else if (isVT())
+      { printf(" T-LR-VT (%d) (%d x %d b %d)] ", offset_x, nx, rank, ld_x); }
+      else
+      { printf(" T-LR @%d (%d %d) (%d x %d b %d, %d)] ", rank, offset_y, offset_x, ny, nx, ld_y, ld_x); }
+      break; 
+    }
+
     }
   }
 
