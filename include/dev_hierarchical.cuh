@@ -134,125 +134,7 @@ public:
   __host__ inline h_index * getRootIndex () const
   { return new h_index (this); }
 
-  __host__ bool partition_GETRF ()
-  {
-    const int n = nx > ny ? ny : nx;
-    bool success = true;
-
-    for (int i = 0; i < n; i++)
-    {
-      dev_hierarchical <T> * h_i = elements[i * nx + i].getElementHierarchical();
-      if (h_i != nullptr)
-      { 
-        success = h_i -> partition_GETRF (); 
-        if (!success) 
-        { return false; }
-
-        for (int j = i + 1; j < nx; j++)
-        {
-          dev_hierarchical <T> * h_j = elements[i * nx + j].getElementHierarchical();
-          if (h_j != nullptr)
-          { success = h_j -> partition_TRSML (h_i); }
-          if (!success)
-          { return false; }
-        }
-
-        for (int j = i + 1; j < ny; j++)
-        {
-          dev_hierarchical <T> * h_j = elements[j * nx + i].getElementHierarchical();
-          if (h_j != nullptr)
-          { success = h_j -> partition_TRSMR (h_i); }
-          if (!success)
-          { return false; }
-        }
-      }
-
-      for (int j = i + 1; j < ny; j++) for (int k = i + 1; k < nx; k++)
-      { 
-        success = elements[j * nx + k].partitionAccording(&elements[j * nx + i], &elements[i * nx + k]); 
-        if (!success) 
-        { return false; }
-      }
-    }
-
-    return true;
-  }
-
-  __host__ bool partition_TRSML (const dev_hierarchical <T> * L)
-  {
-    if (ny != L -> ny) 
-    { printf("-- Partition Failed : Hierarchical Matrices are already partioned in a different way.y : %d vs %d. --\n", ny, L -> ny); return false; }
-
-    const int nx_l = L -> nx, n = nx_l > ny ? ny : nx_l;
-    bool success = true;
-
-    for (int i = 0; i < n; i++)
-    {
-      const dev_hierarchical <T> * h_i = L -> elements[i * nx_l + i].getElementHierarchical();
-
-      if (h_i != nullptr)
-      {
-        for (int j = 0; j < nx; j++)
-        {
-          dev_hierarchical <T> * h_j = elements[i * nx + j].getElementHierarchical();
-          if (h_j != nullptr)
-          { success = h_j -> partition_TRSML(h_i); }
-          if (!success)
-          { return false; }
-        }
-      }
-
-      for (int j = i; j < ny; j++)
-      {
-        for (int k = 0; k < nx; k++)
-        {
-          success = elements[j * nx + k].partitionAccording(&(L -> elements)[j * nx_l + i], &elements[i * nx + k]);
-          if (!success) 
-          { return false; }
-        }
-      }
-    }
-
-    return true;
-  }
-
-  __host__ bool partition_TRSMR (const dev_hierarchical <T> * U)
-  {
-    if (nx != U -> nx) 
-    { printf("-- Partition Failed : Hierarchical Matrices are already partioned in a different way.x : %d vs %d. --\n", nx, U -> nx); return false; }
-
-    const int nx_u = U -> nx, n = U -> ny > nx ? nx : U -> ny;
-    bool success = true;
-
-    for (int i = 0; i < n; i++)
-    {
-      const dev_hierarchical <T> * h_i = U -> elements[i * nx_u + i].getElementHierarchical();
-
-      if (h_i != nullptr)
-      {
-        for (int j = 0; j < ny; j++)
-        {
-          dev_hierarchical <T> * h_j = elements[j * nx + i].getElementHierarchical();
-          if (h_j != nullptr)
-          { success = h_j -> partition_TRSMR (h_i); }
-          if (!success)
-          { return false; }
-        }
-      }
-
-      for (int j = i; j < nx; j++) for (int k = 0; k < ny; k++)
-      {
-        success = elements[k * nx + j].partitionAccording(&elements[k * nx + i], &(U -> elements)[i * nx_u + k]);
-        if (!success) 
-        { return false; }
-      }
-    }
-
-    return true;
-  }
-
-
-  __host__ h_ops_tree * generateOps_GETRF (const h_index * self) const
+  __host__ h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (getrf, self);
 
@@ -268,7 +150,7 @@ public:
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i);
-      h_ops_tree * op_i = elements[i * nx + i].generateOps_GETRF(&index_i);
+      h_ops_tree * op_i = elements[i * nx + i].generateOps_GETRF(&index_i, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
       const int rows = ny - i - 1, cols = nx - i - 1;
@@ -276,7 +158,7 @@ public:
       for (int j = i + 1; j < nx; j++)
       {
         const h_index index_j = h_index (this, self, i, j);
-        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSML(&index_i, &elements[i * nx + j], &index_j);
+        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSML(&index_i, &elements[i * nx + j], &index_j, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -284,7 +166,7 @@ public:
       for (int j = i + 1; j < ny; j++)
       {
         const h_index index_j = h_index (this, self, j, i);
-        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSMR(&index_i, &elements[j * nx + i], &index_j);
+        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSMR(&index_i, &elements[j * nx + i], &index_j, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + cols + j - i);
         delete op_j;
       }
@@ -293,7 +175,7 @@ public:
       {
         const int row = j / cols + i + 1, col = j - (row - i - 1) * cols + i + 1;
         const h_index index_j = h_index (this, self, row, i), index_k = h_index (this, self, i, col), index_m = h_index (this, self, row, col);
-        h_ops_tree * op_j = elements[row * nx + col].generateOps_GEMM(&index_m, &elements[row * nx + i], &index_j, &elements[i * nx + col], &index_k);
+        h_ops_tree * op_j = elements[row * nx + col].generateOps_GEMM(&index_m, &elements[row * nx + i], &index_j, &elements[i * nx + col], &index_k, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + rows + cols + j + 1);
         delete op_j;
       }
@@ -303,7 +185,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> *B, const h_index * index_b) const
+  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
@@ -319,14 +201,14 @@ public:
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], 0, index_i.getNy(), index_b -> getNx());
-      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSML(&index_i, B, &index_bi);
+      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSML(&index_i, B, &index_bi, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < ny; j++)
       {
         const h_index index_j = h_index (this, self, j, i), index_bj = h_index (index_b, y_offsets[j], 0, index_j.getNy(), index_b -> getNx());
-        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi);
+        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -336,7 +218,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
@@ -352,14 +234,14 @@ public:
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], -1, index_i.getNy(), index_b -> getNx());
-      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSML(&index_i, B, &index_bi);
+      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSML(&index_i, B, &index_bi, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < ny; j++)
       {
         const h_index index_j = h_index (this, self, j, i), index_bj = h_index (index_b, y_offsets[j], -1, index_j.getNy(), index_b -> getNx());
-        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi);
+        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -369,7 +251,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     if (ny != B -> ny) 
     { printf("Matrices are partitioned differently in H-H TRSML.\n"); return nullptr; }
@@ -393,14 +275,14 @@ public:
       {
         const h_index index_bj = h_index (B, index_b, i, j);
 
-        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSML(&index_i, &(B -> elements)[i * (B -> nx) + j], &index_bj);
+        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSML(&index_i, &(B -> elements)[i * (B -> nx) + j], &index_bj, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j);
         delete op_j;
 
         for (int k = i + 1; k < ny; k++)
         {
           const h_index index_k = h_index (this, self, k, i), index_bk = h_index (B, index_b, k, j);
-          h_ops_tree * op_k = (B -> elements[k * (B -> nx) + j]).generateOps_GEMM(&index_bk, &elements[k * nx + i], &index_k, &(B -> elements)[i * (B -> nx) + j], &index_bj);
+          h_ops_tree * op_k = (B -> elements[k * (B -> nx) + j]).generateOps_GEMM(&index_bk, &elements[k * nx + i], &index_k, &(B -> elements)[i * (B -> nx) + j], &index_bj, tmp_mngr);
           op -> setChild(op_k, child_offset[i] + (k - i) * B -> nx + j);
           delete op_k;
         }
@@ -411,23 +293,23 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index *self, const dev_h_element <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
     const dev_dense <T> *d_b = B -> getElementDense();
 
     if (d_b != nullptr)
-    { return generateOps_TRSML (self, d_b, index_b); }
+    { return generateOps_TRSML (self, d_b, index_b, tmp_mngr); }
     if (lr_b != nullptr)
-    { return generateOps_TRSML (self, lr_b, index_b); }
+    { return generateOps_TRSML (self, lr_b, index_b, tmp_mngr); }
     if (h_b != nullptr)
-    { return generateOps_TRSML (self, h_b, index_b); }
+    { return generateOps_TRSML (self, h_b, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_dense <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
@@ -443,14 +325,14 @@ public:
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, 0, x_offsets[i], index_b -> getNy(), index_i.getNx());
-      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSMR(&index_i, B, &index_bi);
+      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSMR(&index_i, B, &index_bi, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < nx; j++)
       {
         const h_index index_j = h_index (this, self, i, j), index_bj = h_index (index_b, 0, x_offsets[j], index_b -> getNy(), index_j.getNx());
-        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi);
+        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -460,7 +342,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_low_rank <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
@@ -476,14 +358,14 @@ public:
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, -1, x_offsets[i], index_b -> getNy(), index_i.getNx());
-      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSMR(&index_i, B, &index_bi);
+      h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSMR(&index_i, B, &index_bi, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < nx; j++)
       {
         const h_index index_j = h_index (this, self, i, j), index_bj = h_index (index_b, -1, x_offsets[j], index_b -> getNy(), index_j.getNx());
-        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi);
+        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bj, &elements[j * nx + i], &index_j, B, &index_bi, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -493,7 +375,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-H TRSMR.\n"); return nullptr; }
@@ -517,14 +399,14 @@ public:
       {
         const h_index index_bj = h_index (B, index_b, j, i);
 
-        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSMR(&index_i, &(B -> elements)[j * (B -> nx) + i], &index_bj);
+        h_ops_tree * op_j = elements[i * nx + i].generateOps_TRSMR(&index_i, &(B -> elements)[j * (B -> nx) + i], &index_bj, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j);
         delete op_j;
 
         for (int k = i + 1; k < nx; k++)
         {
           const h_index index_k = h_index (this, self, i, k), index_bk = h_index (B, index_b, j, k);
-          h_ops_tree * op_k = (B -> elements[j * (B -> nx) + k]).generateOps_GEMM(&index_bk, &(B -> elements)[j * (B -> nx) + i], &index_bj, &elements[i * nx + k], &index_k);
+          h_ops_tree * op_k = (B -> elements[j * (B -> nx) + k]).generateOps_GEMM(&index_bk, &(B -> elements)[j * (B -> nx) + i], &index_bj, &elements[i * nx + k], &index_k, tmp_mngr);
           op -> setChild(op_k, child_offset[i] + (k - i) * B -> ny + j);
           delete op_k;
         }
@@ -535,23 +417,23 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index *self, const dev_h_element <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
     const dev_dense <T> *d_b = B -> getElementDense();
 
     if (d_b != nullptr)
-    { return generateOps_TRSMR (self, d_b, index_b); }
+    { return generateOps_TRSMR (self, d_b, index_b, tmp_mngr); }
     if (lr_b != nullptr)
-    { return generateOps_TRSMR (self, lr_b, index_b); }
+    { return generateOps_TRSMR (self, lr_b, index_b, tmp_mngr); }
     if (h_b != nullptr)
-    { return generateOps_TRSMR (self, h_b, index_b); }
+    { return generateOps_TRSMR (self, h_b, index_b, tmp_mngr); }
 
     return nullptr;  
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
@@ -564,7 +446,7 @@ public:
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj);
+      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -572,7 +454,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
@@ -585,7 +467,7 @@ public:
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj);
+      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -593,7 +475,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     if (ny != A -> ny)
     { printf("Matrices are partitioned differently in H-H.D GEMM.\n"); return nullptr; }
@@ -609,7 +491,7 @@ public:
       for (int k = 0; k < A -> nx; k++)
       {
         const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (index_b, (A -> x_offsets)[k], x_offsets[col], index_ak.getNx(), index_m.getNx());
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements[row * (A -> nx) + k]), &index_ak, B, &index_bk);
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements[row * (A -> nx) + k]), &index_ak, B, &index_bk, tmp_mngr);
         op -> setChild(op_k, i * (A -> nx) + k);
         delete op_k;
       }
@@ -618,23 +500,23 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_dense <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
     const dev_low_rank <T> *lr_a = A -> getElementLowRank();
     const dev_dense <T> *d_a = A -> getElementDense();
 
     if (d_a != nullptr)
-    { return generateOps_GEMM (self, d_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
     if (lr_a != nullptr)
-    { return generateOps_GEMM (self, lr_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, lr_a, index_a, B, index_b, tmp_mngr); }
     if (h_a != nullptr)
-    { return generateOps_GEMM (self, h_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, h_a, index_a, B, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
@@ -647,7 +529,7 @@ public:
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj);
+      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -655,7 +537,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
@@ -668,7 +550,7 @@ public:
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj);
+      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -676,7 +558,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     if (ny != A -> ny)
     { printf("Matrices are partitioned differently in H-H.LR GEMM.\n"); return nullptr; }
@@ -692,7 +574,7 @@ public:
       for (int k = 0; k < A -> nx; k++)
       {
         const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (index_b, (A -> x_offsets)[k], x_offsets[col], index_ak.getNx(), index_m.getNx());
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements[row * (A -> nx) + k]), &index_ak, B, &index_bk);
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements[row * (A -> nx) + k]), &index_ak, B, &index_bk, tmp_mngr);
         op -> setChild(op_k, i * (A -> nx) + k);
         delete op_k;
       }
@@ -701,23 +583,23 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_low_rank <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index *index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
     const dev_low_rank <T> *lr_a = A -> getElementLowRank();
     const dev_dense <T> *d_a = A -> getElementDense();
 
     if (d_a != nullptr)
-    { return generateOps_GEMM (self, d_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
     if (lr_a != nullptr)
-    { return generateOps_GEMM (self, lr_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, lr_a, index_a, B, index_b, tmp_mngr); }
     if (h_a != nullptr)
-    { return generateOps_GEMM (self, h_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, h_a, index_a, B, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-D.H GEMM.\n"); return nullptr; }
@@ -733,7 +615,7 @@ public:
       for (int k = 0; k < B -> ny; k++)
       {
         const h_index index_bk = h_index (B, index_b, k, col), index_ak = h_index (index_a, y_offsets[row], (B -> y_offsets)[k], index_m.getNy(), index_bk.getNy());
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, A, &index_ak, &(B -> elements[k * (B -> nx) + col]), &index_bk);
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, A, &index_ak, &(B -> elements[k * (B -> nx) + col]), &index_bk, tmp_mngr);
         op -> setChild(op_k, i * (B -> ny) + k);
         delete op_k;
       }
@@ -742,7 +624,7 @@ public:
     return op;  
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-LR.H GEMM.\n"); return nullptr; }
@@ -758,7 +640,7 @@ public:
       for (int k = 0; k < B -> ny; k++)
       {
         const h_index index_bk = h_index (B, index_b, k, col), index_ak = h_index (index_a, y_offsets[row], (B -> y_offsets)[k], index_m.getNy(), index_bk.getNy());
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, A, &index_ak, &(B -> elements[k * (B -> nx) + col]), &index_bk);
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, A, &index_ak, &(B -> elements[k * (B -> nx) + col]), &index_bk, tmp_mngr);
         op -> setChild(op_k, i * (B -> ny) + k);
         delete op_k;
       }
@@ -767,7 +649,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b, dev_temp * tmp_mngr) const
   {
     if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
     { printf("Partition error in H-H.H GEMM.\n"); return nullptr; }
@@ -782,7 +664,7 @@ public:
       for (int k = 0; k < A -> nx; k++)
       {
         const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (B, index_b, k, col);
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk);
+        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk, tmp_mngr);
         op -> setChild(op_k, i * A -> nx + k);
         delete op_k;
       }
@@ -791,82 +673,82 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_hierarchical <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
     const dev_low_rank <T> *lr_a = A -> getElementLowRank();
     const dev_dense <T> *d_a = A -> getElementDense();
 
     if (d_a != nullptr)
-    { return generateOps_GEMM (self, d_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
     if (lr_a != nullptr)
-    { return generateOps_GEMM (self, lr_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, lr_a, index_a, B, index_b, tmp_mngr); }
     if (h_a != nullptr)
-    { return generateOps_GEMM (self, h_a, index_a, B, index_b); }
+    { return generateOps_GEMM (self, h_a, index_a, B, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_dense <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
     const dev_dense <T> *d_b = B -> getElementDense();
 
     if (d_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, d_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
     if (lr_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, lr_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
     if (h_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, h_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_low_rank <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
     const dev_dense <T> *d_b = B -> getElementDense();
 
     if (d_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, d_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
     if (lr_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, lr_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
     if (h_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, h_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_hierarchical <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
     const dev_dense <T> *d_b = B -> getElementDense();
 
     if (d_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, d_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
     if (lr_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, lr_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
     if (h_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, h_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
 
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index *self, const dev_h_element <T> *A, const h_index *index_a, const dev_h_element <T> *B, const h_index *index_b) const
+  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
     const dev_dense <T> *d_b = B -> getElementDense();
 
     if (d_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, d_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
     if (lr_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, lr_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
     if (h_b != nullptr)
-    { return generateOps_GEMM (self, A, index_a, h_b, index_b); }
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
 
     return nullptr;
   }

@@ -84,6 +84,7 @@ public:
     {
       deps_graph[i] = nullptr;
       h_ops_tree * from = ops_list -> getChild(i);
+
       for (int j = i + 1; j < length; j++)
       {
         dependency_t dep = ops_list -> getChild(j) -> checkDependencyFrom(from);
