@@ -288,7 +288,7 @@ public:
     else
     {
       int length = 0;
-#pragma omp parallel for num_threads(2) reduction (+:length) 
+#pragma omp parallel for reduction (+:length) if (omp_in_parallel() == 0)
       for (int i = 0; i < l_children; i++) 
       { length += children[i].length(); }
       return length;
@@ -376,7 +376,7 @@ public:
     for (int i = 1; i < l_children; i++)
     { work_index[i] = work_index[i - 1] + children[i - 1].length(); }
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < l_children; i++)
     {
       if (children[i].l_children == 0)

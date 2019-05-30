@@ -270,7 +270,7 @@ public:
     A -> getOffsets_y(&y);
     A -> getOffsets_x(&k);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
       const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
@@ -321,7 +321,7 @@ public:
     A -> getOffsets_y(&y);
     A -> getOffsets_x(&k);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
       const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
@@ -362,7 +362,7 @@ public:
     B -> getOffsets_y(&k);
     B -> getOffsets_x(&x);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
     {
       const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
@@ -387,7 +387,7 @@ public:
     B -> getOffsets_y(&k);
     B -> getOffsets_x(&x);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
     {
       const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
@@ -414,7 +414,7 @@ public:
     A -> getOffsets_y(&y);
     B -> getOffsets_x(&x);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < B -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
       const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());

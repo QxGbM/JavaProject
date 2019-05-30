@@ -146,7 +146,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i);
@@ -197,7 +197,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], 0, index_i.getNy(), index_b -> getNx());
@@ -230,7 +230,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], -1, index_i.getNy(), index_b -> getNx());
@@ -266,7 +266,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i);
@@ -321,7 +321,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, 0, x_offsets[i], index_b -> getNy(), index_i.getNx());
@@ -354,7 +354,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, -1, x_offsets[i], index_b -> getNy(), index_i.getNx());
@@ -390,7 +390,7 @@ public:
 
     op -> resizeChildren(child_offset[n]);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
       const h_index index_i = h_index (this, self, i, i);
@@ -441,7 +441,7 @@ public:
     int k = A -> getNx();
     k = (B -> getNy() > k) ? k : B -> getNy();
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -462,7 +462,7 @@ public:
     int k = A -> getNx();
     k = (B -> getNy() > k) ? k : B -> getNy();
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -483,7 +483,7 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny * A -> nx);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -524,7 +524,7 @@ public:
     int k = A -> getNx();
     k = (B -> getNy() > k) ? k : B -> getNy();
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -545,7 +545,7 @@ public:
     int k = A -> getNx();
     k = (B -> getNy() > k) ? k : B -> getNy();
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -566,7 +566,7 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny * A -> nx);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -607,7 +607,7 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren (nx * ny * B -> ny);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -632,7 +632,7 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren (nx * ny * B -> ny);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
@@ -656,7 +656,7 @@ public:
 
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;

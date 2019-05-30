@@ -262,7 +262,7 @@ public:
     A -> getOffsets_y(&y);
     A -> getOffsets_x(&k);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_mk; i++)
     {
       const int row = i / n_k, col = i - row * n_k;
@@ -394,7 +394,7 @@ public:
     int * y, x = B -> getNx();
     A -> getOffsets_y(&y);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_mk; i++)
     {
       const int row = i / n_k, col = i - row * n_k;
@@ -449,7 +449,7 @@ public:
     B -> getOffsets_y(&k);
     B -> getOffsets_x(&x);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_nk; i++)
     {
       const int row = i / n_n, col = i - row * n_n;
@@ -488,7 +488,7 @@ public:
     int * x, y = A -> getNy();
     B -> getOffsets_x(&x);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_nk; i++)
     {
       const int row = i / n_n, col = i - row * n_n;
@@ -532,7 +532,7 @@ public:
     A -> getOffsets_y(&y);
     B -> getOffsets_x(&x);
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_mn; i++)
     {
       const int row = i / n_n, col = i - row * n_n;
