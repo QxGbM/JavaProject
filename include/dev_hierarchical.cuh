@@ -54,11 +54,15 @@ public:
 
   __host__ bool updateOffsets ()
   {
-    x_offsets[0] = 0; y_offsets[0] = 0;
+    int accum = 0;
     for (int y = 0; y < ny; y++)
-    { y_offsets[y + 1] = elements[y * nx].getNy() + y_offsets[y]; }
+    { y_offsets[y] = accum; accum += elements[y * nx].getNy(); }
+    y_offsets[ny] = accum; 
+    
+    accum = 0;
     for (int x = 0; x < nx; x++)
-    { x_offsets[x + 1] = elements[x].getNx() + x_offsets[x]; }
+    { x_offsets[x] = accum; accum += elements[x].getNx(); }
+    x_offsets[nx] = accum;
 
     for (int y = 1; y < ny; y++) for (int x = 1; x < nx; x++)
     {
@@ -380,7 +384,7 @@ public:
     if (nx != B -> nx)
     { printf("Matrices are partitioned differently in H-H TRSMR.\n"); return nullptr; }
 
-    h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
+    h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
     int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
     child_offset[0] = 0;
