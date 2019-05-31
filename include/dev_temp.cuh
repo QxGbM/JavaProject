@@ -92,7 +92,7 @@ public:
   __host__ inline int getLength () const
   { return length; }
 
-  template <class T> __host__ T * allocate (T * ptrs_out) const
+  template <class T> __host__ T * allocate (T ** ptrs_out) const
   {
     int * offsets = new int [length], accum = 0;
 
@@ -105,6 +105,7 @@ public:
     for (int i = 0; i < length; i++)
     { const int offset = offsets[i]; ptrs_out[i] = &ptr[offset]; }
 
+    delete[] offsets;
     return ptr;
   }
 

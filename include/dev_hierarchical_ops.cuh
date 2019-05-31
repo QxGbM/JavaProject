@@ -132,62 +132,168 @@ public:
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
   { return op_to -> checkDependencyFrom(this); }
 
-  __host__ void getDataPointers (const bool rw, const int index, void *** data_ptrs, int * n_ptrs) const
+  __host__ int getDataPointers (void ** data_ptrs, void ** tmp_ptrs) const
   {
-    if (rw && index < n_rw)
-    { read_and_write[index].getDataPointers(data_ptrs, n_ptrs); }
-    else if (!rw && index < n_ro)
-    { read_only[index].getDataPointers(data_ptrs, n_ptrs); }
-    else
-    { *data_ptrs = nullptr; *n_ptrs = 0; }
+    int accum = 0;
+    for (int i = 0; i < n_rw; i++)
+    { accum += read_and_write[i].getDataPointers (&data_ptrs[accum], tmp_ptrs); }
+
+    for (int i = 0; i < n_ro; i++)
+    { accum += read_only[i].getDataPointers (&data_ptrs[accum], tmp_ptrs); }
+    
+    return accum;
   }
 
-  __host__ int writeIndexParametersTo (const bool rw, const int index, int * inst, const int mapping) const
+  __host__ int writeOpParametersTo (int * inst, const int * mapping) const
   {
-    if (rw && index < n_rw)
-    { inst[0] = mapping; return 1 + read_and_write[index].writeParametersTo(&inst[1]); }
-    else if (!rw && index < n_ro)
-    { inst[0] = mapping; return 1 + read_only[index].writeParametersTo(&inst[1]); }
-    else
-    { return 0; }
-  }
 
-  __host__ int writeOpParametersTo (int * inst) const
-  {
     switch (opType())
     {
     case getrf:
     {
-      int nx = read_and_write[0].getNx(), ny = read_and_write[0].getNy();
-      inst[0] = nx; inst[1] = ny;
-      return 2;
+      int M, offset_m, nx, ny, ld;
+
+      if (read_and_write[0].isDense())
+      {
+        M = mapping[0];
+        offset_m = read_and_write[0].getOffset_x();
+        nx = read_and_write[0].getNx();
+        ny = read_and_write[0].getNy();
+        ld = read_and_write[0].getLd_x();
+      }
+      else
+      { printf("Error: GETRF on incompatible block.\n"); return 0; }
+
+      inst[0] = (int) getrf;
+      inst[1] = M;
+      inst[2] = offset_m;
+      inst[3] = nx; 
+      inst[4] = ny; 
+      inst[5] = ld;
+      return 6;
     }
     case trsml:
     {
-      int nx_b = read_and_write[0].getNx(), ny_b = read_and_write[0].getNy(), dim_m = read_only[0].getNx();
-      ny_b = (ny_b > read_only[0].getNy()) ? read_only[0].getNy() : ny_b;
-      inst[0] = nx_b; inst[1] = ny_b; inst[2] = dim_m;
-      return 3;
+      int B, L, offset_b, offset_l, nx_b, ny_b, nx_l, ld_b, ld_l, b_T;
+
+      if (read_and_write[0].isU() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        L = mapping[2];
+        offset_b = read_and_write[0].getOffset_y();
+        offset_l = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getRank();
+        ny_b = read_and_write[0].getNy();
+        ny_b = ny_b > read_only[0].getNy() ? read_only[0].getNy() : ny_b;
+        nx_l = read_only[0].getNx();
+        ld_b = read_and_write[0].getLd_y();
+        ld_l = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        L = mapping[1];
+        offset_b = read_and_write[0].getOffset_x();
+        offset_l = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getNx();
+        ny_b = read_and_write[0].getNy();
+        ny_b = ny_b > read_only[0].getNy() ? read_only[0].getNy() : ny_b;
+        nx_l = read_only[0].getNx();
+        ld_b = read_and_write[0].getLd_x();
+        ld_l = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else
+      { printf("Error: TRSML on incompatible block.\n"); return 0; }
+
+      inst[0] = (int) trsml;
+      inst[1] = B;
+      inst[2] = L;
+      inst[3] = offset_b;
+      inst[4] = offset_l;
+      inst[5] = nx_b;
+      inst[6] = ny_b;
+      inst[7] = nx_l;
+      inst[8] = ld_b;
+      inst[9] = ld_l;
+      inst[10] = b_T;
+      return 11;
     }
     case trsmr:
     {
-      int nx_b = read_and_write[0].getNx(), ny_b = read_and_write[0].getNy(), dim_m = read_only[0].getNy();
-      nx_b = (nx_b > read_only[0].getNx()) ? read_only[0].getNx() : nx_b;
-      inst[0] = nx_b; inst[1] = ny_b; inst[2] = dim_m;
-      return 3;
+      int B, U, offset_b, offset_u, nx_b, ny_b, ny_u, ld_b, ld_u, b_T;
+
+      if (read_and_write[0].isVT() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        U = mapping[2];
+        offset_b = read_and_write[0].getOffset_x();
+        offset_u = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getNx();
+        nx_b = nx_b > read_only[0].getNx() ? read_only[0].getNx() : nx_b;
+        ny_b = read_and_write[0].getRank();
+        ny_u = read_only[0].getNy();
+        ld_b = read_and_write[0].getLd_x();
+        ld_u = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        U = mapping[1];
+        offset_b = read_and_write[0].getOffset_x();
+        offset_u = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getNx();
+        nx_b = nx_b > read_only[0].getNx() ? read_only[0].getNx() : nx_b;
+        ny_b = read_and_write[0].getNy();
+        ny_u = read_only[0].getNy();
+        ld_b = read_and_write[0].getLd_x();
+        ld_u = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else
+      { printf("Error: TRSMR on incompatible block.\n"); return 0; }
+
+      inst[1] = B;
+      inst[2] = U;
+      inst[3] = offset_b;
+      inst[4] = offset_u;
+      inst[5] = nx_b;
+      inst[6] = ny_b;
+      inst[7] = ny_u;
+      inst[8] = ld_b;
+      inst[9] = ld_u;
+      inst[10] = b_T;
+      return 11;
     }
     case gemm:
     {
-      int m = read_and_write[0].getNy(), n = read_and_write[0].getNx(), k = read_only[0].getNx();
-      m = (m > read_only[0].getNy()) ? read_only[0].getNy() : m;
-      n = (n > read_only[1].getNx()) ? read_only[1].getNx() : n;
-      k = (k > read_only[1].getNy()) ? read_only[1].getNy() : k;
-      inst[0] = m; inst[1] = n; inst[2] = k;
-      return 3;
+      /*int M, A, B, C, D, offset_m, offset_a, offset_b, offset_c, offset_d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T;
+
+      if (read_and_write[0].isU() && read_only[0].isU())
+      {
+        if (read_only[0].isDense())
+        {
+
+          m = read_and_write[0].getNy();
+          n = read_and_write[0].getNx();
+          k = read_only[0].getNx();
+          m = m > read_only[0].getNy() ? read_only[0].getNy() : m;
+          n = n > read_only[1].getNx() ? read_only[1].getNx() : n;
+          k = k > read_only[1].getNy() ? read_only[1].getNy() : k;
+        }
+      }
+
+
+      inst[0] = m; inst[1] = n; inst[2] = k;*/
+      return 0;
     }
     default:
     { return 0; }
     }
+
+
   }
 
   __host__ unsigned long long int getFops () const

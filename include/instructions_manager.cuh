@@ -54,7 +54,41 @@ private:
     }
   }
 
-  __host__ int loadInsts (const int worker_id, const instructions_queue * queue, const h_ops_dag * dag)
+  __host__ void loadPointers (void ** ptrs_in, const int n_ptrs, int * mapping)
+  {
+    if (n_ptrs == 0)
+    { return; }
+
+    int count = 0, last = ptrs_size;
+    for (int i = 0; i < ptrs_size; i++)
+    {
+      void * ptr = ptrs[i];
+      if (ptr == nullptr)
+      { last = i; break; }
+
+      for (int j = 0; j < n_ptrs; j++)
+      {
+        if (ptr == ptrs_in[j]) 
+        { mapping[j] = i; count ++; }
+      }
+    }
+
+    if (count < n_ptrs)
+    { 
+      while (last + n_ptrs - count >= ptrs_size)
+      { changePointersSize (ptrs_size * 2); }
+    
+      count = 0;
+      for (int i = 0; i < n_ptrs; i++)
+      {
+        if (mapping[i] == -1 && ptrs_in[i] != nullptr)
+        { ptrs[last + count] = ptrs_in[i]; count ++; } 
+      }
+    }
+
+  }
+
+  __host__ int loadInsts (const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs)
   {
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
@@ -72,56 +106,20 @@ private:
         { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); inst = &(insts[worker_id][loc]); }
 
         inst[0] = (int) execute;
-        inst[1] = (int) op -> opType();
 
-        loc += 2;
-        inst = &inst[2];
+        int n_ptrs = 8, * mapping = new int [n_ptrs]; void ** ptrs = new void * [n_ptrs];
+        memset(mapping, -1, n_ptrs * sizeof(int));
+        n_ptrs = op -> getDataPointers (ptrs, tmp_ptrs);
 
-        int n_ptrs, mapping, t;
-        void ** data_ptrs;
-
-        op -> getDataPointers (true, 0, &data_ptrs, &n_ptrs);
-
-        if (data_ptrs != nullptr && n_ptrs > 0)
-        {
 #pragma omp critical
-          { mapping = loadPointers(data_ptrs, n_ptrs); }
-          t = op -> writeIndexParametersTo (true, 0, inst, mapping);
+        { loadPointers (ptrs, n_ptrs, mapping); }
 
-          loc += t;
-          inst = &inst[t];
-        }
+        int t = op -> writeOpParametersTo (&inst[1], mapping);
 
-        op -> getDataPointers (false, 0, &data_ptrs, &n_ptrs);
+        inst[t + 1] = (int) signal_write;
+        inst[t + 2] = signal_id;
 
-        if (data_ptrs != nullptr && n_ptrs > 0)
-        { 
-#pragma omp critical
-          { mapping = loadPointers(data_ptrs, n_ptrs); }
-          t = op -> writeIndexParametersTo (false, 0, inst, mapping);
-
-          loc += t;
-          inst = &inst[t];
-        }
-
-        op -> getDataPointers (false, 1, &data_ptrs, &n_ptrs);
-
-        if (data_ptrs != nullptr && n_ptrs > 0)
-        { 
-#pragma omp critical
-          { mapping = loadPointers(data_ptrs, n_ptrs); }
-          t = op -> writeIndexParametersTo (false, 1, inst, mapping);
-
-          loc += t;
-          inst = &inst[t];
-        }
-
-        t = op -> writeOpParametersTo(inst);
-
-        inst[t] = (int) signal_write;
-        inst[t + 1] = signal_id;
-
-        loc += t + 2;
+        loc += t + 3;
         inst = &inst[t + 2];
       }
       else
@@ -147,7 +145,7 @@ private:
 
 public:
 
-  __host__ instructions_manager (const int num_workers, const h_ops_dag * dag, const instructions_scheduler * schedule)
+  __host__ instructions_manager (const int num_workers, const h_ops_dag * dag, const instructions_scheduler * schedule, void ** tmp_ptrs)
   {
     insts = new int * [num_workers];
     workers = num_workers;
@@ -168,7 +166,7 @@ public:
 
 #pragma omp parallel for
     for (int i = 0; i < num_workers; i++)
-    { inst_lengths[i] = loadInsts(i, schedule -> getSchedule(i), dag); }
+    { inst_lengths[i] = loadInsts(i, schedule -> getSchedule(i), dag, tmp_ptrs); }
 
     comm_length = dag -> getLength();
   }
@@ -183,30 +181,6 @@ public:
     delete[] inst_lengths;
     delete[] ptrs;
 
-  }
-
-  __host__ int loadPointers (void ** ptrs_in, const int n_ptrs)
-  {
-    if (n_ptrs == 0)
-    { return -1; }
-
-    int i = 0;
-    while (i + n_ptrs < ptrs_size)
-    {
-      if (ptrs[i] == ptrs_in[0])
-      { return i; }
-      else if (ptrs[i] == nullptr) 
-      { break; }
-      else
-      { i++; }
-    }
-
-    while (i + n_ptrs >= ptrs_size)
-    { changePointersSize (ptrs_size * 2); }
-    
-    for (int j = 0; j < n_ptrs; j++)
-    { ptrs[i + j] = ptrs_in[j]; }
-    return i;
   }
 
   __host__ cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space) const

@@ -18,6 +18,7 @@ private:
   int offset_x;
   int offset_y;
   int rank;
+  bool transpose;
 
   int n_ptrs;
   void ** data_ptrs;
@@ -35,6 +36,7 @@ public:
     type = empty;
     nx = ny = ld_x = ld_y = 0;
     offset_x = offset_y = rank = 0;
+    transpose = false;
     n_ptrs = 0;
     data_ptrs = nullptr;
     tmp_id = -1;
@@ -58,6 +60,7 @@ public:
     ny = h -> getNy_abs();
     ld_x = ld_y = 0;
     offset_x = offset_y = rank = 0;
+    transpose = false;
 
     n_ptrs = 0;
     data_ptrs = nullptr;
@@ -83,6 +86,7 @@ public:
     ny = element -> getNy();
 
     offset_x = offset_y = 0;
+    transpose = index -> transpose;
     tmp_id = -1;
 
     if (type == hierarchical)
@@ -141,6 +145,7 @@ public:
     offset_x = index -> offset_x + x_start;
     offset_y = index -> offset_y + y_start;
     rank = index -> rank;
+    transpose = index -> transpose;
 
     n_ptrs = index -> n_ptrs;
     data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
@@ -158,6 +163,24 @@ public:
 
   __host__ inline int getNy() const
   { return ny; }
+
+  __host__ inline int getLd_x() const
+  { return ld_x; }
+
+  __host__ inline int getLd_y() const
+  { return ld_y; }
+
+  __host__ inline int getOffset_x() const
+  { return offset_x; }
+
+  __host__ inline int getOffset_y() const
+  { return offset_y; }
+
+  __host__ inline int getRank() const
+  { return rank; }
+
+  __host__ inline int getTranspose() const
+  { return (int) transpose; }
 
   __host__ relation_t compare (const h_index * index) const
   {
@@ -206,6 +229,8 @@ public:
       addr -> offset_x = offset_x;
       addr -> offset_y = offset_y;
       addr -> rank = rank;
+      addr -> transpose = transpose;
+
       addr -> n_ptrs = n_ptrs;
       addr -> tmp_id = tmp_id;
       addr -> struct_ptr = struct_ptr;
@@ -227,7 +252,7 @@ public:
   { clone(addr); addr -> offset_x = -1; return addr; }
 
   __host__ h_index * getVT (h_index * addr = nullptr) const
-  { clone(addr); addr -> offset_y = -1; return addr; }
+  { clone(addr); addr -> offset_y = -1; addr -> transpose = true; return addr; }
 
   __host__ inline int getSize_U () const
   { return ny * rank; }
@@ -252,6 +277,7 @@ public:
       addr -> offset_x = offset_x;
       addr -> offset_y = offset_y;
       addr -> rank = 0;
+      addr -> transpose = transpose;
       addr -> n_ptrs = 1;
       addr -> tmp_id = block_id;
       addr -> struct_ptr = nullptr;
@@ -285,6 +311,7 @@ public:
       addr -> offset_x = offset_x;
       addr -> offset_y = offset_y;
       addr -> rank = rank;
+      addr -> transpose = transpose;
       addr -> n_ptrs = 2;
       addr -> tmp_id = block_id;
       addr -> struct_ptr = nullptr;
@@ -319,6 +346,7 @@ public:
       addr -> offset_x = offset_x;
       addr -> offset_y = offset_y;
       addr -> rank = rank;
+      addr -> transpose = transpose;
       addr -> n_ptrs = 2;
       addr -> tmp_id = block_id;
       addr -> struct_ptr = nullptr;
@@ -336,27 +364,24 @@ public:
     }
   }
 
-  __host__ inline void getDataPointers (void *** data_ptrs_in, int * n_ptrs_in) const
-  { *data_ptrs_in = data_ptrs; *n_ptrs_in = n_ptrs; }
-
-  __host__ int writeParametersTo (int * inst) const
+  __host__ int getDataPointers (void ** data_ptrs_in, void ** tmp_ptrs) const
   {
-    switch (type)
-    {
-    case dense: case temp_dense:
-      inst[0] = offset_x * ld_x + offset_y; inst[1] = ld_x; return 2;
-    case low_rank: case temp_low_rank:
-      inst[0] = offset_x; inst[1] = offset_y; inst[2] = ld_x; inst[3] = ld_y; inst[4] = rank; return 5;
-    default:
-      return 0;
-    }
+    for (int i = 0; i < n_ptrs; i++)
+    { void * ptr = data_ptrs[i]; data_ptrs_in[i] = (ptr == nullptr ? tmp_ptrs[tmp_id] : ptr); }
+    return n_ptrs;
   }
 
+  __host__ inline bool isDense () const
+  { return (type == dense || type == temp_dense); }
+
+  __host__ inline bool isLowRank () const
+  { return (type == low_rank || type == temp_low_rank); }
+
   __host__ inline bool isU () const
-  { return (type == low_rank || type == temp_low_rank) && offset_x == -1; }
+  { return isLowRank() && !transpose && offset_x == -1; }
 
   __host__ inline bool isVT () const
-  { return (type == low_rank || type == temp_low_rank) && offset_y == -1; }
+  { return isLowRank() && transpose && offset_y == -1; }
 
   __host__ void print() const
   {

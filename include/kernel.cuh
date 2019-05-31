@@ -17,6 +17,8 @@ load_inst:
   int next_pc = 0;
   __syncthreads();
 
+  goto fin; // ****************** remove before takeoff
+
   switch ((opcode_t) shm[0])
   {
   case execute: goto exe;
@@ -129,25 +131,26 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
   printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
-  tree -> print();
-  tmp_mngr.print();
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
   clock_end = omp_get_wtime();
   delete tree;
   printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
-  //dag.print();
 
   clock_start = omp_get_wtime();
   instructions_scheduler schedule = instructions_scheduler (&dag, workers);
   clock_end = omp_get_wtime();
   printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
+  T * tmp, ** tmp_ptrs = new T * [tmp_mngr.getLength()];
+  tmp = tmp_mngr.allocate(tmp_ptrs);
+
   clock_start = omp_get_wtime();
-  instructions_manager ins = instructions_manager (workers, &dag, &schedule);
+  instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
   clock_end = omp_get_wtime();
   printf("Instruction generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  ins.print();
 
   int ** dev_insts, * comm_space;
   void ** args, ** dev_ptrs;
