@@ -32,7 +32,7 @@ template <class T> __host__ int test0()
   delete c; c = nullptr;
 #endif // ref
 
-  const int blocks = 160, threads = 1024;
+  const int blocks = 16, threads = 1024;
   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
 #ifdef ref

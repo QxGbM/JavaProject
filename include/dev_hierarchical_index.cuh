@@ -249,10 +249,80 @@ public:
   }
 
   __host__ h_index * getU (h_index * addr = nullptr) const
-  { clone(addr); addr -> offset_x = -1; return addr; }
+  {
+    if (this == nullptr || !isLowRank())
+    { return nullptr; }
+    else if (addr == nullptr)
+    { h_index * id = new h_index(); return getU(id); }
+    else if (isU())
+    { return clone(addr); }
+    else
+    {
+      addr -> index_lvls = index_lvls;
+      addr -> type = type;
+      addr -> nx = nx;
+      addr -> ny = ny;
+      addr -> ld_x = 0;
+      addr -> ld_y = ld_y;
+      addr -> offset_x = -1;
+      addr -> offset_y = offset_y;
+      addr -> rank = rank;
+      addr -> transpose = transpose;
+
+      addr -> n_ptrs = n_ptrs;
+      addr -> tmp_id = tmp_id;
+      addr -> struct_ptr = struct_ptr;
+      addr -> root_ptr = root_ptr;
+
+      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
+      for (int i = 0; i < index_lvls; i++)
+      { (addr -> indexs)[i] = indexs[i]; }
+
+      addr -> data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
+      for (int i = 0; i < n_ptrs; i++)
+      { (addr -> data_ptrs)[i] = data_ptrs[i]; }
+
+      return addr;
+    }
+  }
 
   __host__ h_index * getVT (h_index * addr = nullptr) const
-  { clone(addr); addr -> offset_y = -1; addr -> transpose = true; return addr; }
+  { 
+    if (this == nullptr || !isLowRank())
+    { return nullptr; }
+    else if (addr == nullptr)
+    { h_index * id = new h_index(); return getVT(id); }
+    else if (isVT())
+    { return clone(addr); }
+    else
+    {
+      addr -> index_lvls = index_lvls;
+      addr -> type = type;
+      addr -> nx = nx;
+      addr -> ny = ny;
+      addr -> ld_x = ld_x;
+      addr -> ld_y = 0;
+      addr -> offset_x = offset_x;
+      addr -> offset_y = -1;
+      addr -> rank = rank;
+      addr -> transpose = !transpose;
+
+      addr -> n_ptrs = n_ptrs;
+      addr -> tmp_id = tmp_id;
+      addr -> struct_ptr = struct_ptr;
+      addr -> root_ptr = root_ptr;
+
+      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
+      for (int i = 0; i < index_lvls; i++)
+      { (addr -> indexs)[i] = indexs[i]; }
+
+      addr -> data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
+      for (int i = 0; i < n_ptrs; i++)
+      { (addr -> data_ptrs)[i] = data_ptrs[i]; }
+
+      return addr;
+    }
+  }
 
   __host__ inline int getSize_U () const
   { return ny * rank; }
@@ -262,7 +332,7 @@ public:
 
   __host__ h_index * generateTemp_Dense (const int block_id, h_index * addr = nullptr) const
   {
-    if (this == nullptr || type != low_rank)
+    if (this == nullptr || !isLowRank())
     { return nullptr; }
     else if (addr == nullptr)
     { h_index * id = new h_index(); return generateTemp_Dense(block_id, id); }
@@ -296,7 +366,7 @@ public:
 
   __host__ h_index * generateTemp_LR_SameU (const int block_id, h_index * addr = nullptr) const
   {
-    if (this == nullptr || type != low_rank)
+    if (this == nullptr || !isLowRank())
     { return nullptr; }
     else if (addr == nullptr)
     { h_index * id = new h_index(); return generateTemp_LR_SameU(block_id, id); }
@@ -331,7 +401,7 @@ public:
 
   __host__ h_index * generateTemp_LR_SameV (const int block_id, h_index * addr = nullptr) const
   {
-    if (this == nullptr || type != low_rank)
+    if (this == nullptr || !isLowRank())
     { return nullptr; }
     else if (addr == nullptr)
     { h_index * id = new h_index(); return generateTemp_LR_SameV(block_id, id); }

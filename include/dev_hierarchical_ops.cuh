@@ -255,6 +255,7 @@ public:
       else
       { printf("Error: TRSMR on incompatible block.\n"); return 0; }
 
+      inst[0] = (int) trsmr;
       inst[1] = B;
       inst[2] = U;
       inst[3] = offset_b;
@@ -269,24 +270,104 @@ public:
     }
     case gemm:
     {
-      /*int M, A, B, C, D, offset_m, offset_a, offset_b, offset_c, offset_d, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T;
+      int M, A, B, offset_m, offset_a, offset_b, m, n, k, ld_m, ld_a, ld_b, a_T, b_T;
+      bool gemm_2x = false;
 
-      if (read_and_write[0].isU() && read_only[0].isU())
+      if (read_and_write[0].isU() && read_only[0].isDense() && read_only[1].isU())
       {
-        if (read_only[0].isDense())
-        {
+        gemm_2x = true;
 
-          m = read_and_write[0].getNy();
-          n = read_and_write[0].getNx();
-          k = read_only[0].getNx();
-          m = m > read_only[0].getNy() ? read_only[0].getNy() : m;
-          n = n > read_only[1].getNx() ? read_only[1].getNx() : n;
-          k = k > read_only[1].getNy() ? read_only[1].getNy() : k;
-        }
+        M = mapping[0];
+        A = mapping[2];
+        B = mapping[3];
+        offset_m = read_and_write[0].getOffset_y();
+        offset_a = read_only[0].getOffset_x();
+        offset_b = read_only[1].getOffset_y();
+        m = read_and_write[0].getNy();
+        n = read_and_write[0].getRank();
+        k = read_only[0].getNx();
+        m = m > read_only[0].getNy() ? read_only[0].getNy() : m;
+        n = n > read_only[1].getRank() ? read_only[1].getRank() : n;
+        k = k > read_only[1].getNy() ? read_only[1].getNy() : k;
+        ld_m = read_and_write[0].getLd_y();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_y();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isVT() && read_only[0].isDense() && read_only[1].isVT())
+      {
+        gemm_2x = true;
+
+        M = mapping[1];
+        A = mapping[2];
+        B = mapping[4];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[0].getOffset_x();
+        offset_b = read_only[1].getOffset_x();
+        m = read_and_write[0].getNx();
+        n = read_and_write[0].getRank();
+        k = read_only[0].getNy();
+        m = m > read_only[0].getNx() ? read_only[0].getNx() : m;
+        n = n > read_only[1].getRank() ? read_only[1].getRank() : n;
+        k = k > read_only[1].getNx() ? read_only[1].getNx() : k;
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isDense())
+      {
+        gemm_2x = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[0].getOffset_x();
+        offset_b = read_only[1].getOffset_x();
+        m = read_and_write[0].getNy();
+        n = read_and_write[0].getNx();
+        k = read_only[0].getNy();
+        m = m > read_only[0].getNy() ? read_only[0].getNy() : m;
+        n = n > read_only[1].getNx() ? read_only[1].getNx() : n;
+        k = k > read_only[1].getNy() ? read_only[1].getNy() : k;
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+      }
+
+      if (gemm_2x)
+      {
+        inst[0] = (int) gemm;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = offset_m;
+        inst[5] = offset_a;
+        inst[6] = offset_b;
+        inst[7] = m;
+        inst[8] = n;
+        inst[9] = k;
+        inst[10] = ld_m;
+        inst[11] = ld_a;
+        inst[12] = ld_b;
+        inst[13] = a_T;
+        inst[14] = b_T;
+        return 15;
+      }
+      else
+      {
+        return 0;
       }
 
 
-      inst[0] = m; inst[1] = n; inst[2] = k;*/
+    }
+    case accum:
+    {
       return 0;
     }
     default:
