@@ -328,7 +328,6 @@ public:
     op -> setChild (op_, 0);
     delete op_;
 
-
     return op;
   }
 

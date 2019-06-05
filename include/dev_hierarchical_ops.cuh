@@ -277,7 +277,7 @@ public:
         A = mapping[2];
         B = mapping[3];
         offset_m = read_and_write[0].getOffset_y();
-        offset_a = read_only[0].getOffset_x();
+        offset_a = read_only[0].getOffset();
         offset_b = read_only[1].getOffset_y();
         m = read_and_write[0].getNy(read_only[0].getNy());
         n = read_and_write[0].getRank(read_only[1].getRank());
@@ -296,7 +296,7 @@ public:
         A = mapping[2];
         B = mapping[4];
         offset_m = read_and_write[0].getOffset_x();
-        offset_a = read_only[0].getOffset_x();
+        offset_a = read_only[0].getOffset();
         offset_b = read_only[1].getOffset_x();
         m = read_and_write[0].getNx(read_only[0].getNx());
         n = read_and_write[0].getRank(read_only[1].getRank());
@@ -314,9 +314,9 @@ public:
         M = mapping[0];
         A = mapping[1];
         B = mapping[2];
-        offset_m = read_and_write[0].getOffset_x();
-        offset_a = read_only[0].getOffset_x();
-        offset_b = read_only[1].getOffset_x();
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset();
+        offset_b = read_only[1].getOffset();
         m = read_and_write[0].getNy(read_only[0].getNy());
         n = read_and_write[0].getNx(read_only[1].getNx());
         k = read_only[0].getNy(read_only[1].getNy());
@@ -404,10 +404,10 @@ public:
         A = mapping[1];
         B = mapping[2];
         C = mapping[3];
-        offset_m = read_and_write[0].getOffset_x();
+        offset_m = read_and_write[0].getOffset();
         offset_a = read_only[0].getOffset_y();
         offset_b = read_only[0].getOffset_x();
-        offset_c = read_only[1].getOffset_x();
+        offset_c = read_only[1].getOffset();
         m = read_and_write[0].getNy(read_only[0].getNy());
         n = read_and_write[0].getNx(read_only[1].getNx());
         k = read_only[0].getRank();
@@ -428,8 +428,8 @@ public:
         A = mapping[1];
         B = mapping[2];
         C = mapping[3];
-        offset_m = read_and_write[0].getOffset_x();
-        offset_a = read_only[0].getOffset_x();
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset();
         offset_b = read_only[1].getOffset_y();
         offset_c = read_only[1].getOffset_x();
         m = read_and_write[0].getNy(read_only[0].getNy());
@@ -480,7 +480,7 @@ public:
         B = mapping[2];
         C = mapping[3];
         D = mapping[4];
-        offset_m = read_and_write[0].getOffset_x();
+        offset_m = read_and_write[0].getOffset();
         offset_a = read_only[0].getOffset_y();
         offset_b = read_only[0].getOffset_x();
         offset_c = read_only[1].getOffset_y();
@@ -555,7 +555,7 @@ public:
         nx = read_and_write[0].getNx(read_only[0].getNx());
         ny = read_and_write[0].getNy(read_only[0].getNy());
         rank1 = read_and_write[0].getRank();
-        rank2 = read_and_write[1].getRank();
+        rank2 = read_only[0].getRank();
         ld_u1 = read_and_write[0].getLd_y();
         ld_vt1 = read_and_write[0].getLd_x();
         ld_u2 = read_only[0].getLd_y();

@@ -203,11 +203,14 @@ public:
   __host__ inline int getLd_y() const
   { return ld_y; }
 
+  __host__ inline int getOffset() const
+  { return offset_y * ld_x + offset_x; }
+
   __host__ inline int getOffset_x() const
-  { return offset_x; }
+  { return offset_x * ld_x; }
 
   __host__ inline int getOffset_y() const
-  { return offset_y; }
+  { return offset_y * ld_y; }
 
   __host__ inline int getRank() const
   { return rank; }
@@ -368,7 +371,7 @@ public:
   __host__ void setVT_data (const h_index * index)
   {
     if (index -> isLowRank())
-    { setU_data(index -> data_ptrs[1], index -> offset_x, index -> ld_x); }
+    { setVT_data(index -> data_ptrs[1], index -> offset_x, index -> ld_x); }
   }
 
   __host__ int getMinRank (const h_index * index, bool * a = nullptr) const

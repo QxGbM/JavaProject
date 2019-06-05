@@ -93,6 +93,16 @@ exe:
     next_pc = 27; goto write;
   }
 
+  case accum:
+  {
+    T * U1 = (T *) ptrs[shm[3]], * VT1 = (T *) ptrs[shm[4]], * U2 = (T *) ptrs[shm[5]], * VT2 = (T *) ptrs[shm[6]];
+    const int offset_u1 = shm[7], offset_vt1 = shm[8], offset_u2 = shm[9], offset_vt2 = shm[10];
+    const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
+    __syncthreads();
+    blockLowRankAccum <T> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm, shm_size_acutal);
+    next_pc = 19; goto write;
+  }
+
   default: goto fin;
   }
 
@@ -155,6 +165,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
   printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  tree->print();
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
@@ -167,8 +178,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   clock_end = omp_get_wtime();
   printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
-  T * tmp, ** tmp_ptrs = new T * [tmp_mngr.getLength()];
-  tmp = tmp_mngr.allocate(tmp_ptrs);
+  T ** tmp_ptrs = tmp_mngr.allocate <T> ();
 
   clock_start = omp_get_wtime();
   instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
@@ -186,12 +196,18 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
+  const double exeTime = myTimer.dumpAllEvents_Sync();
+
   h_ops dense_op = h_ops (getrf, root);
+
   delete root;
-  delete args;
+  delete[] args;
+
+  cudaFree(tmp_ptrs[0]);
+  delete[] tmp_ptrs;
 
   const unsigned long long int exeFLOPS = dag.getFops(), estFLOPS = dense_op.getFops();
-  const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
+  const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
   printf("-- Kernel Running Summary --\n"
     "Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", 

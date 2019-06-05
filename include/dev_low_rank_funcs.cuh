@@ -277,32 +277,45 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
 }
 
 template <class T> 
-__device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, const int k1, const int k2, T * __restrict__ shm, const int shm_size)
+__device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, 
+  const int k1, const int k2, const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, T * __restrict__ shm, const int shm_size)
 {
   T * U, ** U_ptr = (T **) &shm[0], * V, ** V_ptr = (T **) &shm[1], * Q, ** Q_ptr = (T **) &shm[2];
   if (thread_rank() == 0)
   {
     U = new T[ny * k1]; *U_ptr = U;
-    V = new T[ny * k1]; *V_ptr = V;
-    Q = new T[nx * k1]; *Q_ptr = Q;
+    V = new T[nx * k1]; *V_ptr = V;
+    Q = new T[ny * k1]; *Q_ptr = Q;
   }
   __syncthreads();
 
-  U = *U_ptr; V = *V_ptr; V = *V_ptr;
+  U = *U_ptr; V = *V_ptr; Q = *Q_ptr;
   __syncthreads();
 
-  blockDenseGemm_shm <T> (1., 0, U, U1, dev_rnd_seed, ny, k1, k1, k1, k1, k1, false, false, shm, shm_size);
-  blockDenseGemm_shm <T> (1., 1., U, U2, dev_rnd_seed, ny, k1, k2, k1, k2, k1, false, false, shm, shm_size);
+  blockDenseGemm_3x_shm <T> (1., 0, U, U1, VT1, dev_rnd_seed, ny, k1, k1, nx, k1, ld_u1, ld_vt1, k1, false, true, false, shm, shm_size);
+  __syncthreads();
+
+  blockDenseGemm_3x_shm <T> (1., 1., U, U2, VT2, dev_rnd_seed, ny, k1, k2, nx, k1, ld_u2, ld_vt2, k1, false, true, false, shm, shm_size);
+  __syncthreads();
 
   matrixCopy_fromRM <T> (U, Q, k1, ny, k1, k1, false);
+  __syncthreads();
+
   blockGivensRotation <T> (U, k1, ny, k1);
+  __syncthreads();
+
   blockDenseTrsmR_shm <T> (Q, U, k1, ny, k1, k1, k1, false, shm, shm_size);
+  __syncthreads();
 
-  blockDenseGemm_3x_shm <T> (1., 0., V, VT1, U1, Q, nx, k1, k1, ny, k1, k1, k1, k1, false, true, false, shm, shm_size);
-  blockDenseGemm_3x_shm <T> (1., 1., V, VT2, U2, Q, nx, k1, k2, ny, k1, k2, k2, k1, false, true, false, shm, shm_size);
+  blockDenseGemm_3x_shm <T> (1., 0., V, VT1, U1, Q, nx, k1, k1, ny, k1, ld_vt1, ld_u1, k1, false, true, false, shm, shm_size);
+  __syncthreads();
 
-  matrixCopy_fromRM <T> (V, VT1, k1, nx, k1, k1, false);
-  matrixCopy_fromRM <T> (U, U1, k1, ny, k1, k1, false);
+  blockDenseGemm_3x_shm <T> (1., 1., V, VT2, U2, Q, nx, k1, k2, ny, k1, ld_vt2, ld_u2, k1, false, true, false, shm, shm_size);
+  __syncthreads();
+
+  matrixCopy_fromRM <T> (V, VT1, k1, nx, k1, ld_vt1, false);
+  matrixCopy_fromRM <T> (Q, U1, k1, ny, k1, ld_u1, false);
+  __syncthreads();
   
   if (thread_rank() == 0)
   { delete U; delete V; delete Q; }

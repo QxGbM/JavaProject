@@ -92,21 +92,26 @@ public:
   __host__ inline int getLength () const
   { return length; }
 
-  template <class T> __host__ T * allocate (T ** ptrs_out) const
+  template <class T> __host__ T ** allocate () const
   {
+    T ** ptrs = new T * [length];
     int * offsets = new int [length], accum = 0;
 
     for (int i = 0; i < length; i++)
     { offsets[i] = accum; accum += sizes[i]; }
 
-    T * ptr;
-    cudaMalloc(&ptr, accum * sizeof(T));
+    printf("TMP length: %d.\n", accum);
 
-    for (int i = 0; i < length; i++)
-    { const int offset = offsets[i]; ptrs_out[i] = &ptr[offset]; }
+    cudaMalloc(&(ptrs[0]), accum * sizeof(T));
+    cudaMemset(ptrs[0], 0, accum * sizeof(T));
+
+#pragma omp parallel for
+    for (int i = 1; i < length; i++)
+    { ptrs[i] = ptrs[0] + offsets[i]; }
 
     delete[] offsets;
-    return ptr;
+
+    return ptrs;
   }
 
   __host__ void print() const

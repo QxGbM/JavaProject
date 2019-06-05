@@ -82,7 +82,16 @@ private:
       for (int i = 0; i < n_ptrs; i++)
       {
         if (mapping[i] == -1 && ptrs_in[i] != nullptr)
-        { ptrs[last + count] = ptrs_in[i]; mapping[i] = last + count; count ++; } 
+        {
+          for (int j = 0; j < i; j++) 
+          {
+            if (ptrs_in[j] == ptrs_in[i])
+            { mapping[i] = mapping[j]; }
+          }
+
+          if (mapping[i] == -1)
+          { ptrs[last + count] = ptrs_in[i]; mapping[i] = last + count; count ++; }
+        } 
       }
     }
 
