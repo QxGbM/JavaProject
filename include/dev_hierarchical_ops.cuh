@@ -224,7 +224,7 @@ public:
 
       if (read_and_write[0].isVT() && read_only[0].isDense())
       {
-        B = mapping[0];
+        B = mapping[1];
         U = mapping[2];
         offset_b = read_and_write[0].getOffset_x();
         offset_u = read_only[0].getOffset_x();
@@ -488,11 +488,11 @@ public:
         m = read_and_write[0].getNy(read_only[0].getNy());
         n = read_and_write[0].getNx(read_only[1].getNx());
         k = read_only[0].getRank();
-        l = read_only[0].getNy(read_only[1].getNy());
+        l = read_only[0].getNx(read_only[1].getNy());
         o = read_only[1].getRank();
         ld_m = read_and_write[0].getLd_x();
         ld_a = read_only[0].getLd_y();
-        ld_b = read_only[1].getLd_x();
+        ld_b = read_only[0].getLd_x();
         ld_c = read_only[1].getLd_y();
         ld_d = read_only[1].getLd_x();
         a_T = read_only[0].getTranspose();

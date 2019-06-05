@@ -238,20 +238,19 @@ public:
     {
       return same_node_different_temp;
     }
+    else if (offset_x == index -> offset_x && offset_y == index -> offset_y)
+    {
+      return same_index;
+    }
     else
     {
-      if (offset_x == index -> offset_x && offset_y == index -> offset_y) 
-      { return same_index; }
-      else
-      {
-        const int offset_x1 = offset_x < 0 ? 0 : offset_x, offset_y1 = offset_y < 0 ? 0 : offset_y;
-        const int offset_x2 = index -> offset_x < 0 ? 0 : index -> offset_x, offset_y2 = index -> offset_y < 0 ? 0 : index -> offset_y;
+      const int offset_x1 = offset_x < 0 ? 0 : offset_x, offset_y1 = offset_y < 0 ? 0 : offset_y;
+      const int offset_x2 = index -> offset_x < 0 ? 0 : index -> offset_x, offset_y2 = index -> offset_y < 0 ? 0 : index -> offset_y;
 
-        const bool row_split = (offset_y2 - offset_y1 >= ny) || (offset_y1 - offset_y2 >= index -> ny);
-        const bool col_split = (offset_x2 - offset_x1 >= nx) || (offset_x1 - offset_x2 >= index -> nx);
+      const bool row_split = (offset_y2 - offset_y1 >= ny) || (offset_y1 - offset_y2 >= index -> ny);
+      const bool col_split = (offset_x2 - offset_x1 >= nx) || (offset_x1 - offset_x2 >= index -> nx);
 
-        return (row_split || col_split) ? same_node_no_overlap : same_node_overlapped;
-      } 
+      return (row_split || col_split) ? same_node_no_overlap : same_node_overlapped;
     }
   }
 

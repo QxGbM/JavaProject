@@ -93,7 +93,8 @@ private:
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
 
-    int loc = 0, *inst = &(insts[worker_id][loc]);
+    int loc = 0, *inst = &(insts[worker_id][loc]), n_ptrs = 8, * mapping = new int [n_ptrs]; 
+    void ** ptrs = new void * [n_ptrs];
 
     for (const instructions_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
     {
@@ -108,14 +109,13 @@ private:
         inst[0] = (int) execute;
         inst[1] = signal_id;
 
-        int n_ptrs = 8, * mapping = new int [n_ptrs]; void ** ptrs = new void * [n_ptrs];
         memset(mapping, -1, n_ptrs * sizeof(int));
         n_ptrs = op -> getDataPointers (ptrs, tmp_ptrs);
 
 #pragma omp critical
         { loadPointers (ptrs, n_ptrs, mapping); }
 
-        int t = op -> writeOpParametersTo (&inst[2], mapping);
+        const int t = op -> writeOpParametersTo (&inst[2], mapping);
 
         loc += t + 2;
         inst = &inst[t + 2];
@@ -137,6 +137,9 @@ private:
     { changeInstsSize(worker_id, inst_lengths[worker_id] + 1); inst = &(insts[worker_id][loc]); }
 
     inst[0] = (int) finish;
+
+    delete[] mapping;
+    delete[] ptrs;
 
     return loc + 1;
   }
@@ -204,7 +207,7 @@ public:
     return cudaGetLastError();
   }
 
-  __host__ void print (const int limit = 16) const
+  __host__ void print (const int limit = 32) const
   {
     for (int i = 0; i < workers; i++)
     {
