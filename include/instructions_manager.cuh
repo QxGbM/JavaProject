@@ -106,6 +106,7 @@ private:
         { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); inst = &(insts[worker_id][loc]); }
 
         inst[0] = (int) execute;
+        inst[1] = signal_id;
 
         int n_ptrs = 8, * mapping = new int [n_ptrs]; void ** ptrs = new void * [n_ptrs];
         memset(mapping, -1, n_ptrs * sizeof(int));
@@ -114,12 +115,9 @@ private:
 #pragma omp critical
         { loadPointers (ptrs, n_ptrs, mapping); }
 
-        int t = op -> writeOpParametersTo (&inst[1], mapping);
+        int t = op -> writeOpParametersTo (&inst[2], mapping);
 
-        inst[t + 1] = (int) signal_write;
-        inst[t + 2] = signal_id;
-
-        loc += t + 3;
+        loc += t + 2;
         inst = &inst[t + 2];
       }
       else

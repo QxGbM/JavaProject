@@ -237,16 +237,16 @@ public:
 #pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
-      h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, y_offsets[i], 0, index_i.getNy(), index_b -> getNx()), index_biu;
-      index_bi.getU(&index_biu);
+      h_index index_i = h_index (this, self, i, i), index_biu = h_index (index_b, y_offsets[i], 0, index_i.getNy(), index_b -> getNx());
+      index_biu.setU();
       h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSML(&index_i, B, &index_biu, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < ny; j++)
       {
-        h_index index_j = h_index (this, self, j, i), index_bj = h_index (index_b, y_offsets[j], 0, index_j.getNy(), index_b -> getNx()), index_bju;
-        index_bj.getU(&index_bju);
+        h_index index_j = h_index (this, self, j, i), index_bju = h_index (index_b, y_offsets[j], 0, index_j.getNy(), index_b -> getNx());
+        index_bju.setU();
         h_ops_tree * op_j = B -> generateOps_GEMM(&index_bju, &elements[j * nx + i], &index_j, B, &index_biu, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
@@ -363,16 +363,16 @@ public:
 #pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n; i++)
     {
-      h_index index_i = h_index (this, self, i, i), index_bi = h_index (index_b, 0, x_offsets[i], index_b -> getNy(), index_i.getNx()), index_biv;
-      index_bi.getVT(&index_biv);
+      h_index index_i = h_index (this, self, i, i), index_biv = h_index (index_b, 0, x_offsets[i], index_b -> getNy(), index_i.getNx());
+      index_biv.setVT();
       h_ops_tree * op_i = elements[i * nx + i].generateOps_TRSMR(&index_i, B, &index_biv, tmp_mngr);
       op -> setChild(op_i, child_offset[i]);
       delete op_i;
 
       for (int j = i + 1; j < nx; j++)
       {
-        h_index index_j = h_index (this, self, i, j), index_bj = h_index (index_b, 0, x_offsets[j], index_b -> getNy(), index_j.getNx()), index_bjv;
-        index_bj.getVT(&index_bjv);
+        h_index index_j = h_index (this, self, i, j), index_bjv = h_index (index_b, 0, x_offsets[j], index_b -> getNy(), index_j.getNx());
+        index_bjv.setVT();
         h_ops_tree * op_j = B -> generateOps_GEMM(&index_bjv, &elements[j * nx + i], &index_j, B, &index_biv, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;

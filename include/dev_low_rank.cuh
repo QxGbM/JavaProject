@@ -197,7 +197,7 @@ public:
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(nx * ny); }
 
-    h_index index_tmp; self -> generateTemp_Dense (block_id, &index_tmp);
+    h_index index_tmp = h_index (self); index_tmp.setTemp_Dense(block_id);
     dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
 
     printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");
@@ -222,21 +222,23 @@ public:
 
     op -> resizeChildren (2);
 
-    int tmp_size = index_a -> getSize_V(), block_id;
+    int rank_a = index_a -> getRank(), nx_a = index_a -> getNx(), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+    { block_id = tmp_mngr -> requestTemp(nx_a * rank_a); }
 
-    h_index index_tmp, index_tmpv, index_av;
-    index_a -> generateTemp_LR_SameU (block_id, &index_tmp);
-    index_tmp.getVT (&index_tmpv);
-    index_a -> getVT (&index_av);
+    h_index index_tmp = h_index (self), index_av = h_index (index_a);
+    index_tmp.setTemp_Low_Rank (block_id, rank_a);
+    index_tmp.setU_data (index_a);
 
-    op_ = new h_ops_tree (gemm, &index_tmpv, index_b, &index_av);
-    op -> setChild (op_, 0);
+    op_ = new h_ops_tree(accum, self, &index_tmp);
+    op -> setChild(op_, 1);
     delete op_;
 
-    op_ = new h_ops_tree (accum, self, &index_tmp);
-    op -> setChild (op_, 1);
+    index_tmp.setVT();
+    index_av.setVT();
+
+    op_ = new h_ops_tree (gemm, &index_tmp, index_b, &index_av);
+    op -> setChild (op_, 0);
     delete op_;
 
     return op;
@@ -252,7 +254,7 @@ public:
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(nx * ny); }
 
-    h_index index_tmp; self -> generateTemp_Dense (block_id, &index_tmp);
+    h_index index_tmp = h_index (self); index_tmp.setTemp_Dense(block_id);
     dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
 
     printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");
@@ -307,22 +309,25 @@ public:
 
     op -> resizeChildren (2);
 
-    int tmp_size = index_b -> getSize_U(), block_id;
+    int rank_b = index_b -> getRank(), ny_b = index_b -> getNy(), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+    { block_id = tmp_mngr -> requestTemp(rank_b * ny_b); }
 
-    h_index index_tmp, index_tmpu, index_bu;
-    index_b -> generateTemp_LR_SameV (block_id, &index_tmp);
-    index_tmp.getU (&index_tmpu);
-    index_b -> getU (&index_bu);
-
-    op_ = new h_ops_tree (gemm, &index_tmpu, index_a, &index_bu);
-    op -> setChild (op_, 0);
-    delete op_;
+    h_index index_tmp = h_index (self), index_bu = h_index (index_b);
+    index_tmp.setTemp_Low_Rank (block_id, rank_b);
+    index_tmp.setVT_data (index_b);
 
     op_ = new h_ops_tree (accum, self, &index_tmp);
     op -> setChild (op_, 1);
     delete op_;
+
+    index_tmp.setU();
+    index_bu.setU();
+
+    op_ = new h_ops_tree (gemm, &index_tmp, index_a, &index_bu);
+    op -> setChild (op_, 0);
+    delete op_;
+
 
     return op;
   }
@@ -336,41 +341,43 @@ public:
 
     op -> resizeChildren (2);
 
-    h_index index_tmp;
+    h_index index_tmp = h_index (self);
+    bool a; 
+    int rank = index_a -> getMinRank (index_b, &a);
+    int tmp_size = rank * (a ? index_a -> getNx() : index_b -> getNy());
+    int block_id;
 
-    const int r_a = A -> getRank(), r_b = B -> getRank();
-    if (r_a < r_b)
-    {
-      int tmp_size = index_a -> getSize_V(), block_id;
 #pragma omp critical
-      { block_id = tmp_mngr -> requestTemp(tmp_size); }
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
-      h_index index_tmpv, index_av;
-      index_a -> generateTemp_LR_SameU (block_id, &index_tmp);
-      index_tmp.getVT (&index_tmpv);
-      index_a -> getVT (&index_av);
-
-      op_ = new h_ops_tree (gemm, &index_tmpv, index_b, &index_av);
-    }
+    index_tmp.setTemp_Low_Rank(block_id, rank);
+    if (a)
+    { index_tmp.setU_data(index_a); }
     else
-    {
-      int tmp_size = index_b -> getSize_U(), block_id;
-#pragma omp critical
-      { block_id = tmp_mngr -> requestTemp(tmp_size); }
-
-      h_index index_tmpu, index_bu;
-      index_b -> generateTemp_LR_SameV (block_id, &index_tmp);
-      index_tmp.getU (&index_tmpu);
-      index_b -> getU (&index_bu);
-
-      op_ = new h_ops_tree (gemm, &index_tmpu, index_a, &index_bu);
-    }
-
-    op -> setChild (op_, 0);
-    delete op_;
+    { index_tmp.setVT_data(index_b); }
 
     op_ = new h_ops_tree (accum, self, &index_tmp);
     op -> setChild (op_, 1);
+    delete op_;
+
+    if (a)
+    {
+      h_index index_av = h_index (index_a);
+      index_tmp.setVT();
+      index_av.setVT();
+
+      op_ = new h_ops_tree (gemm, &index_tmp, index_b, &index_av);
+    }
+    else
+    {
+      h_index index_bu = h_index (index_b);
+      index_tmp.setU();
+      index_bu.setU();
+
+      op_ = new h_ops_tree (gemm, &index_tmp, index_a, &index_bu);
+    }
+
+    op -> setChild (op_, 0);
     delete op_;
 
     return op;
@@ -382,14 +389,20 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren (n_mk + 1);
 
-    int tmp_size = index_b -> getSize_U(), block_id;
+    int rank_b = index_b -> getRank(), ny_b = index_b -> getNy(), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+    { block_id = tmp_mngr -> requestTemp(rank_b * ny_b); }
 
-    h_index index_tmp, index_tmpu, index_bu; 
-    index_b -> generateTemp_LR_SameV (block_id, &index_tmp);
-    index_tmp.getU (&index_tmpu);
-    index_b -> getU (&index_bu);
+    h_index index_tmp = h_index (self), index_bu = h_index (index_b); 
+    index_tmp.setTemp_Low_Rank (block_id, rank_b);
+    index_tmp.setVT_data (index_b);
+
+    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, n_mk);
+    delete op_;
+
+    index_tmp.setU();
+    index_bu.setU();
 
     int * y, x = B -> getNx();
     A -> getOffsets_y(&y);
@@ -398,17 +411,13 @@ public:
     for (int i = 0; i < n_mk; i++)
     {
       const int row = i / n_k, col = i - row * n_k;
-      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmpu, y[row], 0, index_ai.getNy(), x), index_bj = h_index (&index_bu, y[row], 0, index_ai.getNx(), x);
+      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmp, y[row], 0, index_ai.getNy(), x), index_bj = h_index (&index_bu, y[row], 0, index_ai.getNx(), x);
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
 
     delete[] y;
-
-    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
-    op -> setChild (op_, n_mk);
-    delete op_;
 
     return op;
   }
@@ -439,7 +448,7 @@ public:
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(nx * ny); }
 
-    h_index index_tmp; self -> generateTemp_Dense (block_id, &index_tmp);
+    h_index index_tmp = h_index(self); index_tmp.setTemp_Dense(block_id);
     dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
 
     printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");
@@ -476,14 +485,20 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(n_nk + 1);
 
-    int tmp_size = index_a -> getSize_V(), block_id;
+    int rank_a = index_a -> getRank(), nx_a = index_a -> getNx(), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+    { block_id = tmp_mngr -> requestTemp(rank_a * nx_a); }
 
-    h_index index_tmp, index_tmpv, index_av; 
-    index_a -> generateTemp_LR_SameU (block_id, &index_tmp);
-    index_tmp.getVT (&index_tmpv);
-    index_a -> getVT (&index_av);
+    h_index index_tmp = h_index (self), index_av = h_index (index_a); 
+    index_tmp.setTemp_Low_Rank(block_id, rank_a);
+    index_tmp.setU_data(index_a);
+
+    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
+    op -> setChild (op_, n_nk);
+    delete op_;
+
+    index_tmp.setVT();
+    index_av.setVT();
 
     int * x, y = A -> getNy();
     B -> getOffsets_x(&x);
@@ -492,17 +507,13 @@ public:
     for (int i = 0; i < n_nk; i++)
     {
       const int row = i / n_n, col = i - row * n_n;
-      const h_index index_bj = h_index (B, index_b, row, col), index_tmpi = h_index (&index_tmpv, 0, x[col], y, index_bj.getNy()), index_ai = h_index (&index_av, 0, x[col], y, index_bj.getNx());
+      const h_index index_bj = h_index (B, index_b, row, col), index_tmpi = h_index (&index_tmp, 0, x[col], y, index_bj.getNy()), index_ai = h_index (&index_av, 0, x[col], y, index_bj.getNx());
       h_ops_tree * op_i = generateOps_GEMM(&index_tmpi, B -> getElement_blocks(row, col), &index_bj, A, &index_ai, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
 
     delete[] x;
-
-    h_ops_tree * op_ = new h_ops_tree (accum, self, &index_tmp);
-    op -> setChild (op_, n_nk);
-    delete op_;
 
     return op;
   }
@@ -523,7 +534,7 @@ public:
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(nx * ny); }
 
-    h_index index_tmp; self -> generateTemp_Dense (block_id, &index_tmp);
+    h_index index_tmp = h_index (self); index_tmp.setTemp_Dense(block_id);
     dev_dense <T> dense_tmp = dev_dense <T> (nx, ny, nx, -1);
 
     printf("WARNING: Accumulating Dense into Low-Rank. Potential Accuracy Loss.\n");

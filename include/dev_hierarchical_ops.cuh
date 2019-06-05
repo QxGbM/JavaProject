@@ -94,7 +94,7 @@ public:
         relation_t relation = read_and_write[to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
-        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
+        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
           dep |= (int) output_dep;
@@ -105,7 +105,7 @@ public:
         relation_t relation = read_only[to - rw_to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
-        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
+        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
           break;
         case same_branch_diff_node: case same_node_overlapped: case same_index:
           dep |= (int) flow_dep;
@@ -119,14 +119,14 @@ public:
       relation_t relation = read_and_write[to].compare(&(op_from -> read_only)[from]);
       switch (relation)
       {
-      case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: 
+      case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
         break;
       case same_branch_diff_node: case same_node_overlapped: case same_index:
         dep |= (int) anti_dep;
       }
     }
 
-    return (dependency_t)dep;
+    return (dependency_t) dep;
   }
 
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
@@ -183,8 +183,7 @@ public:
         offset_b = read_and_write[0].getOffset_y();
         offset_l = read_only[0].getOffset_x();
         nx_b = read_and_write[0].getRank();
-        ny_b = read_and_write[0].getNy();
-        ny_b = ny_b > read_only[0].getNy() ? read_only[0].getNy() : ny_b;
+        ny_b = read_and_write[0].getNy(read_only[0].getNy());
         nx_l = read_only[0].getNx();
         ld_b = read_and_write[0].getLd_y();
         ld_l = read_only[0].getLd_x();
@@ -197,8 +196,7 @@ public:
         offset_b = read_and_write[0].getOffset_x();
         offset_l = read_only[0].getOffset_x();
         nx_b = read_and_write[0].getNx();
-        ny_b = read_and_write[0].getNy();
-        ny_b = ny_b > read_only[0].getNy() ? read_only[0].getNy() : ny_b;
+        ny_b = read_and_write[0].getNy(read_only[0].getNy());
         nx_l = read_only[0].getNx();
         ld_b = read_and_write[0].getLd_x();
         ld_l = read_only[0].getLd_x();
@@ -230,8 +228,7 @@ public:
         U = mapping[2];
         offset_b = read_and_write[0].getOffset_x();
         offset_u = read_only[0].getOffset_x();
-        nx_b = read_and_write[0].getNx();
-        nx_b = nx_b > read_only[0].getNx() ? read_only[0].getNx() : nx_b;
+        nx_b = read_and_write[0].getNx(read_only[0].getNx());
         ny_b = read_and_write[0].getRank();
         ny_u = read_only[0].getNy();
         ld_b = read_and_write[0].getLd_x();
@@ -244,8 +241,7 @@ public:
         U = mapping[1];
         offset_b = read_and_write[0].getOffset_x();
         offset_u = read_only[0].getOffset_x();
-        nx_b = read_and_write[0].getNx();
-        nx_b = nx_b > read_only[0].getNx() ? read_only[0].getNx() : nx_b;
+        nx_b = read_and_write[0].getNx(read_only[0].getNx());
         ny_b = read_and_write[0].getNy();
         ny_u = read_only[0].getNy();
         ld_b = read_and_write[0].getLd_x();
@@ -271,11 +267,11 @@ public:
     case gemm:
     {
       int M, A, B, offset_m, offset_a, offset_b, m, n, k, ld_m, ld_a, ld_b, a_T, b_T;
-      bool gemm_2x = false;
+      bool gemm_write = false;
 
       if (read_and_write[0].isU() && read_only[0].isDense() && read_only[1].isU())
       {
-        gemm_2x = true;
+        gemm_write = true;
 
         M = mapping[0];
         A = mapping[2];
@@ -283,12 +279,9 @@ public:
         offset_m = read_and_write[0].getOffset_y();
         offset_a = read_only[0].getOffset_x();
         offset_b = read_only[1].getOffset_y();
-        m = read_and_write[0].getNy();
-        n = read_and_write[0].getRank();
-        k = read_only[0].getNx();
-        m = m > read_only[0].getNy() ? read_only[0].getNy() : m;
-        n = n > read_only[1].getRank() ? read_only[1].getRank() : n;
-        k = k > read_only[1].getNy() ? read_only[1].getNy() : k;
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getRank(read_only[1].getRank());
+        k = read_only[0].getNx(read_only[1].getNy());
         ld_m = read_and_write[0].getLd_y();
         ld_a = read_only[0].getLd_x();
         ld_b = read_only[1].getLd_y();
@@ -297,7 +290,7 @@ public:
       }
       else if (read_and_write[0].isVT() && read_only[0].isDense() && read_only[1].isVT())
       {
-        gemm_2x = true;
+        gemm_write = true;
 
         M = mapping[1];
         A = mapping[2];
@@ -305,21 +298,18 @@ public:
         offset_m = read_and_write[0].getOffset_x();
         offset_a = read_only[0].getOffset_x();
         offset_b = read_only[1].getOffset_x();
-        m = read_and_write[0].getNx();
-        n = read_and_write[0].getRank();
-        k = read_only[0].getNy();
-        m = m > read_only[0].getNx() ? read_only[0].getNx() : m;
-        n = n > read_only[1].getRank() ? read_only[1].getRank() : n;
-        k = k > read_only[1].getNx() ? read_only[1].getNx() : k;
+        m = read_and_write[0].getNx(read_only[0].getNx());
+        n = read_and_write[0].getRank(read_only[1].getRank());
+        k = read_only[0].getNy(read_only[1].getNx());
         ld_m = read_and_write[0].getLd_x();
         ld_a = read_only[0].getLd_x();
         ld_b = read_only[1].getLd_x();
-        a_T = read_only[0].getTranspose();
+        a_T = !read_only[0].getTranspose();
         b_T = read_only[1].getTranspose();
       }
       else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isDense())
       {
-        gemm_2x = true;
+        gemm_write = true;
 
         M = mapping[0];
         A = mapping[1];
@@ -327,12 +317,9 @@ public:
         offset_m = read_and_write[0].getOffset_x();
         offset_a = read_only[0].getOffset_x();
         offset_b = read_only[1].getOffset_x();
-        m = read_and_write[0].getNy();
-        n = read_and_write[0].getNx();
-        k = read_only[0].getNy();
-        m = m > read_only[0].getNy() ? read_only[0].getNy() : m;
-        n = n > read_only[1].getNx() ? read_only[1].getNx() : n;
-        k = k > read_only[1].getNy() ? read_only[1].getNy() : k;
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getNy(read_only[1].getNy());
         ld_m = read_and_write[0].getLd_x();
         ld_a = read_only[0].getLd_x();
         ld_b = read_only[1].getLd_x();
@@ -340,7 +327,9 @@ public:
         b_T = read_only[1].getTranspose();
       }
 
-      if (gemm_2x)
+      int C, offset_c, l, ld_c, c_T;
+
+      if (gemm_write)
       {
         inst[0] = (int) gemm;
         inst[1] = M;
@@ -359,16 +348,250 @@ public:
         inst[14] = b_T;
         return 15;
       }
-      else
+      else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
       {
-        return 0;
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[2];
+        B = mapping[3];
+        C = mapping[4];
+        offset_m = read_and_write[0].getOffset_y();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        offset_c = read_only[1].getOffset_y();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getRank(read_only[1].getRank());
+        k = read_only[0].getRank();
+        l = read_only[0].getNx(read_only[1].getNy());
+        ld_m = read_and_write[0].getLd_y();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        ld_c = read_only[1].getLd_y();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isVT() && read_only[0].isLowRank() && read_only[1].isVT())
+      {
+        gemm_write = true;
+
+        M = mapping[1];
+        A = mapping[3];
+        B = mapping[2];
+        C = mapping[5];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[0].getOffset_x();
+        offset_b = read_only[0].getOffset_y();
+        offset_c = read_only[1].getOffset_x();
+        m = read_and_write[0].getNx(read_only[0].getNx());
+        n = read_and_write[0].getRank(read_only[1].getRank());
+        k = read_only[0].getRank();
+        l = read_only[0].getNy(read_only[1].getNx());
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[0].getLd_y();
+        ld_c = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isDense())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        C = mapping[3];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        offset_c = read_only[1].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getRank();
+        l = read_only[0].getNy(read_only[1].getNy());
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        ld_c = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isLowRank())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        C = mapping[3];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[0].getOffset_x();
+        offset_b = read_only[1].getOffset_y();
+        offset_c = read_only[1].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getNy(read_only[1].getNy());
+        l = read_only[1].getRank();
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_y();
+        ld_c = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+        c_T = !read_only[1].getTranspose();
       }
 
+      int D, offset_d, o, ld_d, d_T;
+
+      if (gemm_write)
+      {
+        inst[0] = (int) dev_gemm_3x;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = C;
+        inst[5] = offset_m;
+        inst[6] = offset_a;
+        inst[7] = offset_b;
+        inst[8] = offset_c;
+        inst[9] = m;
+        inst[10] = n;
+        inst[11] = k;
+        inst[12] = l;
+        inst[13] = ld_m;
+        inst[14] = ld_a;
+        inst[15] = ld_b;
+        inst[16] = ld_c;
+        inst[17] = a_T;
+        inst[18] = b_T;
+        inst[19] = c_T;
+        return 20;
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        C = mapping[3];
+        D = mapping[4];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        offset_c = read_only[1].getOffset_y();
+        offset_d = read_only[1].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getRank();
+        l = read_only[0].getNy(read_only[1].getNy());
+        o = read_only[1].getRank();
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[1].getLd_x();
+        ld_c = read_only[1].getLd_y();
+        ld_d = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+        d_T = !read_only[1].getTranspose();
+      }
+
+
+      if (gemm_write)
+      {
+        inst[0] = (int) dev_gemm_4x;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = C;
+        inst[5] = D;
+        inst[6] = offset_m;
+        inst[7] = offset_a;
+        inst[8] = offset_b;
+        inst[9] = offset_c;
+        inst[10] = offset_d;
+        inst[11] = m;
+        inst[12] = n;
+        inst[13] = k;
+        inst[14] = l;
+        inst[15] = o;
+        inst[16] = ld_m;
+        inst[17] = ld_a;
+        inst[18] = ld_b;
+        inst[19] = ld_c;
+        inst[20] = ld_d;
+        inst[21] = a_T;
+        inst[22] = b_T;
+        inst[23] = c_T;
+        inst[24] = d_T;
+        return 25;
+      }
+      else
+      {
+        printf("Error: GEMM on incompatible block.\n");
+        return 0;
+      }
 
     }
     case accum:
     {
-      return 0;
+      if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+      {
+        int U1, VT1, U2, VT2, offset_u1, offset_vt1, offset_u2, offset_vt2, nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2;
+
+        U1 = mapping[0];
+        VT1 = mapping[1];
+        U2 = mapping[2];
+        VT2 = mapping[3];
+        offset_u1 = read_and_write[0].getOffset_y();
+        offset_vt1 = read_and_write[0].getOffset_x();
+        offset_u2 = read_only[0].getOffset_y();
+        offset_vt2 = read_only[0].getOffset_x();
+        nx = read_and_write[0].getNx(read_only[0].getNx());
+        ny = read_and_write[0].getNy(read_only[0].getNy());
+        rank1 = read_and_write[0].getRank();
+        rank2 = read_and_write[1].getRank();
+        ld_u1 = read_and_write[0].getLd_y();
+        ld_vt1 = read_and_write[0].getLd_x();
+        ld_u2 = read_only[0].getLd_y();
+        ld_vt2 = read_only[0].getLd_x();
+
+        inst[0] = (int) accum;
+        inst[1] = U1;
+        inst[2] = VT1;
+        inst[3] = U2;
+        inst[4] = VT2;
+        inst[5] = offset_u1;
+        inst[6] = offset_vt1;
+        inst[7] = offset_u2;
+        inst[8] = offset_vt2;
+        inst[9] = nx;
+        inst[10] = ny;
+        inst[11] = rank1;
+        inst[12] = rank2;
+        inst[13] = ld_u1;
+        inst[14] = ld_vt1;
+        inst[15] = ld_u2;
+        inst[16] = ld_vt2;
+
+        return 17;
+      }
+      else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+      {
+        // TODO
+        printf("Error: Accum dense awaiting implementation.\n");
+        return 0;
+      }
+      else
+      {
+        printf("Error: ACCUM on incompatible block.\n");
+        return 0;
+      }
     }
     default:
     { return 0; }
@@ -386,20 +609,24 @@ public:
 
   __host__ void print() const
   {
-    if (opType() == gemm)
-    { printf("GEMM "); read_and_write[0].print(); read_only[0].print(); read_only[1].print(); printf("\n"); }
-    else if (opType() == pivot)
-    { printf("PVT "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
-    else if (opType() == accum)
-    { printf("ACCM "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
-    else if (opType() == trsmr)
-    { printf("TRSMR "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
-    else if (opType() == trsml)
-    { printf("TRSML "); read_and_write[0].print(); read_only[0].print(); printf("\n"); }
-    else if (opType() == getrf)
-    { printf("GETRF "); read_and_write[0].print(); printf("\n"); }
-    else
+    switch (opType())
+    {
+    case gemm:
+    { printf("GEMM "); read_and_write[0].print(); read_only[0].print(); read_only[1].print(); printf("\n"); break; }
+    case pivot:
+    { printf("PVT "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case accum:
+    { printf("ACCM "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case trsmr:
+    { printf("TRSMR "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case trsml:
+    { printf("TRSML "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case getrf:
+    { printf("GETRF "); read_and_write[0].print(); printf("\n"); break; }
+    default:
     { printf("NOP\n"); }
+    }
+    
   }
   
 };

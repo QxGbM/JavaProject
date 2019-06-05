@@ -50,6 +50,33 @@ public:
     if (n_ptrs > 0) { delete[] data_ptrs; }
   }
 
+  __host__ h_index (const h_index * index)
+  {
+    index_lvls = index -> index_lvls;
+    type = index -> type;
+    nx = index -> nx;
+    ny = index -> ny;
+    ld_x = index -> ld_x;
+    ld_y = index -> ld_y;
+    offset_x = index -> offset_x;
+    offset_y = index -> offset_y;
+    rank = index -> rank;
+    transpose = index -> transpose;
+
+    n_ptrs = index -> n_ptrs;
+    tmp_id = index -> tmp_id;
+    struct_ptr = index -> struct_ptr;
+    root_ptr = index -> root_ptr;
+
+    indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
+    for (int i = 0; i < index_lvls; i++)
+    { indexs[i] = (index -> indexs)[i]; }
+
+    data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
+    for (int i = 0; i < n_ptrs; i++)
+    { data_ptrs[i] = (index -> data_ptrs)[i]; }
+  }
+
   template <class T> __host__ h_index (const dev_hierarchical <T> * h)
   {
     index_lvls = 0;
@@ -164,6 +191,12 @@ public:
   __host__ inline int getNy() const
   { return ny; }
 
+  __host__ inline int getNx (const int min) const
+  { return min > nx ? nx : min; }
+
+  __host__ inline int getNy (const int min) const
+  { return min > ny ? ny : min; }
+
   __host__ inline int getLd_x() const
   { return ld_x; }
 
@@ -178,6 +211,9 @@ public:
 
   __host__ inline int getRank() const
   { return rank; }
+
+  __host__ inline int getRank (const int min) const
+  { return min > rank ? rank : min; }
 
   __host__ inline int getTranspose() const
   { return (int) transpose; }
@@ -195,17 +231,24 @@ public:
 
     if (index -> index_lvls != index_lvls)
     {
-      printf("-- Some Intermediate node are being compared. This should not happen. --\n");
+      printf("Some Intermediate node are being compared. This should not happen. \n");
       return same_branch_diff_node; 
     }
+    else if (index -> tmp_id != tmp_id)
+    {
+      return same_node_different_temp;
+    }
     else
-    {       
+    {
       if (offset_x == index -> offset_x && offset_y == index -> offset_y) 
       { return same_index; }
       else
       {
-        const bool row_split = (index -> offset_y - offset_y >= ny) || (offset_y - index -> offset_y >= index -> ny);
-        const bool col_split = (index -> offset_x - offset_x >= nx) || (offset_x - index -> offset_x >= index -> nx);
+        const int offset_x1 = offset_x < 0 ? 0 : offset_x, offset_y1 = offset_y < 0 ? 0 : offset_y;
+        const int offset_x2 = index -> offset_x < 0 ? 0 : index -> offset_x, offset_y2 = index -> offset_y < 0 ? 0 : index -> offset_y;
+
+        const bool row_split = (offset_y2 - offset_y1 >= ny) || (offset_y1 - offset_y2 >= index -> ny);
+        const bool col_split = (offset_x2 - offset_x1 >= nx) || (offset_x1 - offset_x2 >= index -> nx);
 
         return (row_split || col_split) ? same_node_no_overlap : same_node_overlapped;
       } 
@@ -248,190 +291,92 @@ public:
     }
   }
 
-  __host__ h_index * getU (h_index * addr = nullptr) const
+  __host__ void setU ()
   {
-    if (this == nullptr || !isLowRank())
-    { return nullptr; }
-    else if (addr == nullptr)
-    { h_index * id = new h_index(); return getU(id); }
-    else if (isU())
-    { return clone(addr); }
-    else
-    {
-      addr -> index_lvls = index_lvls;
-      addr -> type = type;
-      addr -> nx = nx;
-      addr -> ny = ny;
-      addr -> ld_x = 0;
-      addr -> ld_y = ld_y;
-      addr -> offset_x = -1;
-      addr -> offset_y = offset_y;
-      addr -> rank = rank;
-      addr -> transpose = transpose;
-
-      addr -> n_ptrs = n_ptrs;
-      addr -> tmp_id = tmp_id;
-      addr -> struct_ptr = struct_ptr;
-      addr -> root_ptr = root_ptr;
-
-      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
-      for (int i = 0; i < index_lvls; i++)
-      { (addr -> indexs)[i] = indexs[i]; }
-
-      addr -> data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
-      for (int i = 0; i < n_ptrs; i++)
-      { (addr -> data_ptrs)[i] = data_ptrs[i]; }
-
-      return addr;
-    }
+    if (isLowRank_Full())
+    { offset_x = -1; }
   }
 
-  __host__ h_index * getVT (h_index * addr = nullptr) const
+  __host__ void setVT ()
   { 
-    if (this == nullptr || !isLowRank())
-    { return nullptr; }
-    else if (addr == nullptr)
-    { h_index * id = new h_index(); return getVT(id); }
-    else if (isVT())
-    { return clone(addr); }
-    else
+    if (isLowRank_Full())
+    { offset_y = -1; transpose = !transpose; }
+  }
+
+  __host__ void setTemp_Dense (const int block_id)
+  {
+    type = temp_dense;
+    ld_x = nx;
+    ld_y = 0;
+    offset_x = offset_y * nx + offset_x;
+    offset_y = 0;
+    rank = 0;
+    tmp_id = block_id;
+    struct_ptr = nullptr;
+    root_ptr = nullptr;
+
+    for (int i = 0; i < n_ptrs; i++)
+    { data_ptrs[i] = nullptr; }
+    n_ptrs = 1;
+  }
+
+  __host__ void setTemp_Low_Rank (const int block_id, const int rank_in)
+  {
+    if (isLowRank_Full())
     {
-      addr -> index_lvls = index_lvls;
-      addr -> type = type;
-      addr -> nx = nx;
-      addr -> ny = ny;
-      addr -> ld_x = ld_x;
-      addr -> ld_y = 0;
-      addr -> offset_x = offset_x;
-      addr -> offset_y = -1;
-      addr -> rank = rank;
-      addr -> transpose = !transpose;
-
-      addr -> n_ptrs = n_ptrs;
-      addr -> tmp_id = tmp_id;
-      addr -> struct_ptr = struct_ptr;
-      addr -> root_ptr = root_ptr;
-
-      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
-      for (int i = 0; i < index_lvls; i++)
-      { (addr -> indexs)[i] = indexs[i]; }
-
-      addr -> data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
-      for (int i = 0; i < n_ptrs; i++)
-      { (addr -> data_ptrs)[i] = data_ptrs[i]; }
-
-      return addr;
+      type = temp_low_rank;
+      ld_x = rank_in;
+      ld_y = rank_in;
+      rank = rank_in;
+      tmp_id = block_id;
+      struct_ptr = nullptr;
+      root_ptr = nullptr;
+      data_ptrs[0] = nullptr;
+      data_ptrs[1] = nullptr;
     }
   }
 
-  __host__ inline int getSize_U () const
-  { return ny * rank; }
-
-  __host__ inline int getSize_V () const
-  { return nx * rank; }
-
-  __host__ h_index * generateTemp_Dense (const int block_id, h_index * addr = nullptr) const
+  __host__ void setU_data (void * u_in, const int offset_y_in, const int ld_y_in)
   {
-    if (this == nullptr || !isLowRank())
-    { return nullptr; }
-    else if (addr == nullptr)
-    { h_index * id = new h_index(); return generateTemp_Dense(block_id, id); }
-    else
+    if (isLowRank())
     {
-      addr -> index_lvls = index_lvls;
-      addr -> type = temp_dense;
-      addr -> nx = nx;
-      addr -> ny = ny;
-      addr -> ld_x = ld_x;
-      addr -> ld_y = 0;
-      addr -> offset_x = offset_x;
-      addr -> offset_y = offset_y;
-      addr -> rank = 0;
-      addr -> transpose = transpose;
-      addr -> n_ptrs = 1;
-      addr -> tmp_id = block_id;
-      addr -> struct_ptr = nullptr;
-      addr -> root_ptr = nullptr;
-
-      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
-      for (int i = 0; i < index_lvls; i++)
-      { (addr -> indexs)[i] = indexs[i]; }
-
-      addr -> data_ptrs = new void * [1];
-      (addr -> data_ptrs)[0] = nullptr;
-
-      return addr;
+      if (data_ptrs[0] != nullptr)
+      { printf("Warning: Overwritting U.\n"); }
+      data_ptrs[0] = u_in;
+      offset_y = offset_y_in;
+      ld_y = ld_y_in;
     }
   }
 
-  __host__ h_index * generateTemp_LR_SameU (const int block_id, h_index * addr = nullptr) const
+  __host__ void setVT_data (void * vt_in, const int offset_x_in, const int ld_x_in)
   {
-    if (this == nullptr || !isLowRank())
-    { return nullptr; }
-    else if (addr == nullptr)
-    { h_index * id = new h_index(); return generateTemp_LR_SameU(block_id, id); }
-    else
+    if (isLowRank())
     {
-      addr -> index_lvls = index_lvls;
-      addr -> type = temp_low_rank;
-      addr -> nx = nx;
-      addr -> ny = ny;
-      addr -> ld_x = ld_x;
-      addr -> ld_y = rank;
-      addr -> offset_x = offset_x;
-      addr -> offset_y = offset_y;
-      addr -> rank = rank;
-      addr -> transpose = transpose;
-      addr -> n_ptrs = 2;
-      addr -> tmp_id = block_id;
-      addr -> struct_ptr = nullptr;
-      addr -> root_ptr = nullptr;
-
-      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
-      for (int i = 0; i < index_lvls; i++)
-      { (addr -> indexs)[i] = indexs[i]; }
-
-      addr -> data_ptrs = new void * [2];
-      (addr -> data_ptrs)[0] = data_ptrs[0];
-      (addr -> data_ptrs)[1] = nullptr;
-
-      return addr;
+      if (data_ptrs[1] != nullptr)
+      { printf("Warning: Overwritting VT.\n"); }
+      data_ptrs[1] = vt_in;
+      offset_x = offset_x_in;
+      ld_x = ld_x_in;
     }
   }
 
-  __host__ h_index * generateTemp_LR_SameV (const int block_id, h_index * addr = nullptr) const
+  __host__ void setU_data (const h_index * index)
   {
-    if (this == nullptr || !isLowRank())
-    { return nullptr; }
-    else if (addr == nullptr)
-    { h_index * id = new h_index(); return generateTemp_LR_SameV(block_id, id); }
-    else
-    {
-      addr -> index_lvls = index_lvls;
-      addr -> type = temp_low_rank;
-      addr -> nx = nx;
-      addr -> ny = ny;
-      addr -> ld_x = rank;
-      addr -> ld_y = ld_y;
-      addr -> offset_x = offset_x;
-      addr -> offset_y = offset_y;
-      addr -> rank = rank;
-      addr -> transpose = transpose;
-      addr -> n_ptrs = 2;
-      addr -> tmp_id = block_id;
-      addr -> struct_ptr = nullptr;
-      addr -> root_ptr = nullptr;
+    if (index -> isLowRank())
+    { setU_data(index -> data_ptrs[0], index -> offset_y, index -> ld_y); }
+  }
 
-      addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
-      for (int i = 0; i < index_lvls; i++)
-      { (addr -> indexs)[i] = indexs[i]; }
+  __host__ void setVT_data (const h_index * index)
+  {
+    if (index -> isLowRank())
+    { setU_data(index -> data_ptrs[1], index -> offset_x, index -> ld_x); }
+  }
 
-      addr -> data_ptrs = new void * [2];
-      (addr -> data_ptrs)[0] = nullptr;
-      (addr -> data_ptrs)[1] = data_ptrs[1];
-
-      return addr;
-    }
+  __host__ int getMinRank (const h_index * index, bool * a = nullptr) const
+  { 
+    const bool b = rank < index -> rank;
+    if (a != nullptr) { *a = b; }
+    return b ? rank : index -> rank;
   }
 
   __host__ int getDataPointers (void ** data_ptrs_in, void ** tmp_ptrs) const
@@ -446,6 +391,9 @@ public:
 
   __host__ inline bool isLowRank () const
   { return (type == low_rank || type == temp_low_rank); }
+
+  __host__ inline bool isLowRank_Full () const
+  { return isLowRank() && offset_x >= 0 && offset_y >= 0; }
 
   __host__ inline bool isU () const
   { return isLowRank() && !transpose && offset_x == -1; }

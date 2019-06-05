@@ -193,7 +193,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
-    h_index index_lr; index_b -> getU (&index_lr); 
+    h_index index_lr = h_index (index_b); index_lr.setU();
     return new h_ops_tree (trsml, &index_lr, self);
   }
 
@@ -225,7 +225,7 @@ public:
 
   __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
-    h_index index_lr; index_b -> getVT (&index_lr);
+    h_index index_lr = h_index (index_b); index_lr.setVT();
     return new h_ops_tree (trsmr, &index_lr, self);
   }
 

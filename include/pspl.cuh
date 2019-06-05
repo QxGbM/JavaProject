@@ -46,11 +46,11 @@ enum element_t { empty, dense, low_rank, hierarchical, temp_dense, temp_low_rank
 
 enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
-enum operation_t { nop, getrf, trsml, trsmr, accum, pivot, gemm, dev_gemm_3x, dev_gemm_4x };
+enum operation_t { nop, getrf, trsml, trsmr, accum, pivot, gemm, dev_gemm_3x, dev_gemm_4x, dev_accum_dense };
 
-enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_node_no_overlap, same_node_overlapped, same_index };
+enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_node_no_overlap, same_node_overlapped, same_node_different_temp, same_index };
 
-enum opcode_t { execute, signal_wait, signal_write, finish };
+enum opcode_t { execute, signal_wait, finish };
 
 __constant__ double dev_rnd_seed [_RND_SEED_LENGTH];
 
