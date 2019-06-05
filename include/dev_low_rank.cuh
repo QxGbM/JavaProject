@@ -222,9 +222,9 @@ public:
 
     op -> resizeChildren (2);
 
-    int rank_a = index_a -> getRank(), nx_a = index_a -> getNx(), block_id;
+    int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(nx), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(nx_a * rank_a); }
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
     h_index index_tmp = h_index (self), index_av = h_index (index_a);
     index_tmp.setTemp_Low_Rank (block_id, rank_a);
@@ -309,9 +309,9 @@ public:
 
     op -> resizeChildren (2);
 
-    int rank_b = index_b -> getRank(), ny_b = index_b -> getNy(), block_id;
+    int rank_b = index_b -> getRank(), tmp_size = rank * index_a -> getNy(ny), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(rank_b * ny_b); }
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
     h_index index_tmp = h_index (self), index_bu = h_index (index_b);
     index_tmp.setTemp_Low_Rank (block_id, rank_b);
@@ -343,7 +343,7 @@ public:
     h_index index_tmp = h_index (self);
     bool a; 
     int rank = index_a -> getMinRank (index_b, &a);
-    int tmp_size = rank * (a ? index_a -> getNx() : index_b -> getNy());
+    int tmp_size = rank * (a ? index_b -> getNx(nx) : index_a -> getNy(ny));
     int block_id;
 
 #pragma omp critical
@@ -388,9 +388,9 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren (n_mk + 1);
 
-    int rank_b = index_b -> getRank(), ny_b = index_b -> getNy(), block_id;
+    int rank_b = index_b -> getRank(), tmp_size = rank_b * index_a -> getNy(ny), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(rank_b * ny_b); }
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
     h_index index_tmp = h_index (self), index_bu = h_index (index_b); 
     index_tmp.setTemp_Low_Rank (block_id, rank_b);
@@ -484,9 +484,9 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(n_nk + 1);
 
-    int rank_a = index_a -> getRank(), nx_a = index_a -> getNx(), block_id;
+    int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(nx), block_id;
 #pragma omp critical
-    { block_id = tmp_mngr -> requestTemp(rank_a * nx_a); }
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
     h_index index_tmp = h_index (self), index_av = h_index (index_a); 
     index_tmp.setTemp_Low_Rank(block_id, rank_a);

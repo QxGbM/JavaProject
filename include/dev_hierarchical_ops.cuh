@@ -305,7 +305,7 @@ public:
         ld_a = read_only[0].getLd_x();
         ld_b = read_only[1].getLd_x();
         a_T = !read_only[0].getTranspose();
-        b_T = read_only[1].getTranspose();
+        b_T = !read_only[1].getTranspose();
       }
       else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isDense())
       {
@@ -394,7 +394,7 @@ public:
         ld_c = read_only[1].getLd_x();
         a_T = read_only[0].getTranspose();
         b_T = !read_only[0].getTranspose();
-        c_T = read_only[1].getTranspose();
+        c_T = !read_only[1].getTranspose();
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isDense())
       {

@@ -20,7 +20,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 4, levels = 0, dim = 32, admis = 1;
+  const int n = 16, levels = 0, dim = 512, admis = 1;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
@@ -32,7 +32,7 @@ template <class T> __host__ int test0()
   delete c; c = nullptr;
 #endif // ref
 
-  const int blocks = 16, threads = 1024;
+  const int blocks = 160, threads = 1024;
   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
 #ifdef ref

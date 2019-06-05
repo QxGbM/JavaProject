@@ -320,6 +320,7 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   if (thread_rank() == 0)
   { delete U; delete V; delete Q; }
   __syncthreads();
+
 }
 
 template <class T>
