@@ -70,7 +70,17 @@ exe:
     next_pc = 17; goto write;
   }
 
-  case dev_gemm_3x:
+  case gemm_plus:
+  {
+    T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]];
+    const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
+    const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
+    __syncthreads();
+    blockDenseGemm_shm <T> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    next_pc = 17; goto write;
+  }
+
+  case gemm_3x:
   {
     T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]], * C = (T *) ptrs[shm[6]];
     const int offset_m = shm[7], offset_a = shm[8], offset_b = shm[9], offset_c = shm[10], m = shm[11], n = shm[12], k = shm[13], l = shm[14];
@@ -81,7 +91,7 @@ exe:
     next_pc = 22; goto write;
   }
 
-  case dev_gemm_4x:
+  case gemm_4x:
   {
     T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]], * C = (T *) ptrs[shm[6]], * D = (T *) ptrs[shm[7]];
     const int offset_m = shm[8], offset_a = shm[9], offset_b = shm[10], offset_c = shm[11], offset_d = shm[12];
@@ -164,13 +174,13 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
-  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); tree->print();
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
   clock_end = omp_get_wtime();
   delete tree;
-  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); dag.print();
 
   clock_start = omp_get_wtime();
   instructions_scheduler schedule = instructions_scheduler (&dag, workers);

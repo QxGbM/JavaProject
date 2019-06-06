@@ -310,32 +310,36 @@ public:
     type = temp_dense;
     ld_x = nx;
     ld_y = 0;
-    offset_x = offset_y * nx + offset_x;
-    offset_y = 0;
     rank = 0;
     tmp_id = block_id;
     struct_ptr = nullptr;
     root_ptr = nullptr;
 
-    for (int i = 0; i < n_ptrs; i++)
-    { data_ptrs[i] = nullptr; }
+    if (data_ptrs != nullptr) 
+    { delete[] data_ptrs; data_ptrs = nullptr; }
+
     n_ptrs = 1;
+    data_ptrs = new void * [1];
+    data_ptrs[0] = nullptr;
   }
 
   __host__ void setTemp_Low_Rank (const int block_id, const int rank_in)
   {
-    if (isLowRank_Full())
-    {
-      type = temp_low_rank;
-      ld_x = rank_in;
-      ld_y = rank_in;
-      rank = rank_in;
-      tmp_id = block_id;
-      struct_ptr = nullptr;
-      root_ptr = nullptr;
-      data_ptrs[0] = nullptr;
-      data_ptrs[1] = nullptr;
-    }
+    type = temp_low_rank;
+    ld_x = rank_in;
+    ld_y = rank_in;
+    rank = rank_in;
+    tmp_id = block_id;
+    struct_ptr = nullptr;
+    root_ptr = nullptr;
+
+    if (data_ptrs != nullptr) 
+    { delete[] data_ptrs; data_ptrs = nullptr; }
+
+    n_ptrs = 2;
+    data_ptrs = new void * [2];
+    data_ptrs[0] = nullptr;
+    data_ptrs[1] = nullptr;
   }
 
   __host__ void setU_data (void * u_in, const int offset_y_in, const int ld_y_in)

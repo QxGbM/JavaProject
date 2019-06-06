@@ -184,6 +184,11 @@ public:
     return nullptr;
   }
 
+  __host__ h_ops_tree * generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr) const
+  {
+    return new h_ops_tree (accum, self, index_tmp_lr); 
+  }
+
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;

@@ -449,7 +449,7 @@ public:
 
       if (gemm_write)
       {
-        inst[0] = (int) dev_gemm_3x;
+        inst[0] = (int) gemm_3x;
         inst[1] = M;
         inst[2] = A;
         inst[3] = B;
@@ -504,7 +504,7 @@ public:
 
       if (gemm_write)
       {
-        inst[0] = (int) dev_gemm_4x;
+        inst[0] = (int) gemm_4x;
         inst[1] = M;
         inst[2] = A;
         inst[3] = B;
@@ -540,7 +540,42 @@ public:
     }
     case accum:
     {
-      if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+      if (read_and_write[0].isDense() && read_only[0].isLowRank())
+      {
+        int M, A, B, offset_m, offset_a, offset_b, m, n, k, ld_m, ld_a, ld_b, a_T, b_T;
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[0].getNx());
+        k = read_only[0].getRank();
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+
+        inst[0] = (int) gemm_plus;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = offset_m;
+        inst[5] = offset_a;
+        inst[6] = offset_b;
+        inst[7] = m;
+        inst[8] = n;
+        inst[9] = k;
+        inst[10] = ld_m;
+        inst[11] = ld_a;
+        inst[12] = ld_b;
+        inst[13] = a_T;
+        inst[14] = b_T;
+        return 15;
+      }
+      else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
       {
         int U1, VT1, U2, VT2, offset_u1, offset_vt1, offset_u2, offset_vt2, nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2;
 

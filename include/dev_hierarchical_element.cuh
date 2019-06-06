@@ -379,6 +379,22 @@ public:
     return nullptr;
   }
 
+  __host__ h_ops_tree * generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr) const
+  {
+    const dev_dense<T> *d = getElementDense();
+    const dev_low_rank<T> *lr = getElementLowRank();
+    const dev_hierarchical <T> *h = getElementHierarchical();
+
+    if (d != nullptr)
+    { return d -> generateOps_ACCM(self, index_tmp_lr); }
+    if (lr != nullptr)
+    { return lr -> generateOps_ACCM(self, index_tmp_lr); }
+    if (h != nullptr)
+    { return h -> generateOps_ACCM(self, index_tmp_lr); }
+
+    return nullptr;
+  }
+
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {

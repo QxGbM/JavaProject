@@ -441,13 +441,30 @@ public:
     return nullptr;  
   }
 
+  __host__ h_ops_tree * generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr) const
+  {
+    h_ops_tree * op = new h_ops_tree (accum, self, index_tmp_lr);
+    op -> resizeChildren(nx * ny);
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+    for (int i = 0; i < ny * nx; i++)
+    {
+      const int row = i / nx, col = i - row * nx;
+      const h_index index_m = h_index (this, self, row, col), index_lr = h_index (index_tmp_lr, y_offsets[row], x_offsets[col], index_m.getNy(), index_m.getNx());
+      h_ops_tree * op_i = elements[i].generateOps_ACCM(&index_m, &index_lr);
+      op -> setChild(op_i, i);
+      delete op_i;
+    }
+
+    return nullptr;  
+  }
+
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(nx * ny);
 
-    int k = A -> getNx();
-    k = (B -> getNy() > k) ? k : B -> getNy();
+    const int k = index_a -> getNx(index_b -> getNy());
 
 #pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
@@ -464,21 +481,27 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(nx * ny);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
+    op -> resizeChildren(2);
 
-    int k = A -> getNx();
-    k = (B -> getNy() > k) ? k : B -> getNy();
+    int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(getNx_abs()), block_id;
+#pragma omp critical
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
-#pragma omp parallel for if (omp_in_parallel() == 0)
-    for (int i = 0; i < ny * nx; i++)
-    {
-      const int row = i / nx, col = i - row * nx;
-      const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
-      op -> setChild(op_i, i);
-      delete op_i;
-    }
+    h_index index_tmp = h_index (self), index_av = h_index (index_a);
+    index_tmp.setTemp_Low_Rank (block_id, rank_a);
+    index_tmp.setU_data (index_a);
+
+    op_ = generateOps_ACCM (self, &index_tmp);
+    op -> setChild(op_, 1);
+    delete op_;
+
+    index_tmp.setVT();
+    index_av.setVT();
+
+    op_ = new h_ops_tree (gemm, &index_tmp, index_b, &index_av);
+    op -> setChild (op_, 0);
+    delete op_;
 
     return op;
   }
