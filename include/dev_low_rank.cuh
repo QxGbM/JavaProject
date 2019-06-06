@@ -314,7 +314,7 @@ public:
 
     op -> resizeChildren (2);
 
-    int rank_b = index_b -> getRank(), tmp_size = rank * index_a -> getNy(ny), block_id;
+    int rank_b = index_b -> getRank(), tmp_size = rank_b * index_a -> getNy(ny), block_id;
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(tmp_size); }
 

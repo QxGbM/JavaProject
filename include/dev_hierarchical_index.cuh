@@ -232,14 +232,13 @@ public:
       { return same_mat_diff_branch; } 
     }
 
-    if (index -> index_lvls != index_lvls)
-    {
-      printf("Some Intermediate node are being compared. This should not happen. \n");
-      return same_branch_diff_node; 
-    }
-    else if (index -> tmp_id != tmp_id)
+    if (index -> tmp_id != tmp_id)
     {
       return same_node_different_temp;
+    }
+    else if (index -> index_lvls != index_lvls)
+    {
+      return same_branch_diff_node; 
     }
     else if (offset_x == index -> offset_x && offset_y == index -> offset_y)
     {
@@ -250,8 +249,8 @@ public:
       const bool all_rows = (offset_x == -1 || index -> offset_x == -1);
       const bool all_cols = (offset_y == -1 || index -> offset_y == -1);
 
-      const bool row_split = all_cols ? false : ((index -> offset_y - offset_y >= ny) || (offset_y - index -> offset_y >= index -> ny));
-      const bool col_split = all_rows ? false : ((index -> offset_x - offset_x >= nx) || (offset_x - index -> offset_x >= index -> nx));
+      const bool row_split = !all_cols && ((index -> offset_y - offset_y >= ny) || (offset_y - index -> offset_y >= index -> ny));
+      const bool col_split = !all_rows && ((index -> offset_x - offset_x >= nx) || (offset_x - index -> offset_x >= index -> nx));
 
       return (row_split || col_split) ? same_node_no_overlap : same_node_overlapped;
     }

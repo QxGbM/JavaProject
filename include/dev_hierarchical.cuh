@@ -456,7 +456,7 @@ public:
       delete op_i;
     }
 
-    return nullptr;  
+    return op;  
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
@@ -482,7 +482,7 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
-    op -> resizeChildren(2);
+    op -> resizeChildren (2);
 
     int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(getNx_abs()), block_id;
 #pragma omp critical
@@ -549,42 +549,79 @@ public:
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(nx * ny);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
 
-    int k = A -> getNx();
-    k = (B -> getNy() > k) ? k : B -> getNy();
+    op -> resizeChildren (2);
 
-#pragma omp parallel for if (omp_in_parallel() == 0)
-    for (int i = 0; i < ny * nx; i++)
-    {
-      const int row = i / nx, col = i - row * nx;
-      const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
-      op -> setChild(op_i, i);
-      delete op_i;
-    }
+    int rank_b = index_b -> getRank(), tmp_size = rank_b * index_a -> getNy(ny), block_id;
+#pragma omp critical
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+
+    h_index index_tmp = h_index (self), index_bu = h_index (index_b);
+    index_tmp.setTemp_Low_Rank (block_id, rank_b);
+    index_tmp.setVT_data (index_b);
+
+    op_ = generateOps_ACCM (self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    index_tmp.setU();
+    index_bu.setU();
+
+    op_ = new h_ops_tree (gemm, &index_tmp, index_a, &index_bu);
+    op -> setChild (op_, 0);
+    delete op_;
 
     return op;
   }
 
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
-    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(nx * ny);
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
 
-    int k = A -> getNx();
-    k = (B -> getNy() > k) ? k : B -> getNy();
+    if (self -> isU() || self -> isVT())
+    { return op; }
 
-#pragma omp parallel for if (omp_in_parallel() == 0)
-    for (int i = 0; i < ny * nx; i++)
+    op -> resizeChildren (2);
+
+    h_index index_tmp = h_index (self);
+    bool a; 
+    int rank = index_a -> getMinRank (index_b, &a);
+    int tmp_size = rank * (a ? index_b -> getNx(nx) : index_a -> getNy(ny));
+    int block_id;
+
+#pragma omp critical
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+
+    index_tmp.setTemp_Low_Rank(block_id, rank);
+    if (a)
+    { index_tmp.setU_data(index_a); }
+    else
+    { index_tmp.setVT_data(index_b); }
+
+    op_ = generateOps_ACCM (self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    if (a)
     {
-      const int row = i / nx, col = i - row * nx;
-      const h_index index_m = h_index (this, self, row, col), index_ai = h_index (index_a, y_offsets[row], 0, index_m.getNy(), k), index_bj = h_index (index_b, 0, x_offsets[col], k, index_m.getNx());
-      h_ops_tree * op_i = elements[i].generateOps_GEMM(&index_m, A, &index_ai, B, &index_bj, tmp_mngr);
-      op -> setChild(op_i, i);
-      delete op_i;
+      h_index index_av = h_index (index_a);
+      index_tmp.setVT();
+      index_av.setVT();
+
+      op_ = new h_ops_tree (gemm, &index_tmp, index_b, &index_av);
     }
+    else
+    {
+      h_index index_bu = h_index (index_b);
+      index_tmp.setU();
+      index_bu.setU();
+
+      op_ = new h_ops_tree (gemm, &index_tmp, index_a, &index_bu);
+    }
+
+    op -> setChild (op_, 0);
+    delete op_;
 
     return op;
   }
