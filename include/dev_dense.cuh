@@ -678,7 +678,7 @@ public:
       for(int y = 0; y < ny; y++)
       {
         double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
-        if (fabs(t) > 1.e-10)
+        if (fabs(t) > 1.e-8)
         {
           if (error_count < 10)
           { printf("Error Location: (%d, %d). M1: %.6e M2: %.6e\n", y, x, elements[y * ld + x], (matrix->elements)[y * (matrix->ld) + x]); }

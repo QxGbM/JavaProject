@@ -107,7 +107,7 @@ public:
 
 #pragma omp parallel for
     for (int i = 1; i < length; i++)
-    { ptrs[i] = ptrs[0] + offsets[i]; }
+    { const int offset = offsets[i]; ptrs[i] = &(ptrs[0])[offset]; }
 
     delete[] offsets;
 

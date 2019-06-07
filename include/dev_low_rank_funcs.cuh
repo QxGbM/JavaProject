@@ -307,6 +307,9 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   blockDenseTrsmR_shm <T> (Q, U, k1, ny, k1, k1, k1, false, shm, shm_size);
   __syncthreads();
 
+  blockGramSchmidt <T> (Q, k1, ny, k1, shm);
+  __syncthreads();
+
   blockDenseGemm_3x_shm <T> (1., 0., V, VT1, U1, Q, nx, k1, k1, ny, k1, ld_vt1, ld_u1, k1, false, true, false, shm, shm_size);
   __syncthreads();
 
