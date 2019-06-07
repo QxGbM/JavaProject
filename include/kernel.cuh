@@ -141,6 +141,20 @@ fin:
   return;
 }
 
+template <class T> 
+__host__ void print_dev_mat (T * dev_mat, const int nx, const int ny)
+{
+   T * data = new T [nx * ny];
+   cudaMemcpy (data, dev_mat, nx * ny * sizeof(T), cudaMemcpyDeviceToHost);
+   for (int i = 0; i < ny; i++)
+   {
+     for (int j = 0; j < nx; j++)
+     { printf("%e ", data[i * nx + j]); }
+     printf("\n");
+   }
+   delete[] data;
+}
+
 template <class T, int shm_size> 
 __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num_blocks, const int num_threads)
 {
@@ -174,13 +188,13 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
-  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); tree->print();
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
   clock_end = omp_get_wtime();
   delete tree;
-  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); dag.print();
 
   clock_start = omp_get_wtime();
   instructions_scheduler schedule = instructions_scheduler (&dag, workers);
@@ -206,6 +220,8 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
   const double exeTime = myTimer.dumpAllEvents_Sync();
+
+  print_dev_mat((T*) tmp_ptrs[10], 4, 4);
 
   h_ops dense_op = h_ops (getrf, root);
 

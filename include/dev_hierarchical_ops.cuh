@@ -753,11 +753,11 @@ public:
     { return 1; }
     else
     {
-      int length = 0;
-#pragma omp parallel for reduction (+:length) if (omp_in_parallel() == 0)
+      int length_ = 0;
+#pragma omp parallel for reduction (+:length_) if (omp_in_parallel() == 0)
       for (int i = 0; i < l_children; i++) 
-      { length += children[i].length(); }
-      return length;
+      { length_ += children[i].length(); }
+      return length_;
     }
   }
 
@@ -828,30 +828,75 @@ public:
     }
   }
 
-  __host__ h_ops_tree * flatten (h_ops_tree * list = nullptr, const int list_index = 0) const
+  __host__ h_ops_tree * flatten (const int start_index = 0, const int length_max = 0, const int list_index = 0, h_ops_tree * list = nullptr) const
   {
+
+    int length_ = 0, * lengths = new int [l_children];
+#pragma omp parallel for reduction (+:length_) if (omp_in_parallel() == 0)
+    for (int i = 0; i < l_children; i++) 
+    { const int l = children[i].length(); lengths[i] = l; length_ += l; }
+
+    if (length_ <= start_index)
+    { delete[] lengths; return nullptr; }
+    else
+    { length_ = (length_max > 0 && length_max <= length_) ? length_max : length_; }
+
     if (list == nullptr)
     {
-      list = clone(nullptr, false);
-      list -> resizeChildren(length());
+      list = clone (nullptr, false);
+      list -> resizeChildren (length_);
     }
 
-    int * work_index = new int[l_children];
-    work_index[0] = list_index;
-
-    for (int i = 1; i < l_children; i++)
-    { work_index[i] = work_index[i - 1] + children[i - 1].length(); }
-
-#pragma omp parallel for if (omp_in_parallel() == 0)
+    int child_start = 0, child_end = l_children, insts_read = 0, insts_start = 0, end_length = 0;
     for (int i = 0; i < l_children; i++)
     {
-      if (children[i].l_children == 0)
-      { children[i].clone(&(list -> children)[work_index[i]], false); }
+      if (insts_read <= start_index)
+      { child_start = i; insts_start = start_index - insts_read; }
+
+      end_length = start_index + length_ - insts_read;
+
+      if (end_length <= lengths[i])
+      { child_end = i + 1; break; }
       else
-      { children[i].flatten (list, work_index[i]); }
+      { insts_read += lengths[i]; }
     }
 
-    delete[] work_index;
+    
+    //if (omp_in_parallel() == 0)
+    //printf("%d, %d, %d, %d, %d, %d, %d\n", child_start, child_end, insts_start, end_length, list_index, length_max, length_);
+
+    int iters = child_end - child_start;
+    if (iters > 1)
+    {
+      int * work_index = new int [iters];
+      work_index[0] = list_index;
+
+      for (int i = 0; i < iters - 1; i++)
+      { work_index[i + 1] = work_index[i] + lengths[i + child_start]; }
+
+  #pragma omp parallel for if (omp_in_parallel() == 0)
+      for (int i = child_start; i < child_end; i++)
+      {
+        if (children[i].l_children == 0)
+        { children[i].clone(&(list -> children)[work_index[i - child_start]], false); }
+        else if (i == child_start)
+        { children[i].flatten (insts_start, 0, work_index[i - child_start], list); }
+        else if (i == child_end - 1)
+        { children[i].flatten (0, end_length, work_index[i - child_start], list); }
+        else
+        { children[i].flatten (0, 0, work_index[i - child_start], list); }
+      }
+      delete[] work_index;
+    }
+    else
+    {
+      if (children[child_start].l_children == 0)
+      { children[child_start].clone(&(list -> children)[list_index], false); }
+      else
+      { children[child_start].flatten (insts_start, end_length, list_index, list); }
+    }
+
+    delete[] lengths;
     return list;
   }
 

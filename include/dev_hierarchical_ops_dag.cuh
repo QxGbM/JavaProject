@@ -74,7 +74,7 @@ public:
 
   __host__ h_ops_dag (const h_ops_tree * ops) 
   {
-    ops_list = ops -> flatten();
+    ops_list = ops -> flatten(52, 5);
     fops = ops_list -> getFops();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
