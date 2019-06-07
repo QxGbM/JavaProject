@@ -732,7 +732,7 @@ public:
   {
     if (length_in > 0 && length_in != l_children)
     { 
-      h_ops_tree * neo = new h_ops_tree [length_in]{};
+      h_ops_tree * neo = new h_ops_tree [length_in];
 
       for (int i = 0; i < l_children && i < length_in; i++)
       { children[i].clone(&neo[i], true); }
@@ -832,6 +832,7 @@ public:
   {
 
     int length_ = 0, * lengths = new int [l_children];
+
 #pragma omp parallel for reduction (+:length_) if (omp_in_parallel() == 0)
     for (int i = 0; i < l_children; i++) 
     { const int l = children[i].length(); lengths[i] = l; length_ += l; }
@@ -856,35 +857,33 @@ public:
       end_length = start_index + length_ - insts_read;
 
       if (end_length <= lengths[i])
-      { child_end = i + 1; break; }
+      { child_end = i + 1; end_length = end_length > length_max ? length_max : end_length; break; }
       else
       { insts_read += lengths[i]; }
     }
-
-    
-    //if (omp_in_parallel() == 0)
-    //printf("%d, %d, %d, %d, %d, %d, %d\n", child_start, child_end, insts_start, end_length, list_index, length_max, length_);
 
     int iters = child_end - child_start;
     if (iters > 1)
     {
       int * work_index = new int [iters];
       work_index[0] = list_index;
+      work_index[1] = list_index + lengths[child_start] - insts_start;
 
-      for (int i = 0; i < iters - 1; i++)
+      for (int i = 1; i < iters - 1; i++)
       { work_index[i + 1] = work_index[i] + lengths[i + child_start]; }
 
-  #pragma omp parallel for if (omp_in_parallel() == 0)
+#pragma omp parallel for if (omp_in_parallel() == 0)
       for (int i = child_start; i < child_end; i++)
       {
+        const int index = work_index[i - child_start];
         if (children[i].l_children == 0)
-        { children[i].clone(&(list -> children)[work_index[i - child_start]], false); }
+        { children[i].clone(&(list -> children)[index], false); }
         else if (i == child_start)
-        { children[i].flatten (insts_start, 0, work_index[i - child_start], list); }
+        { children[i].flatten (insts_start, 0, index, list); }
         else if (i == child_end - 1)
-        { children[i].flatten (0, end_length, work_index[i - child_start], list); }
+        { children[i].flatten (0, end_length, index, list); }
         else
-        { children[i].flatten (0, 0, work_index[i - child_start], list); }
+        { children[i].flatten (0, 0, index, list); }
       }
       delete[] work_index;
     }
