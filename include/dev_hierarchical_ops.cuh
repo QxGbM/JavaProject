@@ -162,7 +162,11 @@ public:
         ld = read_and_write[0].getLd_x();
       }
       else
-      { printf("Error: GETRF on incompatible block.\n"); return 0; }
+      { 
+        printf("Error: GETRF on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;  
+      }
 
       inst[0] = (int) getrf;
       inst[1] = M;
@@ -203,7 +207,11 @@ public:
         b_T = read_and_write[0].getTranspose();
       }
       else
-      { printf("Error: TRSML on incompatible block.\n"); return 0; }
+      { 
+        printf("Error: TRSML on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;  
+      }
 
       inst[0] = (int) trsml;
       inst[1] = B;
@@ -249,7 +257,11 @@ public:
         b_T = read_and_write[0].getTranspose();
       }
       else
-      { printf("Error: TRSMR on incompatible block.\n"); return 0; }
+      { 
+        printf("Error: TRSMR on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;  
+      }
 
       inst[0] = (int) trsmr;
       inst[1] = B;
@@ -288,24 +300,24 @@ public:
         a_T = read_only[0].getTranspose();
         b_T = read_only[1].getTranspose();
       }
-      else if (read_and_write[0].isVT() && read_only[0].isDense() && read_only[1].isVT())
+      else if (read_and_write[0].isVT() && read_only[0].isVT() && read_only[1].isDense())
       {
         gemm_write = true;
 
         M = mapping[1];
-        A = mapping[2];
-        B = mapping[4];
+        A = mapping[4];
+        B = mapping[3];
         offset_m = read_and_write[0].getOffset_x();
-        offset_a = read_only[0].getOffset();
-        offset_b = read_only[1].getOffset_x();
-        m = read_and_write[0].getNx(read_only[0].getNx());
-        n = read_and_write[0].getRank(read_only[1].getRank());
-        k = read_only[0].getNy(read_only[1].getNx());
+        offset_a = read_only[1].getOffset();
+        offset_b = read_only[0].getOffset_x();
+        m = read_and_write[0].getNx(read_only[1].getNx());
+        n = read_and_write[0].getRank(read_only[0].getRank());
+        k = read_only[1].getNy(read_only[0].getNx());
         ld_m = read_and_write[0].getLd_x();
-        ld_a = read_only[0].getLd_x();
-        ld_b = read_only[1].getLd_x();
-        a_T = !read_only[0].getTranspose();
-        b_T = !read_only[1].getTranspose();
+        ld_a = read_only[1].getLd_x();
+        ld_b = read_only[0].getLd_x();
+        a_T = !read_only[1].getTranspose();
+        b_T = !read_only[0].getTranspose();
       }
       else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isDense())
       {
@@ -372,29 +384,29 @@ public:
         b_T = !read_only[0].getTranspose();
         c_T = read_only[1].getTranspose();
       }
-      else if (read_and_write[0].isVT() && read_only[0].isLowRank() && read_only[1].isVT())
+      else if (read_and_write[0].isVT() && read_only[0].isVT() && read_only[1].isLowRank())
       {
         gemm_write = true;
 
         M = mapping[1];
-        A = mapping[3];
-        B = mapping[2];
-        C = mapping[5];
+        A = mapping[5];
+        B = mapping[4];
+        C = mapping[3];
         offset_m = read_and_write[0].getOffset_x();
-        offset_a = read_only[0].getOffset_x();
-        offset_b = read_only[0].getOffset_y();
-        offset_c = read_only[1].getOffset_x();
-        m = read_and_write[0].getNx(read_only[0].getNx());
-        n = read_and_write[0].getRank(read_only[1].getRank());
-        k = read_only[0].getRank();
+        offset_a = read_only[1].getOffset_x();
+        offset_b = read_only[1].getOffset_y();
+        offset_c = read_only[0].getOffset_x();
+        m = read_and_write[0].getNx(read_only[1].getNx());
+        n = read_and_write[0].getRank(read_only[0].getRank());
+        k = read_only[1].getRank();
         l = read_only[0].getNy(read_only[1].getNx());
         ld_m = read_and_write[0].getLd_x();
-        ld_a = read_only[0].getLd_x();
-        ld_b = read_only[0].getLd_y();
-        ld_c = read_only[1].getLd_x();
-        a_T = read_only[0].getTranspose();
-        b_T = !read_only[0].getTranspose();
-        c_T = !read_only[1].getTranspose();
+        ld_a = read_only[1].getLd_x();
+        ld_b = read_only[1].getLd_y();
+        ld_c = read_only[0].getLd_x();
+        a_T = read_only[1].getTranspose();
+        b_T = !read_only[1].getTranspose();
+        c_T = !read_only[0].getTranspose();
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isDense())
       {
@@ -534,7 +546,8 @@ public:
       else
       {
         printf("Error: GEMM on incompatible block.\n");
-        return 0;
+        inst[0] = (int) nop;
+        return 1;
       }
 
     }
@@ -625,11 +638,15 @@ public:
       else
       {
         printf("Error: ACCUM on incompatible block.\n");
-        return 0;
+        inst[0] = (int) nop;
+        return 1;
       }
     }
     default:
-    { return 0; }
+    { 
+      inst[0] = (int) nop;
+      return 1; 
+    }
     }
 
 

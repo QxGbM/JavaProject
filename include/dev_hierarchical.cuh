@@ -373,7 +373,7 @@ public:
       {
         h_index index_j = h_index (this, self, i, j), index_bjv = h_index (index_b, 0, x_offsets[j], index_b -> getNy(), index_j.getNx());
         index_bjv.setVT();
-        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bjv, &elements[j * nx + i], &index_j, B, &index_biv, tmp_mngr);
+        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bjv, B, &index_biv, &elements[j * nx + i], &index_j, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -484,7 +484,7 @@ public:
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
     op -> resizeChildren (2);
 
-    int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(getNx_abs()), block_id;
+    int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(), block_id;
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
@@ -553,7 +553,7 @@ public:
 
     op -> resizeChildren (2);
 
-    int rank_b = index_b -> getRank(), tmp_size = rank_b * index_a -> getNy(ny), block_id;
+    int rank_b = index_b -> getRank(), tmp_size = rank_b * index_a -> getNy(), block_id;
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(tmp_size); }
 
@@ -587,7 +587,7 @@ public:
     h_index index_tmp = h_index (self);
     bool a; 
     int rank = index_a -> getMinRank (index_b, &a);
-    int tmp_size = rank * (a ? index_b -> getNx(nx) : index_a -> getNy(ny));
+    int tmp_size = rank * (a ? index_b -> getNx() : index_a -> getNy());
     int block_id;
 
 #pragma omp critical

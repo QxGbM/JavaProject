@@ -110,7 +110,6 @@ public:
     { const int offset = offsets[i]; ptrs[i] = &(ptrs[0])[offset]; }
 
     delete[] offsets;
-
     return ptrs;
   }
 
