@@ -545,7 +545,7 @@ public:
       }
       else
       {
-        printf("Error: GEMM on incompatible block.\n");
+        printf("Error: GEMM on incompatible block.\n"); print();
         inst[0] = (int) nop;
         return 1;
       }

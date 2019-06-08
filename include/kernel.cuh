@@ -31,6 +31,8 @@ load_inst:
 exe:
   switch ((operation_t) shm[2])
   {
+  case nop:
+  { next_pc = 3; goto write; }
   case getrf:
   {
     T * M = (T *) ptrs[shm[3]]; 
@@ -188,13 +190,13 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
-  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); tree->print();
+  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
   clock_end = omp_get_wtime();
   delete tree;
-  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); dag.print();
+  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
 
   clock_start = omp_get_wtime();
   instructions_scheduler schedule = instructions_scheduler (&dag, workers);
@@ -220,8 +222,6 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
   const double exeTime = myTimer.dumpAllEvents_Sync();
-
-  print_dev_mat((T*) tmp_ptrs[10], 4, 4);
 
   h_ops dense_op = h_ops (getrf, root);
 

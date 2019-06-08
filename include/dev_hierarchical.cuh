@@ -609,7 +609,7 @@ public:
       index_tmp.setVT();
       index_av.setVT();
 
-      op_ = new h_ops_tree (gemm, &index_tmp, index_b, &index_av);
+      op_ = new h_ops_tree (gemm, &index_tmp, &index_av, index_b);
     }
     else
     {

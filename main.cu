@@ -20,7 +20,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 16, admis = 1;
+  const int n = 2, levels = 1, dim = 1024, admis = 1;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
@@ -38,9 +38,9 @@ template <class T> __host__ int test0()
 #ifdef ref
   if (error == cudaSuccess)
   {
-    c = a -> convertToDense(); //a->print();c->print();
+    c = a -> convertToDense();
     partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
-    cudaDeviceSynchronize(); //b->print();
+    cudaDeviceSynchronize();
 
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
     delete b; b = nullptr;

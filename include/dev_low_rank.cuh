@@ -408,21 +408,22 @@ public:
     index_tmp.setU();
     index_bu.setU();
 
-    int * y, x = index_b -> getNx(self -> getNx());
+    int * y, * k, x = index_b -> getNx(self -> getNx());
     A -> getOffsets_y(&y);
+    A -> getOffsets_x(&k);
 
 #pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_mk; i++)
     {
       const int row = i / n_k, col = i - row * n_k;
-      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmp, y[row], 0, index_ai.getNy(), x), index_bj = h_index (&index_bu, y[row], 0, index_ai.getNx(), x);
+      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmp, y[row], 0, index_ai.getNy(), x), index_bj = h_index (&index_bu, k[col], 0, index_ai.getNx(), x);
       h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
 
     delete[] y;
-
+    delete[] k;
     return op;
   }
 
@@ -504,21 +505,22 @@ public:
     index_tmp.setVT();
     index_av.setVT();
 
-    int * x, y = self -> getNy(index_a -> getNy());
+    int * x, * k, y = self -> getNy(index_a -> getNy());
     B -> getOffsets_x(&x);
+    B -> getOffsets_y(&k);
 
 #pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < n_nk; i++)
     {
       const int row = i / n_n, col = i - row * n_n;
-      const h_index index_bj = h_index (B, index_b, row, col), index_tmpi = h_index (&index_tmp, 0, x[col], y, index_bj.getNx()), index_ai = h_index (&index_av, 0, x[col], y, index_bj.getNy());
-      h_ops_tree * op_i = generateOps_GEMM(&index_tmpi, A, &index_ai, B -> getElement_blocks(row, col), &index_bj, tmp_mngr);
+      const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (&index_tmp, 0, x[col], y, index_bj.getNx()), index_ai = h_index (&index_av, 0, k[row], y, index_bj.getNy());
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
 
     delete[] x;
-
+    delete[] k;
     return op;
   }
 

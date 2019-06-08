@@ -12,7 +12,7 @@ __global__ void compressor_kernel (const int length, T ** __restrict__ U_ptrs, T
   for (int i = block_rank(); i < length; i += grid_dim())
   {
     const int i_3 = i * 3;
-    int r = blockRandomizedSVD <T> (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], rank, 1.e-15, 64, (T *) shm, shm_size * 4 / sizeof(T));
+    int r = blockRandomizedSVD <T> (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], rank, 1.e-24, 64, (T *) shm, shm_size * 4 / sizeof(T));
     if (thread_rank() == 0)
     { ranks[i] = r; }
     __syncthreads();
