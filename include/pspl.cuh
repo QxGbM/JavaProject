@@ -102,13 +102,13 @@ class compressor;
 #include <dev_dense_funcs.cuh>
 #include <dev_low_rank_funcs.cuh>
 
+#include <dev_temp.cuh>
 #include <dev_dense.cuh>
 #include <compressor.cuh>
 #include <dev_low_rank.cuh>
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 
-#include <dev_temp.cuh>
 #include <dev_hierarchical_ops_dag.cuh>
 
 #include <instructions_scheduler.cuh>

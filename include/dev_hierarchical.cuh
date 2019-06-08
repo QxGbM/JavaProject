@@ -499,7 +499,7 @@ public:
     index_tmp.setVT();
     index_av.setVT();
 
-    op_ = new h_ops_tree (gemm, &index_tmp, index_b, &index_av);
+    op_ = new h_ops_tree (gemm, &index_tmp, &index_av, index_b);
     op -> setChild (op_, 0);
     delete op_;
 
@@ -578,9 +578,6 @@ public:
   __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
-
-    if (self -> isU() || self -> isVT())
-    { return op; }
 
     op -> resizeChildren (2);
 
