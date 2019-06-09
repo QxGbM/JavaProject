@@ -181,28 +181,28 @@ public:
     }
   }
 
-  __host__ h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
   { 
     return new h_ops_tree (getrf, self); 
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return new h_ops_tree (trsml, index_b, self);
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     h_index index_lr = h_index (index_b); index_lr.setU();
     return new h_ops_tree (trsml, &index_lr, self);
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_TRSML (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
@@ -218,23 +218,23 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return new h_ops_tree (trsmr, index_b, self);
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     h_index index_lr = h_index (index_b); index_lr.setVT();
     return new h_ops_tree (trsmr, &index_lr, self);
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
@@ -250,28 +250,27 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr) const
+  __host__ static h_ops_tree * generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr)
   {
     return new h_ops_tree (accum, self, index_tmp_lr); 
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return new h_ops_tree (gemm, self, index_a, index_b); 
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return new h_ops_tree (gemm, self, index_a, index_b); 
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
-    int * y, * k, x = B -> getNx();
-    x = (nx > x) ? x : nx;
+    int * y, * k, x = self -> getNx(index_b -> getNx());
     A -> getOffsets_y(&y);
     A -> getOffsets_x(&k);
 
@@ -290,7 +289,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
     const dev_low_rank <T> *lr_a = A -> getElementLowRank();
@@ -306,23 +305,22 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return new h_ops_tree (gemm, self, index_a, index_b);
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     return new h_ops_tree (gemm, self, index_a, index_b);
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
 
-    int * y, * k, x = B -> getNx();
-    x = (nx > x) ? x : nx;
+    int * y, * k, x = self -> getNx(index_b -> getNx());
     A -> getOffsets_y(&y);
     A -> getOffsets_x(&k);
 
@@ -341,7 +339,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
     const dev_low_rank <T> *lr_a = A -> getElementLowRank();
@@ -357,13 +355,12 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
-    int * x, * k, y = A -> getNy();
-    y = (ny > y) ? y : ny;
+    int * x, * k, y = self -> getNy(index_a -> getNy());
     B -> getOffsets_y(&k);
     B -> getOffsets_x(&x);
 
@@ -382,13 +379,12 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
 
-    int * x, * k, y = A -> getNy();
-    y = (ny > y) ? y : ny;
+    int * x, * k, y = self -> getNy(index_a -> getNy());
     B -> getOffsets_y(&k);
     B -> getOffsets_x(&x);
 
@@ -407,29 +403,29 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
-    if (A -> getNx_blocks() != B -> getNy_blocks())
+    const int n_k = A -> getNx_blocks(); if (n_k != B -> getNy_blocks())
     { printf("Matrices are partitioned differently in D.H-H GEMM.\n"); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(A -> getNy_blocks() * A -> getNx_blocks() * B -> getNx_blocks());
-
+    const int n_n = B -> getNx_blocks(), n_mn = n_n * A -> getNy_blocks(), n_mnk = n_mn * n_k;
     int * x, * y;
     A -> getOffsets_y(&y);
     B -> getOffsets_x(&x);
 
+    op -> resizeChildren(n_mnk);
+
 #pragma omp parallel for if (omp_in_parallel() == 0)
-    for (int i = 0; i < B -> getNx_blocks() * A -> getNy_blocks(); i++)
+    for (int i = 0; i < n_mnk; i++)
     {
-      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
-      for (int k = 0; k < A -> getNx_blocks(); k++)
-      {
-        const h_index index_ai = h_index (A, index_a, row, k), index_bj = h_index (B, index_b, k, col), index_m = h_index (self, y[row], x[col], index_ai.getNy(), index_bj.getNx());
-        h_ops_tree * op_k = generateOps_GEMM(&index_m, A -> getElement_blocks(row, k), &index_ai, B -> getElement_blocks(k, col), &index_bj, tmp_mngr);
-        op -> setChild(op_k, i * (B -> getNx_blocks() * A -> getNy_blocks()) + k);
-        delete op_k;
-      }
+      const int k = i / n_mn, crd = i - k * n_mn, row = crd / n_n, col = crd - row * n_n;
+
+      const h_index index_ai = h_index (A, index_a, row, k), index_bj = h_index (B, index_b, k, col);
+      const h_index index_m = h_index (self, y[row], x[col], index_ai.getNy(), index_bj.getNx());
+      h_ops_tree * op_k = generateOps_GEMM (&index_m, A -> getElement_blocks(row, k), &index_ai, B -> getElement_blocks(k, col), &index_bj, tmp_mngr);
+      op -> setChild(op_k, i);
+      delete op_k;
     }
 
     delete[] x;
@@ -437,7 +433,7 @@ public:
     return op;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
     const dev_low_rank <T> *lr_a = A -> getElementLowRank();
@@ -453,7 +449,7 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
@@ -469,7 +465,7 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
@@ -485,7 +481,7 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
@@ -501,7 +497,7 @@ public:
     return nullptr;
   }
 
-  __host__ h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr) const
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
     const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
     const dev_low_rank <T> *lr_b = B -> getElementLowRank();
@@ -519,12 +515,14 @@ public:
 
 
    
-  __host__ void print () const
+  __host__ void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const
   {
     printf("-- %d x %d | ld: %d --\n", ny, nx, ld);
-    for (int y = 0; y < ny; y++)
+    const int y_end = y_start + ny_in > ny ? ny : y_start + ny_in, x_end = x_start + nx_in > nx ? nx : x_start + nx_in;
+
+    for (int y = y_start > 0 ? y_start : 0; y < y_end; y++)
     {
-      for (int x = 0; x < nx; x++)
+      for (int x = x_start > 0 ? x_start : 0; x < x_end; x++)
       {
         T e = elements[y * ld + x];
         printf("%.6e ", e);

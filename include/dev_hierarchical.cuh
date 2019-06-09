@@ -583,9 +583,7 @@ public:
 
     h_index index_tmp = h_index (self);
     bool a; 
-    int rank = index_a -> getMinRank (index_b, &a);
-    int tmp_size = rank * (a ? index_b -> getNx() : index_a -> getNy());
-    int block_id;
+    int rank = index_a -> getMinRank (index_b, &a), tmp_size = rank * (a ? index_b -> getNx() : index_a -> getNy()), block_id;
 
 #pragma omp critical
     { block_id = tmp_mngr -> requestTemp(tmp_size); }
@@ -629,21 +627,28 @@ public:
     { printf("Matrices are partitioned differently in H-H.LR GEMM.\n"); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren(nx * ny * A -> nx);
 
-#pragma omp parallel for if (omp_in_parallel() == 0)
-    for (int i = 0; i < ny * nx; i++)
-    {
-      const int row = i / nx, col = i - row * nx;
-      const h_index index_m = h_index (this, self, row, col);
-      for (int k = 0; k < A -> nx; k++)
-      {
-        const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (index_b, (A -> x_offsets)[k], x_offsets[col], index_ak.getNx(), index_m.getNx());
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, &(A -> elements[row * (A -> nx) + k]), &index_ak, B, &index_bk, tmp_mngr);
-        op -> setChild(op_k, i * (A -> nx) + k);
-        delete op_k;
-      }
-    }
+    op -> resizeChildren (2);
+
+    int rank_b = index_b -> getRank(), tmp_size = rank_b * index_a -> getNy(self -> getNy()), block_id;
+
+#pragma omp critical
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+
+    h_index index_tmp = h_index (self), index_bu = h_index (index_b);
+    index_tmp.setTemp_Low_Rank (block_id, rank_b);
+    index_tmp.setVT_data (index_b);
+
+    h_ops_tree * op_ = generateOps_ACCM (self, &index_tmp);
+    op -> setChild (op_, 1);
+    delete op_;
+
+    index_tmp.setU();
+    index_bu.setU();
+
+    op_ = dev_low_rank<T>::generateOps_GEMM (&index_tmp, A, index_a, B, &index_bu, tmp_mngr);
+    op -> setChild (op_, 0);
+    delete op_;
 
     return op;
   }
@@ -695,21 +700,26 @@ public:
     { printf("Matrices are partitioned differently in H-LR.H GEMM.\n"); return nullptr; }
 
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
-    op -> resizeChildren (nx * ny * B -> ny);
+    op -> resizeChildren (2);
 
-#pragma omp parallel for if (omp_in_parallel() == 0)
-    for (int i = 0; i < ny * nx; i++)
-    {
-      const int row = i / nx, col = i - row * nx;
-      const h_index index_m = h_index (this, self, row, col);
-      for (int k = 0; k < B -> ny; k++)
-      {
-        const h_index index_bk = h_index (B, index_b, k, col), index_ak = h_index (index_a, y_offsets[row], (B -> y_offsets)[k], index_m.getNy(), index_bk.getNy());
-        h_ops_tree * op_k = elements[i].generateOps_GEMM(&index_m, A, &index_ak, &(B -> elements[k * (B -> nx) + col]), &index_bk, tmp_mngr);
-        op -> setChild(op_k, i * (B -> ny) + k);
-        delete op_k;
-      }
-    }
+    int rank_a = index_a -> getRank(), tmp_size = rank_a * index_b -> getNx(self -> getNx()), block_id;
+#pragma omp critical
+    { block_id = tmp_mngr -> requestTemp(tmp_size); }
+
+    h_index index_tmp = h_index (self), index_av = h_index (index_a);
+    index_tmp.setTemp_Low_Rank (block_id, rank_a);
+    index_tmp.setU_data (index_a);
+
+    h_ops_tree * op_ = generateOps_ACCM (self, &index_tmp);
+    op -> setChild(op_, 1);
+    delete op_;
+
+    index_tmp.setVT();
+    index_av.setVT();
+
+    op_ = dev_low_rank<T>::generateOps_GEMM (&index_tmp, A, &index_av, B, index_b, tmp_mngr);
+    op -> setChild (op_, 0);
+    delete op_;
 
     return op;
   }

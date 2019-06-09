@@ -191,6 +191,9 @@ public:
   __host__ inline int getNy() const
   { return ny; }
 
+  __host__ inline int getSize() const
+  { return nx * ny; }
+
   __host__ inline int getNx (const int min) const
   { return min > nx ? nx : min; }
 

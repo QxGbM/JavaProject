@@ -72,9 +72,9 @@ private:
 
 public:
 
-  __host__ h_ops_dag (const h_ops_tree * ops) 
+  __host__ h_ops_dag (const h_ops_tree * ops, const int start_index = 0, const int length_max = 0) 
   {
-    ops_list = ops -> flatten();
+    ops_list = ops -> flatten(start_index, length_max);
     fops = ops_list -> getFops();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];

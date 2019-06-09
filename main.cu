@@ -20,7 +20,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 1024, admis = 0;
+  const int n = 2, levels = 2, dim = 1024, admis = 1;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
@@ -28,7 +28,7 @@ template <class T> __host__ int test0()
 #ifdef ref
   dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
   b -> loadTestMatrix();
-  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
+  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c)); //c->print(0, 4, 4, 4); c->print(16, 4, 4, 4);
   delete c; c = nullptr;
 #endif // ref
 
@@ -38,11 +38,11 @@ template <class T> __host__ int test0()
 #ifdef ref
   if (error == cudaSuccess)
   {
-    c = a -> convertToDense();
+    c = a -> convertToDense(); //c->print(16, 4, 4, 4);
     partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
     cudaDeviceSynchronize();
 
-    printf("Rel. L2 Error: %e\n\n", b -> L2Error(c));
+    printf("Rel. L2 Error: %e\n\n", b -> L2Error(c)); 
     delete b; b = nullptr;
   }
   delete c; c = nullptr;
