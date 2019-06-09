@@ -13,28 +13,24 @@ private:
 
 public:
 
-  __host__ dependency_linked_list (const int to_in, const dependency_t dependency_in, dependency_linked_list * ptr)
+  __host__ dependency_linked_list (const int to_in, const dependency_t dependency_in)
   {
     to = to_in;
     dependency = dependency_in;
-    next = ptr;
+    next = nullptr;
   }
 
   __host__ ~dependency_linked_list ()
   { delete next; }
 
-  __host__ void insertDependency (const int to_in, const dependency_t dependency_in, dependency_linked_list ** list_head)
+  __host__ void insertDependency (const int to_in, const dependency_t dependency_in)
   {
-    if (this == nullptr || to > to_in)
-    { *list_head = new dependency_linked_list(to_in, dependency_in, this); return; }
-
     for (dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
     {
       if (ptr -> next == nullptr) 
-      { ptr -> next = new dependency_linked_list(to_in, dependency_in, nullptr); return; }
-      else if (ptr -> next -> to > to_in)
-      { dependency_linked_list * ptr2 = new dependency_linked_list(to_in, dependency_in, ptr -> next); next = ptr2; return; }
+      { ptr -> next = new dependency_linked_list(to_in, dependency_in); return; }
     }
+    return;
   }
 
   __host__ dependency_t lookupDependency (const int to_in) const
@@ -82,17 +78,16 @@ public:
 #pragma omp parallel for
     for (int i = 0; i < length; i++)
     {
-      deps_graph[i] = nullptr;
+      dependency_linked_list * list = nullptr;
       h_ops_tree * from = ops_list -> getChild(i);
-
       for (int j = i + 1; j < length; j++)
       {
-        dependency_t dep = ops_list -> getChild(j) -> checkDependencyFrom(from);
+        dependency_t dep = ops_list -> getChild(j) -> checkDependencyFrom(from); 
         if (dep > no_dep)
-        { deps_graph[i] -> insertDependency(j, dep, &deps_graph[i]); }
+        { if (list == nullptr) list = new dependency_linked_list(j, dep); else list -> insertDependency(j, dep); }
       }
+      deps_graph[i] = list;
     }
-
   }
 
   __host__ ~h_ops_dag ()
