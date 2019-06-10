@@ -208,7 +208,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   clock_start = omp_get_wtime();
   instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
   clock_end = omp_get_wtime();
-  printf("Instruction generated in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  printf("Instruction generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); //ins.print();
 
   int ** dev_insts, * comm_space;
   void ** args, ** dev_ptrs;

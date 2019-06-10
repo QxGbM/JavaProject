@@ -542,7 +542,7 @@ public:
     {
       op -> resizeChildren(n_nk);
 
-  #pragma omp parallel for if (omp_in_parallel() == 0)
+#pragma omp parallel for if (omp_in_parallel() == 0)
       for (int i = 0; i < n_nk; i++)
       {
         const int row = i / n_n, col = i - row * n_n;

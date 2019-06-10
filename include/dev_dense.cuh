@@ -517,8 +517,9 @@ public:
    
   __host__ void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const
   {
-    printf("-- %d x %d | ld: %d --\n", ny, nx, ld);
-    const int y_end = y_start + ny_in > ny ? ny : y_start + ny_in, x_end = x_start + nx_in > nx ? nx : x_start + nx_in;
+    printf("-- %d x %d | ld: %d | addr: %p --\n", ny, nx, ld, elements);
+    const int y_end_in = y_start + ny_in, x_end_in = x_start + nx_in;
+    const int y_end = (y_end_in > ny || y_end_in <= y_start) ? ny : y_end_in, x_end = (x_end_in > nx || x_end_in <= x_start) ? nx : x_end_in;
 
     for (int y = y_start > 0 ? y_start : 0; y < y_end; y++)
     {
@@ -533,7 +534,7 @@ public:
     if (pivoted)
     {
       printf("\n-- Pivot: --\n");
-      for (int y = 0; y < ny; y++)
+      for (int y = y_start > 0 ? y_start : 0; y < y_end; y++)
       {
         printf("%d ", pivot[y]);
       }

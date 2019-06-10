@@ -216,7 +216,7 @@ public:
     return cudaGetLastError();
   }
 
-  __host__ void print (const int limit = 32) const
+  __host__ void print (const int limit = 32, const int ptrs_limit = 32) const
   {
     for (int i = 0; i < workers; i++)
     {
@@ -228,6 +228,9 @@ public:
       else
       { printf("fin.\n"); }
     }
+
+    for (int i = 0; i < ptrs_size && i < ptrs_limit; i++)
+    { printf("%d: %p\n", i, ptrs[i]); }
 
   }
 

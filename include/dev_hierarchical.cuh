@@ -373,7 +373,7 @@ public:
       {
         h_index index_j = h_index (this, self, i, j), index_bjv = h_index (index_b, 0, x_offsets[j], index_b -> getNy(), index_j.getNx());
         index_bjv.setVT();
-        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bjv, B, &index_biv, &elements[j * nx + i], &index_j, tmp_mngr);
+        h_ops_tree * op_j = B -> generateOps_GEMM(&index_bjv, B, &index_biv, &elements[i * nx + j], &index_j, tmp_mngr);
         op -> setChild(op_j, child_offset[i] + j - i);
         delete op_j;
       }
@@ -837,6 +837,15 @@ public:
       elements[i].print(i_index);
       delete i_index;
     }
+  }
+
+  __host__ void print(const int level, const int * indexes) const
+  {
+    const int i = indexes[0];
+    if (level > 1)
+    { elements[i].getElementHierarchical() -> print(level - 1, &indexes[1]); }
+    else
+    { const h_index * root = getRootIndex(); elements[i].print(root); delete root; }
   }
 
   __host__ void print() const
