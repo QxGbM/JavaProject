@@ -9,1075 +9,922 @@ class h_ops
 protected:
 
   operation_t op_type;
-  h_index *wr;
-  h_index *r;
-  int *dims;
-  int *lds;
-  int *ts;
+
+  int n_rw;
+  h_index * read_and_write;
+
+  int n_ro;
+  h_index * read_only;
 
 public:
 
-  __host__ h_ops (const operation_t op_in = nop)
+  __host__ h_ops ()
   {
-    if (op_in != nop) { printf("Operation argument unmatched.\n"); }
-    op_type = op_in;
-
-    wr = new h_index[0]{};
-    r = new h_index[0]{};
-
-    dims = new int[0];
-    lds = new int[0];
-    ts = new int[0];
+    op_type = nop;
+    n_rw = 0;
+    read_and_write = nullptr;
+    n_ro = 0;
+    read_only = nullptr;
   }
 
-  __host__ h_ops (const operation_t op_in, const h_index * M, const int nx, const int ny, const int ld)
+  __host__ h_ops (const operation_t op_in, const h_index * M)
   {
-    if (op_in != getrf) { printf("Operation argument unmatched.\n"); }
+    if (op_in != getrf)
+    { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
-    wr = new h_index[1]{};
-    M -> cloneTo(&wr[0]);
-    r = new h_index[0]{};
+    read_and_write = new h_index[1]{};
+    M -> clone(&read_and_write[0]);
+    n_rw = 1;
 
-    dims = new int[2]{ nx, ny };
-    lds = new int[1]{ ld };
-    ts = new int[0]{};
+    read_only = nullptr;
+    n_ro = 0;
   }
 
-  __host__ h_ops (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, 
-    const int ld_b, const int ld_m)
+  __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2)
   {
-    if (op_in != trsml && op_in != trsmr) { printf("Operation argument unmatched.\n"); }
+    if (op_in < trsml || op_in > pivot)
+    { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
-    wr = new h_index[1]{};
-    B -> cloneTo(&wr[0]);
-    r = new h_index[1]{};
-    M -> cloneTo(&r[0]);
+    read_and_write = new h_index[1]{};
+    M1 -> clone(&read_and_write[0]);
+    n_rw = 1;
 
-    dims = new int[3]{ nx_b, ny_b, dim_m };
-    lds = new int[2]{ ld_b, ld_m };
-    ts = new int[0]{};
+    read_only = new h_index[1]{};
+    M2 -> clone(&read_only[0]);
+    n_ro = 1;
   }
 
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, 
-    const int ld_m, const int ld_a, const int ld_b, const bool A_T, const bool B_T)
+  __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2, const h_index * M3)
   {
-    if (op_in != gemm) { printf("Operation argument unmatched.\n"); }
+    if (op_in != gemm) 
+    { printf("Operation argument unmatched.\n"); }
     op_type = op_in;
 
-    wr = new h_index[1]{};
-    M -> cloneTo(&wr[0]);
-    r = new h_index[2]{};
-    A -> cloneTo(&r[0]);
-    B -> cloneTo(&r[1]);
+    read_and_write = new h_index[1]{};
+    M1 -> clone(&read_and_write[0]);
+    n_rw = 1;
 
-    dims = new int[3]{ m, n, k };
-    lds = new int[3]{ ld_m, ld_a, ld_b };
-    ts = new int[2]{ (int) A_T, (int) B_T };
-  }
-
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * P, const int nx, const int ny, const int ld, const bool p_T)
-  {
-    if (op_in != pivot) { printf("Operation argument unmatched.\n"); }
-    op_type = op_in;
-
-    wr = new h_index[1]{};
-    M -> cloneTo(&wr[0]);
-    r = new h_index[1]{};
-    P -> cloneTo(&r[0]);
-
-    dims = new int[2]{ nx, ny };
-    lds = new int[1]{ ld };
-    ts = new int[1]{ (int) p_T };
-  }
-
-  __host__ h_ops (const operation_t op_in, const h_index * LR, const h_index * M, const int nx_lr, const int ny_lr, const int dim_m, 
-    const int ld_lr, const int ld_m, const bool lr_T)
-  {
-    if (op_in != trsml_lr && op_in != trsmr_lr) { printf("Operation argument unmatched.\n"); }
-    op_type = op_in;
-
-    wr = new h_index[1]{};
-    LR -> cloneTo(&wr[0]);
-    r = new h_index[1]{};
-    M -> cloneTo(&r[0]);
-
-    dims = new int[3]{ nx_lr, ny_lr, dim_m };
-    lds = new int[2]{ ld_lr, ld_m };
-    ts = new int[1]{ (int) lr_T };
-  }
-
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C,
-    const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c,
-    const bool a_T, const bool b_T, const bool c_T)
-  {
-    if (op_in != gemm3) { printf("Operation argument unmatched.\n"); }
-    op_type = op_in;
-
-    wr = new h_index[1]{};
-    M -> cloneTo(&wr[0]);
-    r = new h_index[3]{};
-    A -> cloneTo(&r[0]);
-    B -> cloneTo(&r[1]);
-    C -> cloneTo(&r[2]);
-
-    dims = new int[4]{ m, n, k, l };
-    lds = new int[4]{ ld_m, ld_a, ld_b, ld_c };
-    ts = new int[3]{ (int) a_T, (int) b_T, (int) c_T };
-  }
-
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C, const h_index * D,
-    const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d,
-    const bool a_T, const bool b_T, const bool c_T, const bool d_T)
-  {
-    if (op_in != gemm4) { printf("Operation argument unmatched.\n"); }
-    op_type = op_in;
-
-    wr = new h_index[1]{};
-    M -> cloneTo(&wr[0]);
-    r = new h_index[4]{};
-    A -> cloneTo(&r[0]);
-    B -> cloneTo(&r[1]);
-    C -> cloneTo(&r[2]);
-    D -> cloneTo(&r[3]);
-
-    dims = new int[5]{ m, n, k, l, o };
-    lds = new int[5]{ ld_m, ld_a, ld_b, ld_c, ld_d };
-    ts = new int[4]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T };
-  }
-
-  __host__ h_ops (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C, const h_index * D, const h_index * E, 
-    const int m, const int n, const int k, const int l, const int o, const int p,
-    const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const int ld_e,
-    const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T)
-  {
-    if (op_in != gemm5) { printf("Operation argument unmatched.\n"); }
-    op_type = op_in;
-
-    wr = new h_index[1]{};
-    M -> cloneTo(&wr[0]);
-    r = new h_index[5]{};
-    A -> cloneTo(&r[0]);
-    B -> cloneTo(&r[1]);
-    C -> cloneTo(&r[2]);
-    D -> cloneTo(&r[3]);
-    E -> cloneTo(&r[4]);
-
-    dims = new int[6]{ m, n, k, l, o, p };
-    lds = new int[6]{ ld_m, ld_a, ld_b, ld_c, ld_d, ld_e };
-    ts = new int[5]{ (int) a_T, (int) b_T, (int) c_T, (int) d_T, (int) e_T };
+    read_only = new h_index[2]{};
+    M2 -> clone(&read_only[0]);
+    M3 -> clone(&read_only[1]);
+    n_ro = 2;
   }
 
   __host__ ~h_ops ()
   {
-    delete[] wr;
-    delete[] r;
-
-    delete[] dims;
-    delete[] lds;
-    delete[] ts;
+    delete[] read_and_write;
+    delete[] read_only;
   }
 
-  __host__ operation_t opType() const { return op_type; }
-
-  __host__ int wr_nx (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type) 
-      {
-      case nop: 
-        return 0;
-      case getrf: case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
-        return dims[0];
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return dims[1];
-      default: 
-        return 0;
-      }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ int wr_ny (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type) 
-      {
-      case nop: 
-        return 0;
-      case getrf: case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
-        return dims[1];
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return dims[0];
-      default: 
-        return 0;
-      }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ int wr_ld (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case nop: 
-        return 0;
-      default: 
-        return lds[0];
-      }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ bool wr_T (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case trsml_lr: case trsmr_lr:
-        return ts[0];
-      default: 
-        return false;
-      }
-    default:
-      return false;
-    }
-  }
-
-  __host__ int r_nx (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case trsmr: case trsmr_lr:
-        return dims[0];
-      case pivot:
-        return dims[1];
-      case trsml: case gemm: case trsml_lr: case gemm3: case gemm4: case gemm5:
-        return dims[2];
-      default: 
-        return 0;
-      }
-    case 1:
-      switch (op_type)
-      {
-      case gemm: 
-        return dims[1];
-      case gemm3: case gemm4: case gemm5:
-        return dims[3];
-      default: 
-        return 0;
-      }
-    case 2:
-      switch (op_type)
-      {
-      case gemm3:
-        return dims[1];
-      case gemm4: case gemm5:
-        return dims[4];
-      default:
-        return 0;
-      }
-    case 3:
-      switch (op_type)
-      {
-      case gemm4:
-        return dims[1];
-      case gemm5:
-        return dims[5];
-      default:
-        return 0;
-      }
-    case 4:
-      switch (op_type)
-      {
-      case gemm5:
-        return dims[1];
-      default:
-        return 0;
-      }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ int r_ny (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return dims[0];
-      case trsml: case pivot: case trsml_lr:
-        return dims[1];
-      case trsmr: case trsmr_lr:
-        return dims[2];
-      default: 
-        return 0;
-      }
-    case 1:
-      switch (op_type)
-      {
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return dims[2];
-      default: 
-        return 0;
-      }
-    case 2:
-      switch (op_type)
-      {
-      case gemm3: case gemm4: case gemm5:
-        return dims[3];
-      default:
-        return 0;
-      }
-    case 3:
-      switch (op_type)
-      {
-      case gemm4: case gemm5:
-        return dims[4];
-      default:
-        return 0;
-      }
-    case 4:
-      switch (op_type)
-      {
-      case gemm5:
-        return dims[5];
-      default:
-        return 0;
-      }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ int r_ld (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case trsml: case trsmr: case gemm: case trsml_lr: case trsmr_lr: case gemm3: case gemm4: case gemm5:
-        return lds[1];
-      case pivot:
-        return dims[1];
-      default: 
-        return 0;
-      }
-    case 1:
-      switch (op_type)
-      {
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return lds[2];
-      default: 
-        return 0;
-      }
-    case 2:
-      switch (op_type)
-      {
-      case gemm3: case gemm4: case gemm5:
-        return lds[3];
-      default:
-        return 0;
-      }
-    case 3:
-      switch (op_type)
-      {
-      case gemm4: case gemm5:
-        return lds[4];
-      default:
-        return 0;
-      }
-    case 4:
-      switch (op_type)
-      {
-      case gemm5:
-        return lds[5];
-      default:
-        return 0;
-      }
-    default:
-      return 0;
-    }
-  }
-
-  __host__ bool r_T (const int i) const
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case pivot: case gemm: case gemm3: case gemm4: case gemm5:
-        return ts[0];
-      default:
-        return false;
-      }
-    case 1:
-      switch (op_type)
-      {
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return ts[1];
-      default:
-        return false;
-      }
-    case 2:
-      switch (op_type)
-      {
-      case gemm3: case gemm4: case gemm5:
-        return ts[2];
-      default:
-        return false;
-      }
-    case 3:
-      switch (op_type)
-      {
-      case gemm4: case gemm5:
-        return ts[3];
-      default:
-        return false;
-      }
-    case 4:
-      switch (op_type)
-      {
-      case gemm5:
-        return ts[4];
-      default:
-        return false;
-      }
-    default:
-      return false;
-    }
-  }
-
-  __host__ int l_wr () const
-  {
-    switch (op_type)
-    {
-    case nop: return 0;
-    default: return 1;
-    }
-  }
-
-  __host__ int l_r () const
-  {
-    switch (op_type)
-    {
-    case gemm5:
-      return 5;
-    case gemm4:
-      return 4;
-    case gemm3: 
-      return 3;
-    case gemm: 
-      return 2;
-    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
-      return 1;
-    default: 
-      return 0;
-    }
-  }
-
-  template <class T> __host__ T * wr_ptr (const int i, const dev_hierarchical <T> *h) const 
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case nop: 
-        return nullptr;
-      default: 
-        return h -> lookup (&wr[0]);
-      }
-    default:
-      return nullptr;
-    }
-  }
-
-  template <class T> __host__ int * wr_pivot_ptr (const int i, const dev_hierarchical <T> *h) const 
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case getrf: 
-        return h -> lookup_pivot (&wr[0]);
-      default: 
-        return nullptr;
-      }
-    default:
-      return nullptr;
-    }
-  }
-
-  template <class T> __host__ T * r_ptr (const int i, const dev_hierarchical <T> *h) const 
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case trsml: case trsmr: case gemm: case trsml_lr: case trsmr_lr: case gemm3: case gemm4: case gemm5:
-        return h -> lookup (&r[0]);
-      default: 
-        return nullptr;
-      }
-    case 1:
-      switch (op_type)
-      {
-      case gemm: case gemm3: case gemm4: case gemm5:
-        return h -> lookup (&r[1]);
-      default: 
-        return nullptr;
-      }
-    case 2:
-      switch (op_type)
-      {
-      case gemm3: case gemm4: case gemm5:
-        return h -> lookup (&r[2]);
-      default:
-        return nullptr;
-      }
-    case 3:
-      switch (op_type)
-      {
-      case gemm4: case gemm5:
-        return h -> lookup (&r[3]);
-      default:
-        return nullptr;
-      }
-    case 4:
-      switch (op_type)
-      {
-      case gemm5:
-        return h -> lookup (&r[4]);
-      default:
-        return nullptr;
-      }
-    default:
-      return nullptr;
-    }
-  }
-
-  template <class T> __host__ int * r_pivot_ptr (const int i, const dev_hierarchical <T> *h) const 
-  {
-    switch (i)
-    {
-    case 0:
-      switch (op_type)
-      {
-      case pivot: return h -> lookup_pivot (&r[0]);
-      default: return nullptr;
-      }
-    default:
-      return nullptr;
-    }
-  }
+  __host__ inline operation_t opType() const 
+  { return op_type; }
 
   __host__ dependency_t checkDependencyFrom (const h_ops * op_from) const
   {
-    int wr_from = 0, r_from = 0, wr_to = 0, r_to = 0;
+    int rw_from = op_from -> n_rw, ro_from = op_from -> n_ro, rw_to = n_rw, ro_to = n_ro, dep = (int) no_dep;
 
-    switch (op_from -> op_type)
+    for (int i = 0; i < rw_from * (rw_to + ro_to); i++)
     {
-    case gemm5:
-      r_from++;
-    case gemm4:
-      r_from++;
-    case gemm3:
-      r_from++;
-    case gemm: 
-      r_from++;
-    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
-      r_from++;
-    case getrf: 
-      wr_from++;
-    case nop: 
-      break;
-    }
+      const int to = i / rw_from, from = i - to * rw_from;
 
-    switch (op_type)
-    {
-    case gemm5:
-      r_to++;
-    case gemm4:
-      r_to++;
-    case gemm3:
-      r_to++;
-    case gemm: 
-      r_to++;
-    case trsml: case trsmr: case pivot: case trsml_lr: case trsmr_lr:
-      r_to++;
-    case getrf: 
-      wr_to++;
-    case nop: 
-      break;
-    }
-
-    dependency_t dep = no_dep;
-
-    for (int i = 0; i < wr_from; i++)
-    {
-      for (int j = 0; j < r_to; j++)
+      if (to < rw_to)
       {
-        relation_t relation = r[j].compare(r_nx(j), r_ny(j), r_ld(j), r_T(j), 
-          &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i), op_from -> wr_T(i));
+        relation_t relation = read_and_write[to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
-        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-        case diff_offset_overlapped: case same_index: case contains: case contained:
-          dep = (dependency_t) ((int) dep | (int) flow_dep);
+        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
+          break;
+        case same_branch_diff_node: case same_node_overlapped: case same_index:
+          dep |= (int) output_dep;
         }
       }
-
-      for (int j = 0; j < wr_to; j++)
+      else
       {
-        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), wr_T(j),
-          &(op_from -> wr)[i], op_from -> wr_nx(i), op_from -> wr_ny(i), op_from -> wr_ld(i), op_from -> wr_T(i));
+        relation_t relation = read_only[to - rw_to].compare(&(op_from -> read_and_write)[from]);
         switch (relation)
         {
-        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-        case diff_offset_overlapped: case same_index: case contains: case contained:
-          dep = (dependency_t) ((int) dep | (int) output_dep);
+        case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
+          break;
+        case same_branch_diff_node: case same_node_overlapped: case same_index:
+          dep |= (int) flow_dep;
         }
       }
     }
 
-    for (int i = 0; i < r_from; i++)
+    for (int i = 0; i < ro_from * rw_to; i++)
     {
-      for (int j = 0; j < wr_to; j++)
+      const int to = i / ro_from, from = i - to * ro_from;
+      relation_t relation = read_and_write[to].compare(&(op_from -> read_only)[from]);
+      switch (relation)
       {
-        relation_t relation = wr[j].compare(wr_nx(j), wr_ny(j), wr_ld(j), wr_T(j),
-          &(op_from -> r)[i], op_from -> r_nx(i), op_from -> r_ny(i), op_from -> r_ld(i), op_from -> r_T(i));
-        switch (relation)
-        {
-        case diff_matrix: case no_relation: case diff_offset_no_overlap: break;
-        case diff_offset_overlapped: case same_index: case contains: case contained:
-          dep = (dependency_t) ((int) dep | (int) anti_dep);
-        }
+      case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
+        break;
+      case same_branch_diff_node: case same_node_overlapped: case same_index:
+        dep |= (int) anti_dep;
       }
     }
 
-    return dep;
+    return (dependency_t) dep;
   }
 
   __host__ dependency_t checkDependencyTo (const h_ops * op_to) const
+  { return op_to -> checkDependencyFrom(this); }
+
+  __host__ int getDataPointers (void ** data_ptrs, void ** tmp_ptrs) const
   {
-    return op_to -> checkDependencyFrom(this);
+    int accum = 0;
+    for (int i = 0; i < n_rw; i++)
+    { accum += read_and_write[i].getDataPointers (&data_ptrs[accum], tmp_ptrs); }
+
+    for (int i = 0; i < n_ro; i++)
+    { accum += read_only[i].getDataPointers (&data_ptrs[accum], tmp_ptrs); }
+    
+    return accum;
   }
 
-  __host__ h_ops * clone() const
+  __host__ int writeOpParametersTo (int * inst, const int * mapping) const
   {
-    switch (op_type)
+
+    switch (opType())
     {
-    case nop:
-      return new h_ops ();
     case getrf:
-      return new h_ops (op_type, &wr[0], dims[0], dims[1], lds[0]);
-    case trsml: case trsmr:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
-    case gemm:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
-    case pivot:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], lds[0], (bool)ts[0]);
-    case trsml_lr: case trsmr_lr:
-      return new h_ops (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
-    case gemm3:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], dims[0], dims[1], dims[2], dims[3],
-        lds[0], lds[1], lds[2], lds[3], (bool)ts[0], (bool)ts[1], (bool)ts[2]);
-    case gemm4:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], dims[0], dims[1], dims[2], dims[3], dims[4], 
-        lds[0], lds[1], lds[2], lds[3], lds[4], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3]);
-    case gemm5:
-      return new h_ops (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], &r[4], dims[0], dims[1], dims[2], dims[3], dims[4], dims[5],
-        lds[0], lds[1], lds[2], lds[3], lds[4], lds[5], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3], (bool)ts[4]);
-    default:
-      return nullptr;
-    }
-  }
-
-  __host__ int writeParametersTo (int * inst) const
-  {
-    int l_dims = 0, l_lds = 0, l_ts = 0;
-
-    switch (op_type)
     {
-    case nop:
-      break;
-    case getrf:
-      l_dims = 2; l_lds = 1; break;
-    case trsml: case trsmr:
-      l_dims = 3; l_lds = 2; break;
+      int M, offset_m, nx, ny, ld;
+
+      if (read_and_write[0].isDense())
+      {
+        M = mapping[0];
+        offset_m = read_and_write[0].getOffset_x();
+        nx = read_and_write[0].getNx();
+        ny = read_and_write[0].getNy();
+        ld = read_and_write[0].getLd_x();
+      }
+      else
+      { 
+        printf("Error: GETRF on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;  
+      }
+
+      inst[0] = (int) getrf;
+      inst[1] = M;
+      inst[2] = offset_m;
+      inst[3] = nx; 
+      inst[4] = ny; 
+      inst[5] = ld;
+      return 6;
+    }
+    case trsml:
+    {
+      int B, L, offset_b, offset_l, nx_b, ny_b, nx_l, ld_b, ld_l, b_T;
+
+      if (read_and_write[0].isU() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        L = mapping[2];
+        offset_b = read_and_write[0].getOffset_y();
+        offset_l = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getRank();
+        ny_b = read_and_write[0].getNy(read_only[0].getNy());
+        nx_l = read_only[0].getNx();
+        ld_b = read_and_write[0].getLd_y();
+        ld_l = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        L = mapping[1];
+        offset_b = read_and_write[0].getOffset_x();
+        offset_l = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getNx();
+        ny_b = read_and_write[0].getNy(read_only[0].getNy());
+        nx_l = read_only[0].getNx();
+        ld_b = read_and_write[0].getLd_x();
+        ld_l = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else
+      { 
+        printf("Error: TRSML on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;  
+      }
+
+      inst[0] = (int) trsml;
+      inst[1] = B;
+      inst[2] = L;
+      inst[3] = offset_b;
+      inst[4] = offset_l;
+      inst[5] = nx_b;
+      inst[6] = ny_b;
+      inst[7] = nx_l;
+      inst[8] = ld_b;
+      inst[9] = ld_l;
+      inst[10] = b_T;
+      return 11;
+    }
+    case trsmr:
+    {
+      int B, U, offset_b, offset_u, nx_b, ny_b, ny_u, ld_b, ld_u, b_T;
+
+      if (read_and_write[0].isVT() && read_only[0].isDense())
+      {
+        B = mapping[1];
+        U = mapping[2];
+        offset_b = read_and_write[0].getOffset_x();
+        offset_u = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getNx(read_only[0].getNx());
+        ny_b = read_and_write[0].getRank();
+        ny_u = read_only[0].getNy();
+        ld_b = read_and_write[0].getLd_x();
+        ld_u = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense())
+      {
+        B = mapping[0];
+        U = mapping[1];
+        offset_b = read_and_write[0].getOffset_x();
+        offset_u = read_only[0].getOffset_x();
+        nx_b = read_and_write[0].getNx(read_only[0].getNx());
+        ny_b = read_and_write[0].getNy();
+        ny_u = read_only[0].getNy();
+        ld_b = read_and_write[0].getLd_x();
+        ld_u = read_only[0].getLd_x();
+        b_T = read_and_write[0].getTranspose();
+      }
+      else
+      { 
+        printf("Error: TRSMR on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;  
+      }
+
+      inst[0] = (int) trsmr;
+      inst[1] = B;
+      inst[2] = U;
+      inst[3] = offset_b;
+      inst[4] = offset_u;
+      inst[5] = nx_b;
+      inst[6] = ny_b;
+      inst[7] = ny_u;
+      inst[8] = ld_b;
+      inst[9] = ld_u;
+      inst[10] = b_T;
+      return 11;
+    }
     case gemm:
-      l_dims = 3; l_lds = 3; l_ts = 2; break;
-    case pivot:
-      l_dims = 2; l_lds = 1; l_ts = 1; break;
-    case trsml_lr: case trsmr_lr:
-      l_dims = 3; l_lds = 2; l_ts = 1; break;
-    case gemm3:
-      l_dims = 4; l_lds = 4; l_ts = 3; break;
-    case gemm4:
-      l_dims = 5; l_lds = 5; l_ts = 4; break;
-    case gemm5:
-      l_dims = 6; l_lds = 6; l_ts = 5; break;
+    {
+      int M, A, B, offset_m, offset_a, offset_b, m, n, k, ld_m, ld_a, ld_b, a_T, b_T;
+      bool gemm_write = false;
+
+      if (read_and_write[0].isU() && read_only[0].isDense() && read_only[1].isU())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[2];
+        B = mapping[3];
+        offset_m = read_and_write[0].getOffset_y();
+        offset_a = read_only[0].getOffset();
+        offset_b = read_only[1].getOffset_y();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getRank(read_only[1].getRank());
+        k = read_only[0].getNx(read_only[1].getNy());
+        ld_m = read_and_write[0].getLd_y();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_y();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isVT() && read_only[0].isVT() && read_only[1].isDense())
+      {
+        gemm_write = true;
+
+        M = mapping[1];
+        A = mapping[4];
+        B = mapping[3];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[1].getOffset();
+        offset_b = read_only[0].getOffset_x();
+        m = read_and_write[0].getNx(read_only[1].getNx());
+        n = read_and_write[0].getRank(read_only[0].getRank());
+        k = read_only[1].getNy(read_only[0].getNx());
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[1].getLd_x();
+        ld_b = read_only[0].getLd_x();
+        a_T = !read_only[1].getTranspose();
+        b_T = !read_only[0].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isDense())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset();
+        offset_b = read_only[1].getOffset();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getNy(read_only[1].getNy());
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+      }
+
+      int C, offset_c, l, ld_c, c_T;
+
+      if (gemm_write)
+      {
+        inst[0] = (int) gemm;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = offset_m;
+        inst[5] = offset_a;
+        inst[6] = offset_b;
+        inst[7] = m;
+        inst[8] = n;
+        inst[9] = k;
+        inst[10] = ld_m;
+        inst[11] = ld_a;
+        inst[12] = ld_b;
+        inst[13] = a_T;
+        inst[14] = b_T;
+        return 15;
+      }
+      else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[2];
+        B = mapping[3];
+        C = mapping[4];
+        offset_m = read_and_write[0].getOffset_y();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        offset_c = read_only[1].getOffset_y();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getRank(read_only[1].getRank());
+        k = read_only[0].getRank();
+        l = read_only[0].getNx(read_only[1].getNy());
+        ld_m = read_and_write[0].getLd_y();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        ld_c = read_only[1].getLd_y();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isVT() && read_only[0].isVT() && read_only[1].isLowRank())
+      {
+        gemm_write = true;
+
+        M = mapping[1];
+        A = mapping[5];
+        B = mapping[4];
+        C = mapping[3];
+        offset_m = read_and_write[0].getOffset_x();
+        offset_a = read_only[1].getOffset_x();
+        offset_b = read_only[1].getOffset_y();
+        offset_c = read_only[0].getOffset_x();
+        m = read_and_write[0].getNx(read_only[1].getNx());
+        n = read_and_write[0].getRank(read_only[0].getRank());
+        k = read_only[1].getRank();
+        l = read_only[0].getNy(read_only[1].getNx());
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[1].getLd_x();
+        ld_b = read_only[1].getLd_y();
+        ld_c = read_only[0].getLd_x();
+        a_T = read_only[1].getTranspose();
+        b_T = !read_only[1].getTranspose();
+        c_T = !read_only[0].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isDense())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        C = mapping[3];
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        offset_c = read_only[1].getOffset();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getRank();
+        l = read_only[0].getNy(read_only[1].getNy());
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        ld_c = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isLowRank())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        C = mapping[3];
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset();
+        offset_b = read_only[1].getOffset_y();
+        offset_c = read_only[1].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getNy(read_only[1].getNy());
+        l = read_only[1].getRank();
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_x();
+        ld_b = read_only[1].getLd_y();
+        ld_c = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = read_only[1].getTranspose();
+        c_T = !read_only[1].getTranspose();
+      }
+
+      int D, offset_d, o, ld_d, d_T;
+
+      if (gemm_write)
+      {
+        inst[0] = (int) gemm_3x;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = C;
+        inst[5] = offset_m;
+        inst[6] = offset_a;
+        inst[7] = offset_b;
+        inst[8] = offset_c;
+        inst[9] = m;
+        inst[10] = n;
+        inst[11] = k;
+        inst[12] = l;
+        inst[13] = ld_m;
+        inst[14] = ld_a;
+        inst[15] = ld_b;
+        inst[16] = ld_c;
+        inst[17] = a_T;
+        inst[18] = b_T;
+        inst[19] = c_T;
+        return 20;
+      }
+      else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
+      {
+        gemm_write = true;
+
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        C = mapping[3];
+        D = mapping[4];
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        offset_c = read_only[1].getOffset_y();
+        offset_d = read_only[1].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[1].getNx());
+        k = read_only[0].getRank();
+        l = read_only[0].getNx(read_only[1].getNy());
+        o = read_only[1].getRank();
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        ld_c = read_only[1].getLd_y();
+        ld_d = read_only[1].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+        c_T = read_only[1].getTranspose();
+        d_T = !read_only[1].getTranspose();
+      }
+
+
+      if (gemm_write)
+      {
+        inst[0] = (int) gemm_4x;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = C;
+        inst[5] = D;
+        inst[6] = offset_m;
+        inst[7] = offset_a;
+        inst[8] = offset_b;
+        inst[9] = offset_c;
+        inst[10] = offset_d;
+        inst[11] = m;
+        inst[12] = n;
+        inst[13] = k;
+        inst[14] = l;
+        inst[15] = o;
+        inst[16] = ld_m;
+        inst[17] = ld_a;
+        inst[18] = ld_b;
+        inst[19] = ld_c;
+        inst[20] = ld_d;
+        inst[21] = a_T;
+        inst[22] = b_T;
+        inst[23] = c_T;
+        inst[24] = d_T;
+        return 25;
+      }
+      else
+      {
+        printf("Error: GEMM on incompatible block.\n"); print();
+        inst[0] = (int) nop;
+        return 1;
+      }
+
+    }
+    case accum:
+    {
+      if (read_and_write[0].isDense() && read_only[0].isLowRank())
+      {
+        int M, A, B, offset_m, offset_a, offset_b, m, n, k, ld_m, ld_a, ld_b, a_T, b_T;
+        M = mapping[0];
+        A = mapping[1];
+        B = mapping[2];
+        offset_m = read_and_write[0].getOffset();
+        offset_a = read_only[0].getOffset_y();
+        offset_b = read_only[0].getOffset_x();
+        m = read_and_write[0].getNy(read_only[0].getNy());
+        n = read_and_write[0].getNx(read_only[0].getNx());
+        k = read_only[0].getRank();
+        ld_m = read_and_write[0].getLd_x();
+        ld_a = read_only[0].getLd_y();
+        ld_b = read_only[0].getLd_x();
+        a_T = read_only[0].getTranspose();
+        b_T = !read_only[0].getTranspose();
+
+        inst[0] = (int) gemm_plus;
+        inst[1] = M;
+        inst[2] = A;
+        inst[3] = B;
+        inst[4] = offset_m;
+        inst[5] = offset_a;
+        inst[6] = offset_b;
+        inst[7] = m;
+        inst[8] = n;
+        inst[9] = k;
+        inst[10] = ld_m;
+        inst[11] = ld_a;
+        inst[12] = ld_b;
+        inst[13] = a_T;
+        inst[14] = b_T;
+        return 15;
+      }
+      else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+      {
+        int U1, VT1, U2, VT2, offset_u1, offset_vt1, offset_u2, offset_vt2, nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2;
+
+        U1 = mapping[0];
+        VT1 = mapping[1];
+        U2 = mapping[2];
+        VT2 = mapping[3];
+        offset_u1 = read_and_write[0].getOffset_y();
+        offset_vt1 = read_and_write[0].getOffset_x();
+        offset_u2 = read_only[0].getOffset_y();
+        offset_vt2 = read_only[0].getOffset_x();
+        nx = read_and_write[0].getNx(read_only[0].getNx());
+        ny = read_and_write[0].getNy(read_only[0].getNy());
+        rank1 = read_and_write[0].getRank();
+        rank2 = read_only[0].getRank();
+        ld_u1 = read_and_write[0].getLd_y();
+        ld_vt1 = read_and_write[0].getLd_x();
+        ld_u2 = read_only[0].getLd_y();
+        ld_vt2 = read_only[0].getLd_x();
+
+        inst[0] = (int) accum;
+        inst[1] = U1;
+        inst[2] = VT1;
+        inst[3] = U2;
+        inst[4] = VT2;
+        inst[5] = offset_u1;
+        inst[6] = offset_vt1;
+        inst[7] = offset_u2;
+        inst[8] = offset_vt2;
+        inst[9] = nx;
+        inst[10] = ny;
+        inst[11] = rank1;
+        inst[12] = rank2;
+        inst[13] = ld_u1;
+        inst[14] = ld_vt1;
+        inst[15] = ld_u2;
+        inst[16] = ld_vt2;
+
+        return 17;
+      }
+      else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+      {
+        // TODO
+        printf("Error: Accum dense awaiting implementation.\n");
+        return 0;
+      }
+      else
+      {
+        printf("Error: ACCUM on incompatible block.\n");
+        inst[0] = (int) nop;
+        return 1;
+      }
+    }
     default:
-      break;
+    { 
+      inst[0] = (int) nop;
+      return 1; 
+    }
     }
 
-    int t = 0;
 
-    for (int i = 0; i < l_dims; i++)
-    { inst[t] = dims[i]; t++; }
-    for (int i = 0; i < l_lds; i++)
-    { inst[t] = lds[i]; t++; }
-    for (int i = 0; i < l_ts; i++)
-    { inst[t] = (int) ts[i]; t++; }
-
-    return t;
   }
 
   __host__ unsigned long long int getFops () const
   {
     unsigned long long int accum = 0;
-    switch (op_type)
-    {
-    case nop:
-      break;
-    case getrf:
-      for (unsigned long long int x = dims[0], y = dims[1]; x > 0 && y > 0; x--, y--)
-      { accum += (y - 1) + 2 * (x - 1) * (y - 1); }
-      break;
-    case trsml: case trsml_lr:
-      for (unsigned long long int x = dims[2], y = dims[1], x_b = dims[0]; x > 0 && y > 0; x--, y--)
-      { accum += 2 * (y - 1) * x_b; }
-      break;
-    case trsmr: case trsmr_lr:
-      for (unsigned long long int x = dims[0], y = dims[2], y_b = dims[1];  x > 0 && y > 0; x--, y--)
-      { accum += y_b + 2 * (x - 1) * y_b; }
-      break;
-    case gemm:
-      accum = dims[0];
-      accum *= dims[1];
-      accum *= dims[2];
-      accum *= 2;
-      break;
-    case pivot:
-      accum = 0;
-      break;
-    case gemm3:
-    {
-      unsigned long long int c1 = dims[1]; c1 *= dims[2]; c1 *= dims[3]; c1 *= 2;
-      unsigned long long int c2 = dims[1]; c2 *= dims[0]; c2 *= dims[2]; c2 *= 2;
-      accum = c1 + c2;
-      break;
-    }
-    case gemm4:
-    {
-      unsigned long long int c1 = dims[1]; c1 *= dims[3]; c1 *= dims[4]; c1 *= 2;
-      unsigned long long int c2 = dims[1]; c2 *= dims[2]; c2 *= dims[3]; c2 *= 2;
-      unsigned long long int c3 = dims[1]; c3 *= dims[0]; c3 *= dims[2]; c3 *= 2;
-      accum = c1 + c2 + c3;
-      break;
-    }
-    case gemm5:
-    {
-      unsigned long long int c1 = dims[1]; c1 *= dims[4]; c1 *= dims[5]; c1 *= 2;
-      unsigned long long int c2 = dims[1]; c2 *= dims[3]; c2 *= dims[4]; c2 *= 2;
-      unsigned long long int c3 = dims[1]; c3 *= dims[2]; c3 *= dims[3]; c3 *= 2;
-      unsigned long long int c4 = dims[1]; c4 *= dims[0]; c4 *= dims[2]; c4 *= 2;
-      accum = c1 + c2 + c3 + c4;
-      break;
-    }
-    }
+
     return accum;
   }
 
   __host__ void print() const
   {
-    switch (op_type)
+    switch (opType())
     {
-    case nop: 
-      printf("NOP "); 
-      break;
-    case getrf:
-      printf("GETRF "); 
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      break;
-    case trsml: 
-      printf("TRSML "); 
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      r[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[2], lds[1]);
-      break;
-    case trsmr: 
-      printf("TRSMR "); 
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      r[0].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[0], lds[1]);
-      break;
-    case gemm: 
-      printf("GEMM "); 
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[1], lds[0]);
-      r[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[0], dims[2], lds[1]);
-      r[1].printShort(); if (ts[1]) { printf("T"); } printf(" (%d x %d by %d) ", dims[2], dims[1], lds[2]);
-      break;
+    case gemm:
+    { printf("GEMM "); read_and_write[0].print(); read_only[0].print(); read_only[1].print(); printf("\n"); break; }
     case pivot:
-      printf("PIVOT ");
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      r[0].printShort(); if (ts[0]) { printf("RECOVERY"); } else { printf("APPLY"); }
-      break;
-    case trsml_lr:
-      printf("TRSML-LR ");
-      wr[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      r[0].printShort(); printf(" (%d x %d by %d) ", dims[1], dims[2], lds[1]);
-      break;
-    case trsmr_lr:
-      printf("TRSMR-LR ");
-      wr[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[1], dims[0], lds[0]);
-      r[0].printShort(); printf(" (%d x %d by %d) ", dims[2], dims[0], lds[1]);
-      break;
-    case gemm3:
-      printf("GEMM3 ");
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[1], lds[0]);
-      r[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[0], dims[2], lds[1]);
-      r[1].printShort(); if (ts[1]) { printf("T"); } printf(" (%d x %d by %d) ", dims[2], dims[3], lds[2]);
-      r[2].printShort(); if (ts[2]) { printf("T"); } printf(" (%d x %d by %d) ", dims[3], dims[1], lds[3]);
-      break;
-    case gemm4:
-      printf("GEMM4 ");
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[1], lds[0]);
-      r[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[0], dims[2], lds[1]);
-      r[1].printShort(); if (ts[1]) { printf("T"); } printf(" (%d x %d by %d) ", dims[2], dims[3], lds[2]);
-      r[2].printShort(); if (ts[2]) { printf("T"); } printf(" (%d x %d by %d) ", dims[3], dims[4], lds[3]);
-      r[3].printShort(); if (ts[3]) { printf("T"); } printf(" (%d x %d by %d) ", dims[4], dims[1], lds[4]);
-      break;
-    case gemm5:
-      printf("GEMM5 ");
-      wr[0].printShort(); printf(" (%d x %d by %d) ", dims[0], dims[1], lds[0]);
-      r[0].printShort(); if (ts[0]) { printf("T"); } printf(" (%d x %d by %d) ", dims[0], dims[2], lds[1]);
-      r[1].printShort(); if (ts[1]) { printf("T"); } printf(" (%d x %d by %d) ", dims[2], dims[3], lds[2]);
-      r[2].printShort(); if (ts[2]) { printf("T"); } printf(" (%d x %d by %d) ", dims[3], dims[4], lds[3]);
-      r[3].printShort(); if (ts[3]) { printf("T"); } printf(" (%d x %d by %d) ", dims[4], dims[5], lds[4]);
-      r[4].printShort(); if (ts[4]) { printf("T"); } printf(" (%d x %d by %d) ", dims[5], dims[1], lds[5]);
-      break;
+    { printf("PVT "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case accum:
+    { printf("ACCM "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case trsmr:
+    { printf("TRSMR "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case trsml:
+    { printf("TRSML "); read_and_write[0].print(); read_only[0].print(); printf("\n"); break; }
+    case getrf:
+    { printf("GETRF "); read_and_write[0].print(); printf("\n"); break; }
+    default:
+    { printf("NOP\n"); }
     }
-
-    printf("{fp-ops: %llu}\n", getFops());
+    
   }
-
-
   
 };
 
 class h_ops_tree : public h_ops
 {
 private:
-
-  h_ops_tree * next;
-  h_ops_tree * child;
+  int l_children;
+  h_ops_tree * children;
 
 public:
 
-  __host__ h_ops_tree (const operation_t op_in = nop) : h_ops (op_in)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
+  __host__ h_ops_tree () : h_ops ()
+  { l_children = 0; children = nullptr; }
 
-  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const int nx, const int ny, const int ld) : 
-    h_ops (op_in, M, nx, ny, ld)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
+  __host__ h_ops_tree (const operation_t op_in, const h_index * M) : h_ops (op_in, M)
+  { l_children = 0; children = nullptr; }
 
-  __host__ h_ops_tree (const operation_t op_in, const h_index * B, const h_index * M, const int nx_b, const int ny_b, const int dim_m, 
-    const int ld_b, const int ld_m) :
-    h_ops (op_in, B, M, nx_b, ny_b, dim_m, ld_b, ld_m)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
+  __host__ h_ops_tree (const operation_t op_in, const h_index * M1, const h_index * M2) : h_ops (op_in, M1, M2)
+  { l_children = 0; children = nullptr; }
 
-  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const int m, const int n, const int k, 
-    const int ld_m, const int ld_a, const int ld_b, const bool A_T, const bool B_T) :
-    h_ops (op_in, M, A, B, m, n, k, ld_m, ld_a, ld_b, A_T, B_T)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
-
-  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const h_index * P, const int nx, const int ny, const int ld, const bool p_T) :
-    h_ops (op_in, M, P, nx, ny, ld, p_T)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
-
-  __host__ h_ops_tree (const operation_t op_in, const h_index * LR, const h_index * M, const int nx_lr, const int ny_lr, const int dim_m,
-    const int ld_lr, const int ld_m, const bool lr_T) :
-    h_ops (op_in, LR, M, nx_lr, ny_lr, dim_m, ld_lr, ld_m, lr_T)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
-
-  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C,
-    const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c,
-    const bool a_T, const bool b_T, const bool c_T) :
-    h_ops (op_in, M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
-
-  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C, const h_index * D,
-    const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d,
-    const bool a_T, const bool b_T, const bool c_T, const bool d_T) :
-    h_ops (op_in, M, A, B, C, D, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
-
-  __host__ h_ops_tree (const operation_t op_in, const h_index * M, const h_index * A, const h_index * B, const h_index * C, const h_index * D, const h_index * E, 
-    const int m, const int n, const int k, const int l, const int o, const int p,
-    const int ld_m, const int ld_a, const int ld_b, const int ld_c, const int ld_d, const int ld_e,
-    const bool a_T, const bool b_T, const bool c_T, const bool d_T, const bool e_T) :
-    h_ops (op_in, M, A, B, C, D, E, m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, a_T, b_T, c_T, d_T, e_T)
-  {
-    next = nullptr;
-    child = nullptr;
-  }
+  __host__ h_ops_tree (const operation_t op_in, const h_index * M1, const h_index * M2, const h_index * M3) : h_ops (op_in, M1, M2, M3)
+  { l_children = 0; children = nullptr; }
 
   __host__ ~h_ops_tree ()
-  {
-    delete child;
-    delete next;
+  { 
+    if (l_children > 0) 
+    { delete[] children; } 
   }
 
-  __host__ h_ops_tree * getNext () const
+  __host__ h_ops_tree * getChild (const int index) const
+  { return (index >= l_children) ? nullptr : &children[index]; }
+
+  __host__ void setChild (h_ops_tree * op, const int index = -1)
   {
-    return next;
+    if (index >= 0)
+    { 
+      if (index >= l_children) 
+      { resizeChildren(index + 1); } 
+      op -> clone(&children[index], true); 
+    }
+    else if (index == -1)
+    { 
+      resizeChildren(l_children + 1); 
+      op -> clone(&children[l_children - 1], true); 
+    }
+
   }
 
-  __host__ void hookup_next (h_ops_tree *tree)
+  __host__ void resizeChildren (const int length_in) 
   {
-    if (next != nullptr)
-    { next -> hookup_next (tree); }
-    else
-    { next = tree; }
-  }
+    if (length_in > 0 && length_in != l_children)
+    { 
+      h_ops_tree * neo = new h_ops_tree [length_in];
 
-  __host__ void hookup_child (h_ops_tree *tree)
-  {
-    if (child != nullptr)
-    { child -> hookup_next (tree); }
-    else
-    { child = tree; }
-  }
+      for (int i = 0; i < l_children && i < length_in; i++)
+      { children[i].clone(&neo[i], true); }
 
-  __host__ int length_child() const
-  {
-    return (child == nullptr) ? 1 : child -> length();
-  }
+      if (l_children > 0) 
+      { delete[] children; }
 
-  __host__ int length() const
-  {
-    int length = length_child();
-    for (h_ops_tree *ptr = next; ptr != nullptr; ptr = ptr -> next)
-    { length += ptr -> length_child(); }
-    return length;
-  }
-
-  __host__ h_ops_tree * clone() const
-  {
-    switch (op_type)
-    {
-    case nop:
-      return new h_ops_tree ();
-    case getrf:
-      return new h_ops_tree (op_type, &wr[0], dims[0], dims[1], lds[0]);
-    case trsml: case trsmr:
-      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1]);
-    case gemm:
-      return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], dims[0], dims[1], dims[2], lds[0], lds[1], lds[2], (bool)ts[0], (bool)ts[1]);
-    case pivot:
-      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], lds[0], (bool)ts[0]);
-    case trsml_lr: case trsmr_lr:
-      return new h_ops_tree (op_type, &wr[0], &r[0], dims[0], dims[1], dims[2], lds[0], lds[1], (bool)ts[0]);
-    case gemm3:
-      return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], &r[2], dims[0], dims[1], dims[2], dims[3],
-        lds[0], lds[1], lds[2], lds[3], (bool)ts[0], (bool)ts[1], (bool)ts[2]);
-    case gemm4:
-      return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], dims[0], dims[1], dims[2], dims[3], dims[4], 
-        lds[0], lds[1], lds[2], lds[3], lds[4], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3]);
-    case gemm5:
-      return new h_ops_tree (op_type, &wr[0], &r[0], &r[1], &r[2], &r[3], &r[4], dims[0], dims[1], dims[2], dims[3], dims[4], dims[5],
-        lds[0], lds[1], lds[2], lds[3], lds[4], lds[5], (bool)ts[0], (bool)ts[1], (bool)ts[2], (bool)ts[3], (bool)ts[4]);
-    default:
-      return nullptr;
+      children = neo;
+      l_children = length_in;
     }
   }
 
-  __host__ h_ops_tree * flatten () const
+  __host__ int length () const
   {
-    h_ops_tree * list = (child == nullptr) ? clone() : child -> flatten();
-    if (next != nullptr)
-    { list -> hookup_next (next -> flatten()); }
+    if (this == nullptr)
+    { return 0; }
+    else if (l_children == 0) 
+    { return 1; }
+    else
+    {
+      int length_ = 0;
+#pragma omp parallel for reduction (+:length_) if (omp_in_parallel() == 0)
+      for (int i = 0; i < l_children; i++) 
+      { length_ += children[i].length(); }
+      return length_;
+    }
+  }
+
+  __host__ h_ops_tree * clone (h_ops_tree * addr = nullptr, const bool clone_child = false) const
+  {
+    if (this == nullptr)
+    { return nullptr; }
+    else if (addr == nullptr)
+    { h_ops_tree * op = new h_ops_tree(); clone(op); return op; }
+    else
+    {
+      if (opType() == gemm)
+      { 
+        addr -> op_type = op_type;
+        addr -> read_and_write = new h_index[1];
+        read_and_write[0].clone(&(addr -> read_and_write)[0]);
+        addr -> n_rw = 1;
+
+        addr -> read_only = new h_index[2];
+        read_only[0].clone(&(addr -> read_only)[0]);
+        read_only[1].clone(&(addr -> read_only)[1]);
+        addr -> n_ro = 2;
+      }
+      else if (opType() >= trsml && opType() <= pivot)
+      {         
+        addr -> op_type = op_type;
+        addr -> read_and_write = new h_index[1];
+        read_and_write[0].clone(&(addr -> read_and_write)[0]);
+        addr -> n_rw = 1;
+
+        addr -> read_only = new h_index[1];
+        read_only[0].clone(&(addr -> read_only)[0]);
+        addr -> n_ro = 1;
+      }
+      else if (opType() == getrf)
+      {         
+        addr -> op_type = op_type;
+        addr -> read_and_write = new h_index[1];
+        read_and_write[0].clone(&(addr -> read_and_write)[0]);
+        addr -> n_rw = 1;
+
+        addr -> read_only = nullptr;
+        addr -> n_ro = 0;
+      }
+      else
+      {
+        addr -> op_type = op_type;
+        addr -> read_and_write = nullptr;
+        addr -> n_rw = 0;
+        addr -> read_only = nullptr;
+        addr -> n_ro = 0;
+      }
+
+      if (clone_child)
+      {
+        addr -> l_children = l_children;
+        addr -> children = (l_children > 0) ? new h_ops_tree [l_children] : nullptr;
+        for (int i = 0; i < l_children; i++)
+        { children[i].clone(&(addr -> children)[i], clone_child); }
+      }
+      else
+      {
+        addr -> l_children = 0;
+        addr -> children = nullptr;
+      }
+
+      return addr;
+    }
+  }
+
+  __host__ h_ops_tree * flatten (const int start_index = 0, const int length_max = 0, const int list_index = 0, h_ops_tree * list = nullptr) const
+  {
+
+    int length_ = 0, * lengths = new int [l_children];
+
+#pragma omp parallel for reduction (+:length_) if (omp_in_parallel() == 0)
+    for (int i = 0; i < l_children; i++) 
+    { const int l = children[i].length(); lengths[i] = l; length_ += l; }
+
+    if (length_ <= start_index)
+    { delete[] lengths; return nullptr; }
+    else
+    { length_ = (length_max > 0 && length_max <= length_) ? length_max : length_; }
+
+    if (list == nullptr)
+    {
+      list = clone (nullptr, false);
+      list -> resizeChildren (length_);
+    }
+
+    int child_start = 0, child_end = l_children, insts_read = 0, insts_start = 0, end_length = 0;
+    for (int i = 0; i < l_children; i++)
+    {
+      if (insts_read <= start_index)
+      { child_start = i; insts_start = start_index - insts_read; }
+
+      end_length = start_index + length_ - insts_read;
+
+      if (end_length <= lengths[i])
+      { child_end = i + 1; end_length = end_length > length_max ? length_max : end_length; break; }
+      else
+      { insts_read += lengths[i]; }
+    }
+
+    int iters = child_end - child_start;
+    if (iters > 1)
+    {
+      int * work_index = new int [iters];
+      work_index[0] = list_index;
+      work_index[1] = list_index + lengths[child_start] - insts_start;
+
+      for (int i = 1; i < iters - 1; i++)
+      { work_index[i + 1] = work_index[i] + lengths[i + child_start]; }
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+      for (int i = child_start; i < child_end; i++)
+      {
+        const int index = work_index[i - child_start];
+        if (children[i].l_children == 0)
+        { children[i].clone(&(list -> children)[index], false); }
+        else if (i == child_start)
+        { children[i].flatten (insts_start, 0, index, list); }
+        else if (i == child_end - 1)
+        { children[i].flatten (0, end_length, index, list); }
+        else
+        { children[i].flatten (0, 0, index, list); }
+      }
+      delete[] work_index;
+    }
+    else
+    {
+      if (children[child_start].l_children == 0)
+      { children[child_start].clone(&(list -> children)[list_index], false); }
+      else
+      { children[child_start].flatten (insts_start, end_length, list_index, list); }
+    }
+
+    delete[] lengths;
     return list;
   }
 
   __host__ unsigned long long int getFops() const
   {
-    if (child == nullptr)
+    if (this == nullptr)
+    { return 0; }
+    else if (l_children == 0)
     { return h_ops::getFops(); }
     else
-    { return child -> getFops_All(); }
-  }
-
-  __host__ unsigned long long int getFops_All() const
-  {
-    unsigned long long int accum = 0;
-    for (const h_ops_tree * op_ptr = this; op_ptr != nullptr; op_ptr = op_ptr -> next)
-    { accum += op_ptr -> getFops(); }
-    return accum;
+    { 
+      unsigned long long int accum = 0;
+      for (int i = 0; i < l_children; i++) 
+      { accum += children[i].getFops(); }
+      return accum;
+    }
   }
 
   __host__ void print (const int op_id = 0, const int indent = 0) const
   {
     for (int i = 0; i < indent; i++) { printf("  "); }
 
-    if (child == nullptr) { printf("%d: ", op_id); }
+    if (l_children == 0) { printf("%d: ", op_id); }
 
     h_ops::print();
 
-    if (child != nullptr) { child -> print(op_id, indent + 1); }
-
-    if (next != nullptr) 
-    {
-      const int l_this = (child == nullptr) ? 1 : child -> length();
-      next -> print(op_id + l_this, indent); 
-    }
+    int offset = 0, l = length();
+    for (int i = 0; i < l_children && offset < l; offset += children[i].length(), i++)
+    { children[i].print(op_id + offset, indent + 1); }
   }
 
 };

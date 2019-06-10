@@ -4,134 +4,122 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size> __global__ void __launch_bounds__ (1024, 2)
-  kernel_dynamic (const int ** __restrict__ insts, T ** __restrict__ ptrs, int ** __restrict__ pivot_ptrs, volatile int * __restrict__ comm_space)
+template <class T, int shm_size> 
+__global__ void kernel_dynamic (const int ** __restrict__ insts, void ** __restrict__ ptrs, volatile int * __restrict__ comm_space)
 {
   __shared__ int shm [shm_size]; 
-  const int * pc = insts [block_rank()], shm_size_acutal = shm_size * 4 / sizeof(T);
-  
+
+  const int * pc = insts [block_rank()], shm_size_acutal = shm_size * 4 / sizeof(T), t_id = thread_rank();
+
 load_inst:
-  if (thread_rank() < _MAX_INST_LENGTH)
-  { shm[thread_rank()] = pc[thread_rank()]; }
   int next_pc = 0;
+  const int * signal_id = nullptr;
+  if (t_id < _MAX_INST_LENGTH)
+  { shm[t_id] = pc[t_id]; }
   __syncthreads();
 
   switch ((opcode_t) shm[0])
   {
-  case execute: goto exe;
-  case signal_wait: goto wait;
-  case signal_write: goto write;
-  case finish: goto fin;
-
-  default: goto fin;
+  case execute: 
+  { signal_id = &pc[1]; goto exe; }
+  case signal_wait: 
+  { goto wait; }
+  case finish: default: 
+  { goto fin; }
   }
 
 exe:
-  switch ((operation_t) shm[1])
+  switch ((operation_t) shm[2])
   {
+  case nop:
+  { next_pc = 3; goto write; }
   case getrf:
   {
-    T * M = ptrs[shm[2]]; 
-    int * p = (shm[3] == -1) ? nullptr : (int *) pivot_ptrs[shm[3]], nx = shm[4], ny = shm[5], ld = shm[6];
+    T * M = (T *) ptrs[shm[3]]; 
+    const int offset = shm[4], nx = shm[5], ny = shm[6], ld = shm[7];
     __syncthreads();
-    blockDenseGetrf_shm <T> (M, p, nx, ny, ld, (T *) shm);
-    next_pc = 7; goto sync;  
+    blockDenseGetrf_shm <T> (&M[offset], nullptr, nx, ny, ld, (T *) shm);
+    next_pc = 8; goto write;  
   }
 
   case trsml:
   {
-    T * B = ptrs[shm[2]], * L = ptrs[shm[3]];
-    int nx_b = shm[4], ny_b = shm[5], nx_l = shm[6], ld_b = shm[7], ld_l = shm[8];
+    T * B = (T *) ptrs[shm[3]], * L = (T *) ptrs[shm[4]];
+    const int offset_b = shm[5], offset_l = shm[6], nx_b = shm[7], ny_b = shm[8], nx_l = shm[9], ld_b = shm[10], ld_l = shm[11];
+    const bool b_T = (bool) shm[12];
     __syncthreads();
-    blockDenseTrsmL_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, false, (T *) shm, shm_size_acutal);
-    next_pc = 9; goto sync;  
+    blockDenseTrsmL_shm <T> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, b_T, (T *) shm, shm_size_acutal);
+    next_pc = 13; goto write;
   }
 
   case trsmr:
   {
-    T * B = ptrs[shm[2]], * U = ptrs[shm[3]];
-    int nx_b = shm[4], ny_b = shm[5], ny_u = shm[6], ld_b = shm[7], ld_u = shm[8];
+    T * B = (T *) ptrs[shm[3]], * U = (T *) ptrs[shm[4]];
+    const int offset_b = shm[5], offset_u = shm[6], nx_b = shm[7], ny_b = shm[8], ny_u = shm[9], ld_b = shm[10], ld_u = shm[11];
+    const bool b_T = (bool) shm[12];
     __syncthreads();
-    blockDenseTrsmR_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, false, (T *) shm, shm_size_acutal);
-    next_pc = 9; goto sync;  
+    blockDenseTrsmR_shm <T> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, b_T, (T *) shm, shm_size_acutal);
+    next_pc = 13; goto write;
   }
 
   case gemm:
   {
-    T * M = ptrs[shm[2]], * A = ptrs[shm[3]], * B = ptrs[shm[4]];
-    int m = shm[5], n = shm[6], k = shm[7], ld_m = shm[8], ld_a = shm[9], ld_b = shm[10];
-    bool a_T = (bool) shm[11], b_T = (bool) shm[12];
+    T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]];
+    const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
+    const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm_shm <T> (-1., 1., M, A, B, m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *)shm, shm_size_acutal);
-    next_pc = 13; goto sync;
+    blockDenseGemm_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    next_pc = 17; goto write;
   }
 
-  case pivot:
+  case gemm_plus:
   {
-    T * M = ptrs[shm[2]];
-    int * p = pivot_ptrs[shm[3]], nx = shm[4], ny = shm[5], ld = shm[6];
-    bool p_T = (bool) shm[7];
+    T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]];
+    const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
+    const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockApplyPivot <T> (M, p, nx, ny, ld, p_T, (T *) shm, shm_size_acutal);
-    next_pc = 8; goto sync;
+    blockDenseGemm_shm <T> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    next_pc = 17; goto write;
   }
 
-  case trsml_lr:
+  case gemm_3x:
   {
-    T * B = ptrs[shm[2]], * L = ptrs[shm[3]];
-    int nx_b = shm[4], ny_b = shm[5], nx_l = shm[6], ld_b = shm[7], ld_l = shm[8];
-    bool b_T = (bool) shm[9];
+    T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]], * C = (T *) ptrs[shm[6]];
+    const int offset_m = shm[7], offset_a = shm[8], offset_b = shm[9], offset_c = shm[10], m = shm[11], n = shm[12], k = shm[13], l = shm[14];
+    const int ld_m = shm[15], ld_a = shm[16], ld_b = shm[17], ld_c = shm[18];
+    const bool a_T = (bool) shm[19], b_T = (bool) shm[20], c_T = (bool) shm[21];
     __syncthreads();
-    blockDenseTrsmL_shm <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l, b_T, (T *) shm, shm_size_acutal);
-    next_pc = 10; goto sync;
+    blockDenseGemm_3x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
+    next_pc = 22; goto write;
   }
 
-  case trsmr_lr:
+  case gemm_4x:
   {
-    T * B = ptrs[shm[2]], * U = ptrs[shm[3]];
-    int nx_b = shm[4], ny_b = shm[5], ny_u = shm[6], ld_b = shm[7], ld_u = shm[8];
-    bool b_T = (bool) shm[9];
+    T * M = (T *) ptrs[shm[3]], * A = (T *) ptrs[shm[4]], * B = (T *) ptrs[shm[5]], * C = (T *) ptrs[shm[6]], * D = (T *) ptrs[shm[7]];
+    const int offset_m = shm[8], offset_a = shm[9], offset_b = shm[10], offset_c = shm[11], offset_d = shm[12];
+    const int m = shm[13], n = shm[14], k = shm[15], l = shm[16], o = shm[17];
+    const int ld_m = shm[18], ld_a = shm[19], ld_b = shm[20], ld_c = shm[21], ld_d = shm[22];
+    const bool a_T = (bool) shm[23], b_T = (bool) shm[24], c_T = (bool) shm[25], d_T = (bool) shm[26];
     __syncthreads();
-    blockDenseTrsmR_shm <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u, b_T, (T *) shm, shm_size_acutal);
-    next_pc = 10; goto sync;  
+    blockDenseGemm_4x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], &D[offset_d], m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
+    next_pc = 27; goto write;
   }
 
-  case gemm3:
+  case accum:
   {
-    T * M = ptrs[shm[2]], * A = ptrs[shm[3]], * B = ptrs[shm[4]], * C = ptrs[shm[5]];
-    int m = shm[6], n = shm[7], k = shm[8], l = shm[9], ld_m = shm[10], ld_a = shm[11], ld_b = shm[12], ld_c = shm[13];
-    bool a_T = (bool) shm[14], b_T = (bool) shm[15], c_T = (bool) shm[16];
+    T * U1 = (T *) ptrs[shm[3]], * VT1 = (T *) ptrs[shm[4]], * U2 = (T *) ptrs[shm[5]], * VT2 = (T *) ptrs[shm[6]];
+    const int offset_u1 = shm[7], offset_vt1 = shm[8], offset_u2 = shm[9], offset_vt2 = shm[10];
+    const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
     __syncthreads();
-    blockDenseGemm_3x_shm <T> (-1., 1., M, A, B, C, m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
-    next_pc = 17; goto sync;
-  }
-
-  case gemm4:
-  {
-    T * M = ptrs[shm[2]], * A = ptrs[shm[3]], * B = ptrs[shm[4]], * C = ptrs[shm[5]], * D = ptrs[shm[6]];
-    int m = shm[7], n = shm[8], k = shm[9], l = shm[10], o = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14], ld_c = shm[15], ld_d = shm[16];
-    bool a_T = (bool) shm[17], b_T = (bool) shm[18], c_T = (bool) shm[19], d_T = (bool) shm[20];
-    __syncthreads();
-    blockDenseGemm_4x_shm <T> (-1., 1., M, A, B, C, D, m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
-    next_pc = 21; goto sync;
-  }
-
-  case gemm5:
-  {
-    T * M = ptrs[shm[2]], * A = ptrs[shm[3]], * B = ptrs[shm[4]], * C = ptrs[shm[5]], * D = ptrs[shm[6]], * E = ptrs[shm[7]];
-    int m = shm[8], n = shm[9], k = shm[10], l = shm[11], o = shm[12], p = shm[13];
-    int ld_m = shm[14], ld_a = shm[15], ld_b = shm[16], ld_c = shm[17], ld_d = shm[18], ld_e = shm[19];
-    bool a_T = (bool) shm[20], b_T = (bool) shm[21], c_T = (bool) shm[22], d_T = (bool) shm[23], e_T = (bool) shm[24];
-    __syncthreads();
-    blockDenseGemm_5x_shm <T> (-1., 1., M, A, B, C, D, E, m, n, k, l, o, p, ld_m, ld_a, ld_b, ld_c, ld_d, ld_e, a_T, b_T, c_T, d_T, e_T, (T *) shm, shm_size_acutal);
-    next_pc = 25; goto sync;
+    blockLowRankAccum <T> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm, shm_size_acutal);
+    next_pc = 19; goto write;
   }
 
   default: goto fin;
   }
 
 wait:
-  if (thread_rank() == 0)
+  if (t_id == 0)
   { shm[0] = comm_space[shm[1]]; }
   __syncthreads();
   if (shm[0])
@@ -139,10 +127,9 @@ wait:
   goto sync;
 
 write:
-  if (thread_rank() == 0)
-  { comm_space[shm[1]] = 1; }
+  if (t_id == 0)
+  { comm_space[* signal_id] = 1; }
   __threadfence();
-  next_pc = 2;
   goto sync;
 
 sync:
@@ -151,9 +138,23 @@ sync:
   { pc = &pc[next_pc]; goto load_inst; }
   else
   { goto wait; }
-
+  
 fin:
   return;
+}
+
+template <class T> 
+__host__ void print_dev_mat (T * dev_mat, const int nx, const int ny)
+{
+   T * data = new T [nx * ny];
+   cudaMemcpy (data, dev_mat, nx * ny * sizeof(T), cudaMemcpyDeviceToHost);
+   for (int i = 0; i < ny; i++)
+   {
+     for (int j = 0; j < nx; j++)
+     { printf("%e ", data[i * nx + j]); }
+     printf("\n");
+   }
+   delete[] data;
 }
 
 template <class T, int shm_size> 
@@ -175,38 +176,63 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   else if (workers < num_blocks)
   { printf("Launch Config: Number of launched blocks reduced from %d to %d. \n\n", num_blocks, workers); }
 
-  const int ny = h -> getNy(), nx = h -> getNx();
+  const int ny = h -> getNy_abs(), nx = h -> getNx_abs();
   printf("Start Testing Hierarchical - LU for: %d x %d.\n\n", ny, nx);
 
-  const h_index * root = h -> getRootIndex();
-  const h_ops_tree * tree = h -> generateOps_GETRF(root);
-
-  h_ops_dag dag = h_ops_dag (tree);
-  delete tree;
-
-  inst_scheduler schedule = inst_scheduler (&dag, workers);
-
-  dev_instructions <T> ins = dev_instructions <T> (workers, &dag, &schedule, h);
-
+  timer myTimer = timer();
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
-  void ** args = ins.getLaunchArgs();
+  double clock_start, clock_end;
+  dev_temp tmp_mngr = dev_temp();
 
-  timer myTimer = timer();
+  clock_start = omp_get_wtime();
+  const h_index * root = h -> getRootIndex();
+  const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
+  clock_end = omp_get_wtime();
+  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); //tree->print();
 
-  myTimer.newEvent("GETRF", start, main_stream);
+  clock_start = omp_get_wtime();
+  h_ops_dag dag = h_ops_dag (tree);
+  clock_end = omp_get_wtime();
+  delete tree;
+  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); //dag.print();
+
+  clock_start = omp_get_wtime();
+  instructions_scheduler schedule = instructions_scheduler (&dag, workers);
+  clock_end = omp_get_wtime();
+  printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
+
+  T ** tmp_ptrs = tmp_mngr.allocate <T> ();
+
+  clock_start = omp_get_wtime();
+  instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
+  clock_end = omp_get_wtime();
+  printf("Instruction generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); //ins.print();
+
+  int ** dev_insts, * comm_space;
+  void ** args, ** dev_ptrs;
+  fprintf(stderr, "Args: %s\n\n", cudaGetErrorString(ins.getLaunchArgs(&dev_insts, &dev_ptrs, &comm_space)));
+  args = new void *[3] { &dev_insts, &dev_ptrs, &comm_space };
+
+  myTimer.newEvent("Kernel", start, main_stream);
   cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T, shm_size>, workers, num_threads, args, 0, main_stream);
-  myTimer.newEvent("GETRF", end, main_stream);
+  myTimer.newEvent("Kernel", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
-  h_ops dense_op = h_ops (getrf, root, nx, ny, 0);
+  const double exeTime = myTimer.dumpAllEvents_Sync();
+
+  h_ops dense_op = h_ops (getrf, root);
+
   delete root;
-  delete args;
+  delete[] args;
+
+  cudaFree(tmp_ptrs[0]);
+  delete[] tmp_ptrs;
 
   const unsigned long long int exeFLOPS = dag.getFops(), estFLOPS = dense_op.getFops();
-  const double exeTime = myTimer.dumpAllEvents_Sync(), compressRatio = 100. * exeFLOPS / estFLOPS;
+  const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
   printf("-- Kernel Running Summary --\n"
     "Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", 
@@ -229,7 +255,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   }
   printf("FLOPS/S.\n");
 
-  gpuflops *= 100. / compressRatio;
+  gpuflops *= compressRatio == 0 ? 0 : 100. / compressRatio;
 
   while (power < 4 && gpuflops > 1.e3) 
   { gpuflops *= 1.e-3; power ++; }
@@ -247,7 +273,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   cudaStreamDestroy(main_stream);
 
-  return error;
+  return cudaSuccess;
 }
 
 

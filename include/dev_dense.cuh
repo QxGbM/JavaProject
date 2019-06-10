@@ -7,6 +7,8 @@
 template <class T> class dev_dense 
 {
 private:
+  int device_id;
+
   int nx;
   int ny;
   int ld;
@@ -17,141 +19,514 @@ private:
   int * pivot;
 
 public:
-  __host__ dev_dense (const int x, const int y, const int d = 0, const bool alloc_pivot = false)
-  {
-    nx = x;
-    ny = y;
-    ld = (x > d) ? x : d;
-    pivoted = alloc_pivot;
 
-    if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) != cudaSuccess)
+  __host__ dev_dense (const int nx_in = 0, const int ny_in = 0, const int ld_in = 0, const int device_id_in = 0, const bool alloc_pivot = false)
+  {
+    nx = nx_in;
+    ny = ny_in;
+    ld = (nx > ld_in) ? nx : ld_in;
+
+    if (device_id_in >= 0 && cudaSetDevice(device_id_in) == cudaSuccess)
     { 
-      fprintf(stderr, "Error Allocating Dense: %s\n\n", cudaGetErrorString(cudaGetLastError()));
-      elements = nullptr;
-      pivot = nullptr;
-    }
-    else if (pivoted && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) != cudaSuccess)
-    { 
-      fprintf(stderr, "Error Allocating Dense Pivot: %s\n\n", cudaGetErrorString(cudaGetLastError()));
-      pivoted = false;
-      pivot = nullptr;
+      device_id = device_id_in;
+
+      if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) == cudaSuccess)
+      { cudaMemset(elements, 0, ld * ny * sizeof(T)); }
+      else
+      { elements = nullptr; }
+    
+      if (alloc_pivot && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) == cudaSuccess)
+      { cudaMemset(pivot, 0, ny * sizeof(int)); pivoted = true; }
+      else
+      { pivot = nullptr; pivoted = false; }
     }
     else
-    {
-      cudaMemset(elements, 0, ld * ny * sizeof(T));
-    }
-  }
-
-  __host__ dev_dense (const int x, const int y, const T * A, const int ld_a, const int d = 0, const bool alloc_pivot = false)
-  {
-    nx = x;
-    ny = y;
-    ld = (x > d) ? x : d;
-    pivoted = alloc_pivot;
-
-    if (cudaMallocManaged(&elements, ld * ny * sizeof(T), cudaMemAttachGlobal) != cudaSuccess)
-    {
-      fprintf(stderr, "Error Allocating Dense: %s\n\n", cudaGetErrorString(cudaGetLastError()));
+    { 
+      device_id = -1;
       elements = nullptr;
-      pivot = nullptr;
-    }
-    else if (pivoted && cudaMallocManaged(&pivot, ny * sizeof(int), cudaMemAttachGlobal) != cudaSuccess)
-    {
-      fprintf(stderr, "Error Allocating Dense Pivot: %s\n\n", cudaGetErrorString(cudaGetLastError()));
       pivoted = false;
       pivot = nullptr;
-    }
-    else
-    {
-      loadArray(A, x, y, ld_a);
     }
   }
 
   __host__ ~dev_dense ()
   {
     cudaFree(elements);
-    if (pivoted)
-    { cudaFree(pivot); }
+    if (pivoted) { cudaFree(pivot); }
   }
 
-  __host__ inline int getNx () const { return nx; }
+  __host__ inline int getNx () const 
+  { return nx; }
 
-  __host__ inline int getNy () const { return ny; }
+  __host__ inline int getNy () const 
+  { return ny; }
 
-  __host__ inline int getLd () const { return ld; }
+  __host__ inline int getLd () const 
+  { return ld; }
 
-  __host__ inline T * getElements (const int offset = 0) const { return &elements[offset]; }
+  __host__ inline T * getElements (const int offset = 0) const 
+  { return &elements[offset]; }
 
-  __host__ inline int * getPivot (const int offset = 0) const { return (pivoted) ? &pivot[offset / ld] : nullptr; }
+  __host__ inline int * getPivot (const int offset = 0) const 
+  { return pivoted ? &pivot[offset / ld] : nullptr; }
 
-  __host__ void loadArray (const T * A, const int nx_a, const int ny_a, const int ld_a, const int x_start = 0, const int y_start = 0)
+  __host__ cudaError_t resize (const int ld_in, const int ny_in)
   {
-    for (int y = y_start, y_a = 0; y < ny && y_a < ny_a; y++, y_a++)
-    {
-      for (int x = x_start, x_a = 0; x < nx && x_a < nx_a; x++, x_a++)
-      {
-        elements[y * ld + x] = A[y_a * ld_a + x_a];
-      }
-    }
+    cudaError_t error = resizeColumn(ld_in);
+    return error == cudaSuccess ? resizeRow(ny_in) : error;
   }
 
-  __host__ void resize (const int ld_in, const int ny_in)
-  {
-    resizeColumn (ld_in);
-    resizeRow (ny_in);
-  }
-
-  __host__ void resizeColumn (const int ld_in)
+  __host__ cudaError_t resizeColumn (const int ld_in)
   {
     if (ld_in > 0 && ld_in != ld)
     {
       T * e = nullptr;
-      cudaMallocManaged (&e, ld_in * ny * sizeof(T), cudaMemAttachGlobal);
-      for (int y = 0; y < ny; y++)
-      {
-        for (int x = 0; x < nx && x < ld_in; x++)
-        { e[y * ld_in + x] = elements[y * ld + x]; }
-      }
+      cudaError_t error = cudaMallocManaged (&e, ld_in * ny * sizeof(T), cudaMemAttachGlobal);
+      if (error != cudaSuccess) { return error; }
+
+      for (int y = 0; y < ny; y++) for (int x = 0; x < nx && x < ld_in; x++)
+      { e[y * ld_in + x] = elements[y * ld + x]; }
+
       cudaFree(elements);
       ld = ld_in;
       nx = (nx > ld) ? ld : nx;
       elements = e;
     }
+    return cudaSuccess;
   }
 
-  __host__ void resizeRow (const int ny_in)
+  __host__ cudaError_t resizeRow (const int ny_in)
   {
     if (ny_in > 0 && ny_in != ny)
     {
       T * e = nullptr;
-      cudaMallocManaged (&e, ld * ny_in * sizeof(T), cudaMemAttachGlobal);
-      for (int y = 0; y < ny_in && y < ny; y++)
-      {
-        for (int x = 0; x < nx; x++)
-        { e[y * ld + x] = elements[y * ld + x]; }
-      }
+      cudaError_t error = cudaMallocManaged (&e, ld * ny_in * sizeof(T), cudaMemAttachGlobal);
+      if (error != cudaSuccess) { return error; }
+
+      for (int y = 0; y < ny_in && y < ny; y++) for (int x = 0; x < nx; x++)
+      { e[y * ld + x] = elements[y * ld + x]; }
+
+      cudaFree(elements);
+      elements = e;
+
       if (pivoted)
       {
         int * p = nullptr;
-        cudaMallocManaged (&p, ny_in * sizeof(int), cudaMemAttachGlobal);
+        error = cudaMallocManaged (&p, ny_in * sizeof(int), cudaMemAttachGlobal);
+        if (error != cudaSuccess) { return error; }
+
+        for (int y = 0; y < ny_in && y < ny; y++)
+        { p[y] = pivot[y]; }
+
         cudaFree(pivot);
         pivot = p;
       }
-      cudaFree(elements);
+
       ny = ny_in;
-      elements = e;
+    }
+    return cudaSuccess;
+  }
+
+  __host__ dev_dense <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
+  {
+    if (x > 1 && y > 1) 
+    { 
+      dev_dense <T> ** list = new dev_dense <T> * [x * y];
+      for (int i = 0; i < y; i++)
+      {
+        const int y_start = ys[i], ny_i = ys[i + 1] - y_start;
+        for (int j = 0; j < x; j++)
+        {
+          int x_start = xs[j], nx_i = xs[j + 1] - x_start;
+          dev_dense <T> * ptr = new dev_dense <T> (nx_i, ny_i, nx_i, pivoted, device_id);
+          for (int k = 0; k < ny_i; k++) for (int l = 0; l < nx_i; l++)
+          { (ptr -> elements)[k * nx_i + l] = elements[(y_start + k) * ld + x_start + l]; }
+          list[i * x + j] = ptr;
+        }
+      }
+      return list;
+    }
+    else if (x > 1 && y <= 1)
+    {
+      dev_dense <T> ** list = new dev_dense <T> * [x];
+      for (int j = 0; j < x; j++)
+      {
+        int x_start = xs[j], nx_i = xs[j + 1] - x_start;
+        dev_dense <T> * ptr = new dev_dense <T> (nx_i, ny, nx_i, pivoted, device_id);
+        for (int k = 0; k < ny; k++) for (int l = 0; l < nx_i; l++)
+        { (ptr -> elements)[k * nx_i + l] = elements[k * ld + x_start + l]; }
+        list[j] = ptr;
+      }
+      return list;
+    }
+    else if (x <= 1 && y > 1)
+    {
+      dev_dense <T> ** list = new dev_dense <T> * [y];
+      for (int i = 0; i < y; i++)
+      {
+        const int y_start = ys[i], ny_i = ys[i + 1] - y_start;
+        dev_dense <T> * ptr = new dev_dense <T> (nx, ny_i, nx, pivoted, device_id);
+        for (int k = 0; k < ny_i; k++) for (int l = 0; l < nx; l++)
+        { (ptr -> elements)[k * nx + l] = elements[(y_start + k) * ld + l]; }
+        list[i] = ptr;
+      }
+      return list;
+    }
+    else
+    { 
+      dev_dense <T> * ptr = new dev_dense <T> (nx, ny, nx, pivoted, device_id);
+      for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
+      { (ptr -> elements)[i * nx + j] = elements[i * ld + j]; }
+      return new dev_dense <T> * [1] { ptr }; 
     }
   }
 
-  __host__ void print () const
+  __host__ static h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
+  { 
+    return new h_ops_tree (getrf, self); 
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
-    printf("-- %d x %d | ld: %d --\n", ny, nx, ld);
-    for (int y = 0; y < ny; y++)
+    return new h_ops_tree (trsml, index_b, self);
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    h_index index_lr = h_index (index_b); index_lr.setU();
+    return new h_ops_tree (trsml, &index_lr, self);
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
+    const dev_low_rank <T> *lr_b = B -> getElementLowRank();
+    const dev_dense <T> *d_b = B -> getElementDense();
+
+    if (d_b != nullptr)
+    { return generateOps_TRSML (self, d_b, index_b, tmp_mngr); }
+    if (lr_b != nullptr)
+    { return generateOps_TRSML (self, lr_b, index_b, tmp_mngr); }
+    if (h_b != nullptr)
+    { return generateOps_TRSML (self, h_b, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return new h_ops_tree (trsmr, index_b, self);
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    h_index index_lr = h_index (index_b); index_lr.setVT();
+    return new h_ops_tree (trsmr, &index_lr, self);
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
+    const dev_low_rank <T> *lr_b = B -> getElementLowRank();
+    const dev_dense <T> *d_b = B -> getElementDense();
+
+    if (d_b != nullptr)
+    { return generateOps_TRSMR (self, d_b, index_b, tmp_mngr); }
+    if (lr_b != nullptr)
+    { return generateOps_TRSMR (self, lr_b, index_b, tmp_mngr); }
+    if (h_b != nullptr)
+    { return generateOps_TRSMR (self, h_b, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr)
+  {
+    return new h_ops_tree (accum, self, index_tmp_lr); 
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return new h_ops_tree (gemm, self, index_a, index_b); 
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return new h_ops_tree (gemm, self, index_a, index_b); 
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
+    op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
+
+    int * y, * k, x = self -> getNx(index_b -> getNx());
+    A -> getOffsets_y(&y);
+    A -> getOffsets_x(&k);
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+    for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
     {
-      for (int x = 0; x < nx; x++)
+      const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
+      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj, tmp_mngr);
+      op -> setChild(op_i, i);
+      delete op_i;
+    }
+
+    delete[] y;
+    delete[] k;
+    return op;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
+    const dev_low_rank <T> *lr_a = A -> getElementLowRank();
+    const dev_dense <T> *d_a = A -> getElementDense();
+
+    if (d_a != nullptr)
+    { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
+    if (lr_a != nullptr)
+    { return generateOps_GEMM (self, lr_a, index_a, B, index_b, tmp_mngr); }
+    if (h_a != nullptr)
+    { return generateOps_GEMM (self, h_a, index_a, B, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return new h_ops_tree (gemm, self, index_a, index_b);
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    return new h_ops_tree (gemm, self, index_a, index_b);
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
+    op -> resizeChildren(A -> getNx_blocks() * A -> getNy_blocks());
+
+    int * y, * k, x = self -> getNx(index_b -> getNx());
+    A -> getOffsets_y(&y);
+    A -> getOffsets_x(&k);
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+    for (int i = 0; i < A -> getNx_blocks() * A -> getNy_blocks(); i++)
+    {
+      const int row = i / (A -> getNx_blocks()), col = i - row * (A -> getNx_blocks());
+      const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (self, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj, tmp_mngr);
+      op -> setChild(op_i, i);
+      delete op_i;
+    }
+
+    delete[] y;
+    delete[] k;
+    return op;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_low_rank <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
+    const dev_low_rank <T> *lr_a = A -> getElementLowRank();
+    const dev_dense <T> *d_a = A -> getElementDense();
+
+    if (d_a != nullptr)
+    { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
+    if (lr_a != nullptr)
+    { return generateOps_GEMM (self, lr_a, index_a, B, index_b, tmp_mngr); }
+    if (h_a != nullptr)
+    { return generateOps_GEMM (self, h_a, index_a, B, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
+    op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
+
+    int * x, * k, y = self -> getNy(index_a -> getNy());
+    B -> getOffsets_y(&k);
+    B -> getOffsets_x(&x);
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+    for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
+    {
+      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
+      const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj, tmp_mngr);
+      op -> setChild(op_i, i);
+      delete op_i;
+    }
+
+    delete[] x;
+    delete[] k;
+    return op;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
+    op -> resizeChildren(B -> getNx_blocks() * B -> getNy_blocks());
+
+    int * x, * k, y = self -> getNy(index_a -> getNy());
+    B -> getOffsets_y(&k);
+    B -> getOffsets_x(&x);
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+    for (int i = 0; i < B -> getNx_blocks() * B -> getNy_blocks(); i++)
+    {
+      const int row = i / (B -> getNx_blocks()), col = i - row * (B -> getNx_blocks());
+      const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (self, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
+      h_ops_tree * op_i = generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj, tmp_mngr);
+      op -> setChild(op_i, i);
+      delete op_i;
+    }
+
+    delete[] x;
+    delete[] k;
+    return op;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const int n_k = A -> getNx_blocks(); if (n_k != B -> getNy_blocks())
+    { printf("Matrices are partitioned differently in D.H-H GEMM.\n"); return nullptr; }
+
+    h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
+    const int n_n = B -> getNx_blocks(), n_mn = n_n * A -> getNy_blocks(), n_mnk = n_mn * n_k;
+    int * x, * y;
+    A -> getOffsets_y(&y);
+    B -> getOffsets_x(&x);
+
+    op -> resizeChildren(n_mnk);
+
+#pragma omp parallel for if (omp_in_parallel() == 0)
+    for (int i = 0; i < n_mnk; i++)
+    {
+      const int k = i / n_mn, crd = i - k * n_mn, row = crd / n_n, col = crd - row * n_n;
+
+      const h_index index_ai = h_index (A, index_a, row, k), index_bj = h_index (B, index_b, k, col);
+      const h_index index_m = h_index (self, y[row], x[col], index_ai.getNy(), index_bj.getNx());
+      h_ops_tree * op_k = generateOps_GEMM (&index_m, A -> getElement_blocks(row, k), &index_ai, B -> getElement_blocks(k, col), &index_bj, tmp_mngr);
+      op -> setChild(op_k, i);
+      delete op_k;
+    }
+
+    delete[] x;
+    delete[] y;
+    return op;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_a = A -> getElementHierarchical();
+    const dev_low_rank <T> *lr_a = A -> getElementLowRank();
+    const dev_dense <T> *d_a = A -> getElementDense();
+
+    if (d_a != nullptr)
+    { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
+    if (lr_a != nullptr)
+    { return generateOps_GEMM (self, lr_a, index_a, B, index_b, tmp_mngr); }
+    if (h_a != nullptr)
+    { return generateOps_GEMM (self, h_a, index_a, B, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_dense <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
+    const dev_low_rank <T> *lr_b = B -> getElementLowRank();
+    const dev_dense <T> *d_b = B -> getElementDense();
+
+    if (d_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
+    if (lr_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
+    if (h_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_low_rank <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
+    const dev_low_rank <T> *lr_b = B -> getElementLowRank();
+    const dev_dense <T> *d_b = B -> getElementDense();
+
+    if (d_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
+    if (lr_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
+    if (h_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_hierarchical <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
+    const dev_low_rank <T> *lr_b = B -> getElementLowRank();
+    const dev_dense <T> *d_b = B -> getElementDense();
+
+    if (d_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
+    if (lr_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
+    if (h_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+  __host__ static h_ops_tree * generateOps_GEMM (const h_index * self, const dev_h_element <T> * A, const h_index * index_a, const dev_h_element <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
+  {
+    const dev_hierarchical <T> *h_b = B -> getElementHierarchical();
+    const dev_low_rank <T> *lr_b = B -> getElementLowRank();
+    const dev_dense <T> *d_b = B -> getElementDense();
+
+    if (d_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
+    if (lr_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, lr_b, index_b, tmp_mngr); }
+    if (h_b != nullptr)
+    { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
+
+    return nullptr;
+  }
+
+
+   
+  __host__ void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const
+  {
+    printf("-- %d x %d | ld: %d | addr: %p --\n", ny, nx, ld, elements);
+    const int y_end_in = y_start + ny_in, x_end_in = x_start + nx_in;
+    const int y_end = (y_end_in > ny || y_end_in <= y_start) ? ny : y_end_in, x_end = (x_end_in > nx || x_end_in <= x_start) ? nx : x_end_in;
+
+    for (int y = y_start > 0 ? y_start : 0; y < y_end; y++)
+    {
+      for (int x = x_start > 0 ? x_start : 0; x < x_end; x++)
       {
         T e = elements[y * ld + x];
-        printf("%5.4f, ", e);
+        printf("%.6e ", e);
       }
       printf("\n");
     }
@@ -159,7 +534,7 @@ public:
     if (pivoted)
     {
       printf("\n-- Pivot: --\n");
-      for (int y = 0; y < ny; y++)
+      for (int y = y_start > 0 ? y_start : 0; y < y_end; y++)
       {
         printf("%d ", pivot[y]);
       }
@@ -169,7 +544,7 @@ public:
     printf("\n");
   }
 
-  __host__ void loadTestMatrix(const int x_start = 0, const int y_start = 0)
+  __host__ void loadTestMatrix (const int x_start = 0, const int y_start = 0)
   {
     for(int i = 0; i < ny; i++)
     {
@@ -182,26 +557,35 @@ public:
     }
   }
 
-  __host__ void loadIdentityMatrix()
+  __host__ void loadIdentityMatrix ()
   {
-    for (int x = 0; x < nx; x++)
-    {
-      for (int y = 0; y < ny; y++)
-      {
-        elements[y * ld + x] = (T)((x == y) ? 1 : 0);
-      }
-    }
+    for (int x = 0; x < nx; x++) for (int y = 0; y < ny; y++)
+    { elements[y * ld + x] = (T) ((x == y) ? 1 : 0); }
   }
 
-  __host__ void loadRandomMatrix(const double min, const double max, const int seed = 0)
+  __host__ void loadRandomMatrix (const double min, const double max, const int seed = 0)
   {
     if (seed > 0) 
     { srand(seed); }
-    for(int x = 0; x < nx; x++)
+    for(int x = 0; x < nx; x++) for(int y = 0; y < ny; y++)
+    { elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); }
+  }
+
+  __host__ void loadRandomOrthMatrix (const int seed = 0)
+  {
+    if (seed > 0) 
+    { srand(seed); }
+    for (int x = 0; x < nx; x++) for (int y = 0; y < ny; y++)
+    { elements[y * ld + x] = (T) ((x == y) ? 1 : 0); }
+
+    for (int x = 0; x < nx; x++) for (int z = 0; z < x; z++)
     {
-      for(int y = 0; y < ny; y++)
-      { 
-        elements[y * ld + x] = (T) (min + ((T) rand() / RAND_MAX) * (max - min)); 
+      double t = (double) rand() / RAND_MAX, cos = 1. / sqrt(1. + t * t), sin = cos * t;
+      for (int y = 0; y < ny; y++)
+      {
+        const T e1_T = elements[y * ld + x], e2_T = elements[y * ld + z];
+        elements[y * ld + x] = cos * e1_T - sin * e2_T;
+        elements[y * ld + z] = sin * e1_T + cos * e2_T;
       }
     }
   }
@@ -287,17 +671,24 @@ public:
 
   __host__ double L2Error (const dev_dense <T> *matrix) const
   {
-    double norm = 0.0;
+    double norm = 0.0; int error_count = 0;
     for(int x = 0; x < nx; x++)
     {
       for(int y = 0; y < ny; y++)
       {
         double t = (double) (elements[y * ld + x] - (matrix -> elements)[y * (matrix -> ld) + x]);
-        if (abs(t) > 1.e-6) 
-        { printf("Error Location: (%d, %d). M1: %5.4f M2: %5.4f\n", y, x, elements[y * ld + x], (matrix -> elements)[y * (matrix -> ld) + x]); }
+        if (fabs(t) > 1.e-8)
+        {
+          if (error_count < 10)
+          { printf("Error Location: (%d, %d). M1: %.6e M2: %.6e\n", y, x, elements[y * ld + x], (matrix->elements)[y * (matrix->ld) + x]); }
+          error_count ++;
+        }
         norm += t * t;
       }
     }
+
+    if (error_count > 0)
+    { printf("Total Error Locations: %d.\n", error_count); }
     return sqrt(norm / sqrSum());
   }
 

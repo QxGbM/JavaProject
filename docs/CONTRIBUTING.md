@@ -4,6 +4,8 @@ When doing gemm with H, different portions of LR can have different ranks, or ev
 
 LR needs to be partitioned before generating the h_ops_tree.
 
+Update: done (2019 / 5 / 17)
+
 ## 2. Finish up dev-gemm including LR.
 
 a. Compression (QR) after concatenation.

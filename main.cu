@@ -2,36 +2,51 @@
 #include <pspl.cuh>
 #define ref
 
+
+__global__ void partial_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
+{
+  __shared__ double shm[6144];
+  blockDenseGetrf_shm <double>(matrix, pivot, nx, ny, ld, &shm[0]);
+}
+
+__global__ void recover_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
+{
+  __shared__ double shm[6144];
+  blockApplyPivot <double>(matrix, pivot, nx, ny, ld, true, &shm[0], 6144);
+}
+
 template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 2, dim = 64, rank = 32;
+  const int n = 2, levels = 3, dim = 1024, admis = 1;
+  //int i[2] = { 2, 0 }, i2[4] = { 0, 0, 1, 0 };
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  //a -> loadTestMatrix(levels, n, dim);
-  a -> loadTestMatrix2(levels, n, dim, rank);
-
-  const int blocks = 56, threads = 1024;
+  a -> loadTestMatrix(levels, n, dim, admis); //a->print(2, i); a->print(4, i2);
 
 #ifdef ref
-  dev_dense <T> *c = a -> convertToDense();
-  printf("Reference Matrix converted to dense.\n");
+  dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
+  b -> loadTestMatrix();
+  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c)); //c->print(0, 4, 4, 4);
+  delete c; c = nullptr;
 #endif // ref
 
+  const int blocks = 160, threads = 1024;
   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
 
 #ifdef ref
   if (error == cudaSuccess)
   {
-    dev_dense <T> *b = a -> convertToDense(), *b_ = b -> restoreLU();
-    delete b;
+    c = a -> convertToDense(); //a->print(2, i);
+    partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
+    cudaDeviceSynchronize();
 
-    printf("Rel. L2 Error: %e\n\n", b_ -> L2Error(c));
-    delete b_;
+    printf("Rel. L2 Error: %e\n\n", b -> L2Error(c)); 
+    delete b; b = nullptr;
   }
-  delete c;
+  delete c; c = nullptr;
 #endif // ref
 
   delete a;
@@ -39,11 +54,15 @@ template <class T> __host__ int test0()
   return 0;
 }
 
-__global__ void svd_kernel (double * U, double * VT, const int nx, const int ny, const int ld_u, const int ld_v)
+
+__global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, const int ld_q, const int ld_r)
 {
-  __shared__ double shm[256];
-  int i = blockJacobiSVD <double> (U, VT, nx, ny, ld_u, ld_v, 1.0e-14, 100, &shm[0]);
-  if (thread_rank() == 0) { printf("iters: %d\n", i); }
+  __shared__ double shm[6144];
+  matrixCopy_fromRM (R, Q, nx, ny, ld_r, ld_q, false);
+  blockGivensRotation (R, nx, ny, ld_r);
+  blockDenseTrsmR_shm (Q, R, nx, ny, nx, ld_q, ld_r, false, shm, 6144);
+  blockGramSchmidt (Q, nx, ny, ld_q, shm);
+
 }
 
 int test1()
@@ -51,42 +70,46 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 16, ny = 16;
+  const int nx = 32, ny = 512;
 
-  dev_low_rank <double> *A = new dev_low_rank <double> (nx, ny);
+  srand(200);
+  double * rnd_seed = new double[_RND_SEED_LENGTH];
+#pragma omp parallel for
+  for (int i = 0; i < _RND_SEED_LENGTH; i++) { rnd_seed[i] = (double) rand() / RAND_MAX; }
 
-  A -> getUxS() -> loadTestMatrix(20);
+  cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
+
+  dev_dense <double> *A = new dev_dense <double> (nx, ny), *B = new dev_dense <double> (nx, ny);
+
+  B->loadTestMatrix(2000);
 
   timer myTimer = timer();
 
-  myTimer.newEvent("SVD", start);
-  svd_kernel <<<1, 1024 >>> (A -> getElements(), A -> getElements(A -> getOffset_VT()), nx, ny, A -> getLd_UxS(), A -> getLd_VT());
-  myTimer.newEvent("SVD", end);
+  myTimer.newEvent("qr", start);
+  qr_kernel <<<1, 1024 >>> (A->getElements(), B->getElements(), nx, ny, nx, nx);
+  myTimer.newEvent("qr", end);
 
   myTimer.dumpAllEvents_Sync();
-  A->adjustRank(6);
-  A->print();
 
-  dev_dense <double> *b = A->convertToDense(), *c = new dev_dense<double>(nx, ny);
-  c->loadTestMatrix(20);
-  printf("Rel. L2 Error: %e\n\n", c->L2Error(b));
+  dev_dense <double> *m1 = A->matrixMultiplication(B), *m2 = new dev_dense<double>(nx, ny);
+  m2->loadTestMatrix(2000);
+  printf("Rel. L2 Error: %e\n\n", m2->L2Error(m1));
+  dev_dense <double>* m3 = A->transpose()->matrixMultiplication(A), * m4 = new dev_dense<double>(nx, nx);
+  m4->loadIdentityMatrix();
+  printf("Rel. L2 Error: %e\n\n", m4->L2Error(m3));
 
-  delete A; delete b; delete c;
+  dev_dense <double>* m5 = A->matrixMultiplication(A->transpose()->matrixMultiplication(m2));
+  printf("Rel. L2 Error: %e\n\n", m2->L2Error(m5));
+
+
+
+  delete A; delete B; delete m1; delete m2; delete m3; delete m4; delete m5;
+
 
   return 0;
 }
 
-__global__ void partial_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
-{
-  __shared__ double shm[6144];
-  blockDenseGetrf_shm <double> (matrix, pivot, nx, ny, ld, &shm[0]);
-}
 
-__global__ void recover_pivot_kernel (double *matrix, const int nx, const int ny, const int ld, int *pivot)
-{
-  __shared__ double shm[6144];
-  blockApplyPivot <double> (matrix, pivot, nx, ny, ld, true, &shm[0], 6144);
-}
 
 __host__ int test2()
 {
@@ -120,6 +143,11 @@ __host__ int test2()
   delete b;
 
   return 0;
+}
+
+void test3()
+{
+  
 }
 
 

@@ -28,7 +28,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -65,6 +65,7 @@
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
       <Optimization>InheritFromHost</Optimization>
       <MaxRegCount>64</MaxRegCount>
+      <AdditionalCompilerOptions>/openmp</AdditionalCompilerOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -88,15 +89,20 @@
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
       <Optimization>O3</Optimization>
       <MaxRegCount>64</MaxRegCount>
+      <AdditionalCompilerOptions>
+      </AdditionalCompilerOptions>
+      <AdditionalOptions>-Xcompiler /openmp %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\compressor.cuh" />
     <ClInclude Include="include\dev_hierarchical_element.cuh" />
-    <ClInclude Include="include\dev_instructions.cuh" />
-    <ClInclude Include="include\inst_scheduler.cuh" />
+    <ClInclude Include="include\dev_temp.cuh" />
+    <ClInclude Include="include\instructions_manager.cuh" />
+    <ClInclude Include="include\instructions_scheduler.cuh" />
     <ClInclude Include="include\dev_low_rank_funcs.cuh" />
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\timer.cuh" />
@@ -110,6 +116,8 @@
     <ClInclude Include="include\dev_hierarchical_ops.cuh" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitignore" />
+    <None Include="docs\CONTRIBUTING.md" />
     <None Include="docs\README.md" />
     <None Include="Makefile" />
   </ItemGroup>
