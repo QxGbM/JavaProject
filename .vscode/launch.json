@@ -3,16 +3,13 @@
   "configurations": [
     {
       "type": "java",
-      "name": "CodeLens (Launch) - Introduction",
+      "name": "Debug (Launch)",
       "request": "launch",
-      "mainClass": "Java.Introduction",
-      "projectName": "Pastel-Palettes"
-    },
-    {
-      "type": "java",
-      "name": "Debug (Launch) - Current File",
-      "request": "launch",
-      "mainClass": "${file}"
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "mainClass": "Matrix.LU",
+      "projectName": "Pastel-Palettes",
+      "args": ""
     }
   ]
 }
