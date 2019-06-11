@@ -2,6 +2,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "CodeLens (Launch) - LUtest",
+      "request": "launch",
+      "mainClass": "Matrix.LUtest",
+      "projectName": "Pastel-Palettes"
+    },
+    {
+      "type": "java",
       "name": "CodeLens (Launch) - LU",
       "request": "launch",
       "mainClass": "Matrix.LU",
