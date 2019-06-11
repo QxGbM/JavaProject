@@ -1,15 +1,25 @@
 {
-  "version": "0.2.0",
   "configurations": [
     {
       "type": "java",
-      "name": "Debug (Launch)",
+      "name": "CodeLens (Launch) - LU",
       "request": "launch",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
       "mainClass": "Matrix.LU",
-      "projectName": "Pastel-Palettes",
-      "args": ""
+      "projectName": "Pastel-Palettes"
+    },
+    {
+      "type": "java",
+      "name": "CodeLens (Launch) - App",
+      "request": "launch",
+      "mainClass": "Matrix.App",
+      "projectName": "Pastel-Palettes"
+    },
+    {
+      "type": "java",
+      "name": "CodeLens (Launch) - App",
+      "request": "launch",
+      "mainClass": "src.main.java.Matrix.App",
+      "projectName": "Pastel-Palettes"
     }
   ]
 }
