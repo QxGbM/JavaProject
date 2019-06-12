@@ -277,6 +277,133 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
 }
 
 template <class T> 
+__device__ void blockGivensRotation2 (T * __restrict__ M, T * __restrict__ Q, const int nx, const int ny, const int p, const int ld_m, const int ld_q)
+{
+  const int t_id = thread_rank(), tb_size = block_dim(), l_id = lane_rank(), w_id = warp_rank(), tb_w_size = num_warps(), n = nx >= ny ? ny - 1 : nx;
+
+  for (int i = t_id; i < ny * p; i += tb_size)
+  {
+    const int row = i / p, col = i - row * p;
+    Q[row * ld_q + col] = (row == col) ? 1. : 0.;
+  }
+  __syncthreads();
+
+  for (int i = 0; i < n; i++)
+  {
+    const int cols = ny - i;
+    int last_step = cols;
+
+    for (int step = cols / 2; step > 0; step /= 2)
+    {
+      const int rows_step = i + step, rows_total = i + last_step;
+
+      for (int row = i + w_id; row < rows_step; row += tb_w_size)
+      {
+        const int row2 = row + step, row3 = row + step + step;
+
+        if (row3 < rows_total)
+        {
+          T cosine1, sine1, cosine2, sine2;
+          
+          if (l_id == 0)
+          {
+            T a = M[row * ld_m + i], b = M[row2 * ld_m + i], c = M[row3 * ld_m + i], r;
+
+            if (b == 0)
+            { cosine1 = signbit(a) * -2 + 1; sine1 = 0; r = fabs(a); }
+            else if (a == 0)
+            { cosine1 = 0; sine1 = signbit(b) * -2 + 1; r = fabs(b); }
+            else if (fabs(b) > fabs(a))
+            { T t = a / b, st = sqrt(1 + t * t); sine1 = (signbit(b) * 2 - 1) / st; cosine1 = (-sine1) * t; r = fabs(b) * st; }
+            else
+            { T t = b / a, st = sqrt(1 + t * t); cosine1 = (signbit(a) * -2 + 1) / st; sine1 = (-cosine1) * t; r = fabs(a) * st; }
+
+            if (c == 0)
+            { cosine2 = 1; sine2 = 0; }
+            else if (r == 0)
+            { cosine2 = 0; sine2 = signbit(c) * -2 + 1; r = fabs(c);  }
+            else if (fabs(c) > r)
+            { T t = r / c; sine2 = (signbit(c) * 2 - 1) * rsqrt(1. + t * t); cosine2 = (-sine2) * t; r = fabs(c) * sqrt(1. + t * t); }
+            else
+            { T t = c / r; cosine2 = rsqrt(1. + t * t); sine2 = (-cosine2) * t; r = r * sqrt(1. + t * t); }
+
+            M[row * ld_m + i] = r;
+            M[row2 * ld_m + i] = 0;
+            M[row3 * ld_m + i] = 0;
+          }
+          __syncwarp();
+
+          cosine1 = __shfl_sync(0xffffffff, cosine1, 0, warpSize);
+          sine1 = __shfl_sync(0xffffffff, sine1, 0, warpSize);
+          cosine2 = __shfl_sync(0xffffffff, cosine2, 0, warpSize);
+          sine2 = __shfl_sync(0xffffffff, sine2, 0, warpSize);
+
+          for (int col = i + l_id + 1; col < nx; col += warpSize)
+          {
+            const T a = M[row * ld_m + col], b = M[row2 * ld_m + col], c = M[row3 * ld_m + col];
+            const T r = cosine1 * a - sine1 * b;
+            M[row * ld_m + col] = cosine2 * r - sine2 * c;
+            M[row2 * ld_m + col] = sine1 * a + cosine1 * b;
+            M[row3 * ld_m + col] = sine2 * r + cosine2 * c;
+          }
+          for (int col = l_id; col < p; col += warpSize)
+          {
+            const T a = Q[row * ld_q + col], b = Q[row2 * ld_q + col], c = Q[row3 * ld_q + col];
+            const T r = cosine1 * a - sine1 * b;
+            Q[row * ld_q + col] = cosine2 * r - sine2 * c;
+            Q[row2 * ld_q + col] = sine1 * a + cosine1 * b;
+            Q[row3 * ld_q + col] = sine2 * r + cosine2 * c;
+          }
+          __syncwarp();
+        }
+        else
+        {
+          T cosine, sine;
+
+          if (l_id == 0)
+          {
+            T a = M[row * ld_m + i], b = M[row2 * ld_m + i], r;
+
+            if (b == 0)
+            { cosine = signbit(a) * -2 + 1; sine = 0; r = fabs(a); }
+            else if (a == 0)
+            { cosine = 0; sine = signbit(b) * -2 + 1; r = fabs(b); }
+            else if (fabs(b) > fabs(a))
+            { T t = -a / b, st = sqrt(1 + t * t); sine = (signbit(b) * 2 - 1) / st; cosine = (-sine) * t; r = fabs(b) * st; }
+            else
+            { T t = -b / a, st = sqrt(1 + t * t); cosine = (signbit(a) * -2 + 1) / st; sine = (-cosine) * t; r = fabs(a) * st; }
+
+            M[row * ld_m + i] = r;
+            M[row2 * ld_m + i] = 0;
+          }
+          __syncwarp();
+
+          cosine = __shfl_sync(0xffffffff, cosine, 0, warpSize);
+          sine = __shfl_sync(0xffffffff, sine, 0, warpSize);
+
+          for (int col = i + l_id + 1; col < nx; col += warpSize)
+          {
+            const T a = M[row * ld_m + col], b = M[row2 * ld_m + col];
+            M[row * ld_m + col] = cosine * a - sine * b;
+            M[row2 * ld_m + col] = sine * a + cosine * b;
+          }
+          for (int col = l_id; col < p; col += warpSize)
+          {
+            const T a = Q[row * ld_q + col], b = Q[row2 * ld_q + col];
+            Q[row * ld_q + col] = cosine * a - sine * b;
+            Q[row2 * ld_q + col] = sine * a + cosine * b;
+          }
+          __syncwarp();
+        }
+      }
+      last_step = step;
+      __syncthreads();
+
+    }
+  }
+}
+
+template <class T> 
 __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, 
   const int k1, const int k2, const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, T * __restrict__ shm, const int shm_size)
 {

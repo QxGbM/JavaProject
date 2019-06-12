@@ -57,11 +57,13 @@ template <class T> __host__ int test0()
 
 __global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, const int ld_q, const int ld_r)
 {
-  __shared__ double shm[6144];
+  blockGivensRotation2 (R, Q, nx, ny, nx, ld_r, ld_q);
+
+  /*__shared__ double shm[6144];
   matrixCopy_fromRM (R, Q, nx, ny, ld_r, ld_q, false);
-  blockGivensRotation (R, nx, ny, ld_r);
+  blockGivensRotation(R, nx, ny, ld_r);
   blockDenseTrsmR_shm (Q, R, nx, ny, nx, ld_q, ld_r, false, shm, 6144);
-  blockGramSchmidt (Q, nx, ny, ld_q, shm);
+  blockGramSchmidt (Q, nx, ny, ld_q, shm);*/
 
 }
 
@@ -70,7 +72,7 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 32, ny = 512;
+  const int nx = 3, ny = 3;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -81,7 +83,7 @@ int test1()
 
   dev_dense <double> *A = new dev_dense <double> (nx, ny), *B = new dev_dense <double> (nx, ny);
 
-  B->loadTestMatrix(2000);
+  B->loadTestMatrix(2); B->print();
 
   timer myTimer = timer();
 
@@ -90,9 +92,10 @@ int test1()
   myTimer.newEvent("qr", end);
 
   myTimer.dumpAllEvents_Sync();
+  A->print(); B->print();
 
-  dev_dense <double> *m1 = A->matrixMultiplication(B), *m2 = new dev_dense<double>(nx, ny);
-  m2->loadTestMatrix(2000);
+  dev_dense <double> *m1 = A->transpose()->matrixMultiplication(B), *m2 = new dev_dense<double>(nx, ny);
+  m2->loadTestMatrix(2);
   printf("Rel. L2 Error: %e\n\n", m2->L2Error(m1));
   dev_dense <double>* m3 = A->transpose()->matrixMultiplication(A), * m4 = new dev_dense<double>(nx, nx);
   m4->loadIdentityMatrix();
@@ -153,8 +156,8 @@ void test3()
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
-  //test1();
+  //test0 <double> ();
+  test1();
   //test2();
 
   return 0;
