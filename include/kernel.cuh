@@ -223,15 +223,13 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   const double exeTime = myTimer.dumpAllEvents_Sync();
 
-  h_ops dense_op = h_ops (getrf, root);
-
   delete root;
   delete[] args;
 
   cudaFree(tmp_ptrs[0]);
   delete[] tmp_ptrs;
 
-  const unsigned long long int exeFLOPS = dag.getFops(), estFLOPS = dense_op.getFops();
+  const unsigned long long int exeFLOPS = dag.getFlops(), estFLOPS = h_ops::getFlops_GETRF(nx, ny);
   const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
   printf("-- Kernel Running Summary --\n"

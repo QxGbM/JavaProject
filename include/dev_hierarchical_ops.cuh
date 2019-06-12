@@ -16,6 +16,8 @@ protected:
   int n_ro;
   h_index * read_only;
 
+  long long int flops;
+
 public:
 
   __host__ h_ops ()
@@ -25,6 +27,7 @@ public:
     read_and_write = nullptr;
     n_ro = 0;
     read_only = nullptr;
+    flops = 0;
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M)
@@ -39,6 +42,7 @@ public:
 
     read_only = nullptr;
     n_ro = 0;
+    flops = 0;
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2)
@@ -54,6 +58,7 @@ public:
     read_only = new h_index[1]{};
     M2 -> clone(&read_only[0]);
     n_ro = 1;
+    flops = 0;
   }
 
   __host__ h_ops (const operation_t op_in, const h_index * M1, const h_index * M2, const h_index * M3)
@@ -70,6 +75,7 @@ public:
     M2 -> clone(&read_only[0]);
     M3 -> clone(&read_only[1]);
     n_ro = 2;
+    flops = 0;
   }
 
   __host__ ~h_ops ()
@@ -652,10 +658,255 @@ public:
 
   }
 
-  __host__ unsigned long long int getFops () const
+  __host__ long long int getFlops ()
   {
-    unsigned long long int accum = 0;
+    if (flops > 0)
+    { return flops; }
+    else
+    {
+      switch (opType())
+      {
+      case getrf:
+      {
+        long long int nx = 0, ny = 0;
 
+        if (read_and_write[0].isDense())
+        {
+          nx = read_and_write[0].getNx();
+          ny = read_and_write[0].getNy();
+          flops = getFlops_GETRF(nx, ny);
+        }
+        else
+        { flops = 0; }
+        break;
+      }
+      case trsml:
+      {
+        long long int nx_b = 0, ny_b = 0, nx_l = 0;
+
+        if (read_and_write[0].isU() && read_only[0].isDense())
+        {
+          nx_b = read_and_write[0].getRank();
+          ny_b = read_and_write[0].getNy(read_only[0].getNy());
+          nx_l = read_only[0].getNx();
+          flops = getFlops_TRSML(nx_b, ny_b, nx_l);
+        }
+        else if (read_and_write[0].isDense() && read_only[0].isDense())
+        {
+          nx_b = read_and_write[0].getNx();
+          ny_b = read_and_write[0].getNy(read_only[0].getNy());
+          nx_l = read_only[0].getNx();
+          flops = getFlops_TRSML(nx_b, ny_b, nx_l);
+        }
+        else
+        { flops = 0; }
+        break;
+      }
+      case trsmr:
+      {
+        long long int nx_b = 0, ny_b = 0, ny_u = 0;
+
+        if (read_and_write[0].isVT() && read_only[0].isDense())
+        {
+          nx_b = read_and_write[0].getNx(read_only[0].getNx());
+          ny_b = read_and_write[0].getRank();
+          ny_u = read_only[0].getNy();
+          flops = getFlops_TRSMR(nx_b, ny_b, ny_u);
+        }
+        else if (read_and_write[0].isDense() && read_only[0].isDense())
+        {
+          nx_b = read_and_write[0].getNx(read_only[0].getNx());
+          ny_b = read_and_write[0].getNy();
+          ny_u = read_only[0].getNy();
+          flops = getFlops_TRSMR(nx_b, ny_b, ny_u);
+        }
+        else
+        { flops = 0; }
+        break;
+      }
+      case gemm:
+      {
+        long long int m = 0, n = 0, k = 0;
+        bool gemm_write = false;
+
+        if (read_and_write[0].isU() && read_only[0].isDense() && read_only[1].isU())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getRank(read_only[1].getRank());
+          k = read_only[0].getNx(read_only[1].getNy());
+        }
+        else if (read_and_write[0].isVT() && read_only[0].isVT() && read_only[1].isDense())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNx(read_only[1].getNx());
+          n = read_and_write[0].getRank(read_only[0].getRank());
+          k = read_only[1].getNy(read_only[0].getNx());
+        }
+        else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isDense())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getNx(read_only[1].getNx());
+          k = read_only[0].getNy(read_only[1].getNy());
+        }
+
+        long long int l = 0;
+
+        if (gemm_write)
+        { flops = getFlops_GEMM(m, n, k); break; }
+        else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getRank(read_only[1].getRank());
+          k = read_only[0].getRank();
+          l = read_only[0].getNx(read_only[1].getNy());
+        }
+        else if (read_and_write[0].isVT() && read_only[0].isVT() && read_only[1].isLowRank())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNx(read_only[1].getNx());
+          n = read_and_write[0].getRank(read_only[0].getRank());
+          k = read_only[1].getRank();
+          l = read_only[0].getNy(read_only[1].getNx());
+        }
+        else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isDense())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getNx(read_only[1].getNx());
+          k = read_only[0].getRank();
+          l = read_only[0].getNy(read_only[1].getNy());
+        }
+        else if (read_and_write[0].isDense() && read_only[0].isDense() && read_only[1].isLowRank())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getNx(read_only[1].getNx());
+          k = read_only[0].getNy(read_only[1].getNy());
+          l = read_only[1].getRank();
+        }
+
+        long long int o = 0;
+
+        if (gemm_write)
+        { flops = getFlops_GEMM_3x(m, n, k, l); break; }
+        else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
+        {
+          gemm_write = true;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getNx(read_only[1].getNx());
+          k = read_only[0].getRank();
+          l = read_only[0].getNx(read_only[1].getNy());
+          o = read_only[1].getRank();
+        }
+
+        if (gemm_write)
+        { flops = getFlops_GEMM_4x(m, n, k, l, o); }
+        else
+        { flops = 0; }
+        break;
+
+      }
+      case accum:
+      {
+        if (read_and_write[0].isDense() && read_only[0].isLowRank())
+        {
+          long long int m = 0, n = 0, k = 0;
+
+          m = read_and_write[0].getNy(read_only[0].getNy());
+          n = read_and_write[0].getNx(read_only[0].getNx());
+          k = read_only[0].getRank();
+
+          flops = getFlops_GEMM(m, n, k);
+        }
+        else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+        {
+          long long int nx = 0, ny = 0, rank1 = 0, rank2 = 0;
+
+          nx = read_and_write[0].getNx(read_only[0].getNx());
+          ny = read_and_write[0].getNy(read_only[0].getNy());
+          rank1 = read_and_write[0].getRank();
+          rank2 = read_only[0].getRank();
+
+          flops = getFlops_GEMM_3x(ny, rank1, rank1, nx) + getFlops_GEMM_3x(ny, rank2, rank2, nx);
+          flops += getFlops_QR(rank1, ny);
+          flops += getFlops_GEMM_3x(nx, rank1, rank1, ny) + getFlops_GEMM_3x(nx, rank2, rank2, ny);
+        }
+        else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
+        {
+          // TODO
+          flops = 0;
+        }
+        else
+        { flops = 0; }
+        break;
+      }
+      default:
+      { flops = 0; }
+      }
+
+      return flops;
+    }
+  }
+
+  __host__ static long long int getFlops_GETRF (const long long int nx, const long long int ny)
+  {
+    long long int accum = 0; const long long int n = nx > ny ? ny : nx;
+    for (long long int i = 0; i < n; i++)
+    { accum += (ny - i - 1) * (2 * (nx - i - 1) + 1); }
+    return accum;
+  }
+
+  __host__ static long long int getFlops_TRSML (const long long int nx_b, const long long int ny_b, const long long int nx_l)
+  {
+    long long int accum = 0; const long long int n = nx_l > ny_b ? ny_b : nx_l;
+    accum = (2 * ny_b - n - 1) * n * nx_b;
+    return accum;
+  }
+
+  __host__ static long long int getFlops_TRSMR (const long long int nx_b, const long long int ny_b, const long long int ny_u)
+  {
+    long long int accum = 0; const long long int n = nx_b > ny_u ? ny_u : nx_b;
+    accum = (2 * nx_b - n) * n * ny_b;
+    return accum;
+  }
+
+  __host__ static long long int getFlops_GEMM (const long long int m, const long long int n, const long long int k)
+  {
+    long long int accum = m * n * k * 2;
+    return accum;
+  }
+
+  __host__ static long long int getFlops_GEMM_3x (const long long int m, const long long int n, const long long int k, const long long int l)
+  {
+    long long int f1 = k * n * (m + l);
+    long long int f2 = m * l * (k + n);
+    return (f1 <= f2 ? f1 : f2) * 2;
+  }
+
+  __host__ static long long int getFlops_GEMM_4x (const long long int m, const long long int n, const long long int k, const long long int l, const long long int o)
+  {
+    if ((m <= k && m <= l) || (o <= k && o <= l))
+    { return getFlops_GEMM_3x (m, o, k, l) + getFlops_GEMM (m, n, o); }
+    else if ((n <= l && n <= o) || (k <= o && k <= l))
+    { return getFlops_GEMM_3x (k, n, l, o) + getFlops_GEMM (m, n, k); }
+    else
+    { return getFlops_GEMM (m, l, k) + getFlops_GEMM (k, o, n) + getFlops_GEMM (m, l, n); }
+  }
+
+  __host__ static long long int getFlops_QR (const long long int nx, const long long int ny)
+  {
+    long long int accum = nx * nx * (3 * ny - nx) * 2;
     return accum;
   }
 
@@ -823,7 +1074,8 @@ public:
         addr -> l_children = 0;
         addr -> children = nullptr;
       }
-
+      
+      addr -> flops = flops;
       return addr;
     }
   }
@@ -899,17 +1151,18 @@ public:
     return list;
   }
 
-  __host__ unsigned long long int getFops() const
+  __host__ long long int getFlops()
   {
     if (this == nullptr)
     { return 0; }
     else if (l_children == 0)
-    { return h_ops::getFops(); }
+    { return h_ops::getFlops(); }
     else
     { 
-      unsigned long long int accum = 0;
+      long long int accum = 0;
+#pragma omp parallel for reduction (+:accum) if (omp_in_parallel == 0) 
       for (int i = 0; i < l_children; i++) 
-      { accum += children[i].getFops(); }
+      { accum += children[i].getFlops(); }
       return accum;
     }
   }
