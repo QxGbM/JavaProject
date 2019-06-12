@@ -21,15 +21,14 @@ template <class T> __host__ int test0()
   cudaDeviceReset();
 
   const int n = 2, levels = 3, dim = 1024, admis = 1;
-  //int i[2] = { 2, 0 }, i2[4] = { 0, 0, 1, 0 };
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  a -> loadTestMatrix(levels, n, dim, admis); //a->print(2, i); a->print(4, i2);
+  a -> loadTestMatrix(levels, n, dim, admis);
 
 #ifdef ref
   dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
   b -> loadTestMatrix();
-  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c)); //c->print(0, 4, 4, 4);
+  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
   delete c; c = nullptr;
 #endif // ref
 
@@ -39,7 +38,7 @@ template <class T> __host__ int test0()
 #ifdef ref
   if (error == cudaSuccess)
   {
-    c = a -> convertToDense(); //a->print(2, i);
+    c = a -> convertToDense();
     partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
     cudaDeviceSynchronize();
 
@@ -57,13 +56,8 @@ template <class T> __host__ int test0()
 
 __global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, const int ld_q, const int ld_r)
 {
-  blockGivensRotation2 (R, Q, nx, ny, nx, ld_r, ld_q);
-
-  /*__shared__ double shm[6144];
-  matrixCopy_fromRM (R, Q, nx, ny, ld_r, ld_q, false);
-  blockGivensRotation(R, nx, ny, ld_r);
-  blockDenseTrsmR_shm (Q, R, nx, ny, nx, ld_q, ld_r, false, shm, 6144);
-  blockGramSchmidt (Q, nx, ny, ld_q, shm);*/
+  blockGivensRotation <double> (R, nx, ny, ld_r);
+  blockGivensRecoverQ <double> (Q, R, nx, ny, nx, ld_q, ld_r);
 
 }
 
@@ -72,7 +66,7 @@ int test1()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 3, ny = 3;
+  const int nx = 8, ny = 8;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -83,7 +77,7 @@ int test1()
 
   dev_dense <double> *A = new dev_dense <double> (nx, ny), *B = new dev_dense <double> (nx, ny);
 
-  B->loadTestMatrix(2); B->print();
+  B->loadTestMatrix(200); B->print();
 
   timer myTimer = timer();
 
@@ -94,8 +88,8 @@ int test1()
   myTimer.dumpAllEvents_Sync();
   A->print(); B->print();
 
-  dev_dense <double> *m1 = A->transpose()->matrixMultiplication(B), *m2 = new dev_dense<double>(nx, ny);
-  m2->loadTestMatrix(2);
+  dev_dense <double> *m1 = A->matrixMultiplication(B), *m2 = new dev_dense<double>(nx, ny);
+  m2->loadTestMatrix(200);
   printf("Rel. L2 Error: %e\n\n", m2->L2Error(m1));
   dev_dense <double>* m3 = A->transpose()->matrixMultiplication(A), * m4 = new dev_dense<double>(nx, nx);
   m4->loadIdentityMatrix();
@@ -104,10 +98,7 @@ int test1()
   dev_dense <double>* m5 = A->matrixMultiplication(A->transpose()->matrixMultiplication(m2));
   printf("Rel. L2 Error: %e\n\n", m2->L2Error(m5));
 
-
-
   delete A; delete B; delete m1; delete m2; delete m3; delete m4; delete m5;
-
 
   return 0;
 }
@@ -156,8 +147,8 @@ void test3()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
-  test1();
+  test0 <double> ();
+  //test1();
   //test2();
 
   return 0;

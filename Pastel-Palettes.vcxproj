@@ -13,7 +13,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{9370D3FB-1D50-482C-8F1B-96519AAD11AD}</ProjectGuid>
     <RootNamespace>Pastel_Palettes</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <CudaToolkitCustomDir>c:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1</CudaToolkitCustomDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -21,7 +21,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -91,7 +91,8 @@
       <MaxRegCount>64</MaxRegCount>
       <AdditionalCompilerOptions>
       </AdditionalCompilerOptions>
-      <AdditionalOptions>-Xcompiler /openmp %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-Xcompiler "-openmp" %(AdditionalOptions)</AdditionalOptions>
+      <Warning>W3</Warning>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
