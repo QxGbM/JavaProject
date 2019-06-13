@@ -2,18 +2,18 @@ package Matrix;
 
 import java.util.LinkedList;
 
-public class LowRankBlock implements Block{
+public class LowRank implements Block {
+		
+	private Dense U;
+	private Dense S;
+	private Dense VT;
 	
-	private double[][] e;
-	
-	private Matrix[] usv = new Matrix[3];
-	
-	public LowRankBlock (Matrix a, int k) {
+	public LowRank (Matrix a, int k) {
 		e = a.getArrayCopy();
 		usv = rsvd(k);
 	}
 	
-	public LowRankBlock (Matrix u, Matrix s, Matrix v) {
+	public LowRank (Matrix u, Matrix s, Matrix v) {
 		usv[0] = u;
 		usv[1] = s;
 		usv[2] = v;

@@ -22,8 +22,6 @@ public class LU {
 		System.out.println("L:\n" + lu[0].toString());
 		System.out.println("U:\n" + lu[1].toString());
 		
-		Matrix d = Matrix.solveLinearSystems_Right(a, b);
-		System.out.println("D:\n" + d.toString() + "\n" + Matrix.multiply(d, a).toString());
 		
 	}
 }

@@ -2,30 +2,9 @@
   "configurations": [
     {
       "type": "java",
-      "name": "CodeLens (Launch) - LUtest",
-      "request": "launch",
-      "mainClass": "Matrix.LUtest",
-      "projectName": "Pastel-Palettes"
-    },
-    {
-      "type": "java",
       "name": "CodeLens (Launch) - LU",
       "request": "launch",
       "mainClass": "Matrix.LU",
-      "projectName": "Pastel-Palettes"
-    },
-    {
-      "type": "java",
-      "name": "CodeLens (Launch) - App",
-      "request": "launch",
-      "mainClass": "Matrix.App",
-      "projectName": "Pastel-Palettes"
-    },
-    {
-      "type": "java",
-      "name": "CodeLens (Launch) - App",
-      "request": "launch",
-      "mainClass": "src.main.java.Matrix.App",
       "projectName": "Pastel-Palettes"
     }
   ]
