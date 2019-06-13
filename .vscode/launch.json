@@ -4,7 +4,7 @@
       "type": "java",
       "name": "CodeLens (Launch) - LU",
       "request": "launch",
-      "mainClass": "Matrix.LU",
+      "mainClass": "LU",
       "projectName": "Pastel-Palettes"
     }
   ]

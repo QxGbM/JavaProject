@@ -1,4 +1,3 @@
-package Matrix;
 
 import static org.junit.Assert.assertTrue;
 

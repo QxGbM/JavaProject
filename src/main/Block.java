@@ -1,4 +1,3 @@
-package Matrix;
 
 public interface Block {
 

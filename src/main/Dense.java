@@ -1,8 +1,7 @@
-package Matrix;
 
-import Matrix.Block;
+import Jama.Matrix;
 
-public class Dense extends Jama.Matrix implements Block {
+public class Dense extends Matrix implements Block {
 
 	private int level;
 	private int[] row_indices;
@@ -24,6 +23,16 @@ public class Dense extends Jama.Matrix implements Block {
 
 	public Dense (int m, int n, double s)
 	{ super(m, n, s); }
+
+	@Override
+	public int getRowDimension() {
+		return super.getRowDimension();
+	}
+
+  @Override
+	public int getColumnDimension() {
+		return super.getColumnDimension();
+	}
 
 	@Override
 	public Block_t getType()
