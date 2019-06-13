@@ -62,7 +62,7 @@ class h_ops_dag
 private:
 
   int length;
-  unsigned long long int fops;
+  long long int flops;
   h_ops_tree * ops_list;
   dependency_linked_list ** deps_graph;
 
@@ -71,7 +71,7 @@ public:
   __host__ h_ops_dag (const h_ops_tree * ops, const int start_index = 0, const int length_max = 0) 
   {
     ops_list = ops -> flatten(start_index, length_max);
-    fops = ops_list -> getFops();
+    flops = ops_list -> getFlops();
     length = ops_list -> length();
     deps_graph = new dependency_linked_list * [length];
 
@@ -123,8 +123,8 @@ public:
     return sum;
   }
 
-  __host__ inline unsigned long long int getFops () const
-  { return fops; }
+  __host__ inline long long int getFlops () const
+  { return flops; }
 
   __host__ void print() const
   {
@@ -153,9 +153,9 @@ public:
           printf("] ");
         }
       }
-      printf("\n");
+      printf("Flops: %lld \n", to -> getFlops());
     }
-    printf("Total fp-ops: %llu.\n\n", fops);
+    printf("Total Flops: %lld.\n\n", flops);
   }
   
 };

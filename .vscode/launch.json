@@ -1,18 +1,11 @@
 {
-  "version": "0.2.0",
   "configurations": [
     {
       "type": "java",
-      "name": "CodeLens (Launch) - Introduction",
+      "name": "CodeLens (Launch) - LU",
       "request": "launch",
-      "mainClass": "Java.Introduction",
+      "mainClass": "LU",
       "projectName": "Pastel-Palettes"
-    },
-    {
-      "type": "java",
-      "name": "Debug (Launch) - Current File",
-      "request": "launch",
-      "mainClass": "${file}"
     }
   ]
 }
