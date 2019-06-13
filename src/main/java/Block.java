@@ -20,5 +20,3 @@ public interface Block {
 	abstract public boolean equals (Block b);
 
 }
-
-

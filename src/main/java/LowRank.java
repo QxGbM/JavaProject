@@ -1,5 +1,9 @@
 
 public class LowRank implements Block {
+
+	private int level;
+	private int[] row_indices;
+	private int[] column_indices;
 		
 	private Dense U;
 	private Dense S;

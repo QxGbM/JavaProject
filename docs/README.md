@@ -10,42 +10,42 @@ Named after: Virtual Band "Pastel * Palettes" from Bang Dream! Girls Band Party.
 
 QxGbM, qxm28@case.edu
 
-## 说明
+## Terminology Explanations
 
-对hicma的补充。项目目标是用使用一个cuda内核函数解决h-matrix的LU分解问题。
+Dense: All matrix elements are stored.
 
-完整矩阵(Dense)：
-【【1 2 3】
-  【4 5 6】 
-  【7 8 9】】
+Low Rank: A matrix stored as a product of 2 or 3 smaller sized matrices.
 
-低阶矩阵(Low_Rank)：完整矩阵的奇异值分解（svd分解），并通过砍掉过小的奇异值输入（sigma矩阵中经过排序后，最后数个最小的对角线输入）来降低数据存储量和矩阵链乘速度。
-【 U . S . VT 】
+Hierarchical: A tree structure that has a Dense, a Low Rank, or another tree as its leaf. Does not store individual elements.
 
-阶层矩阵(Hierarchical)：树型结构矩阵，叶节点为完整或低阶矩阵。中间结点不保存数据。
+LU Decomposition: A matrix decomposition that generates a lower and upper matrices, where A = LU.
 
-lu分解：一个矩阵变成l * u的形式，l是下三角矩阵（对角线右上输入全0，对角线输入全1），u是上三角（对角线左下输入全0）。这个分解可以用来解Ax=y
+H-op: A matrix operation routine that happens between different nodes in the hierarchy.
 
-# Behavior
+- GETRF: LU decomposition on 1 node.
 
-GETRF D -> D is LU decomposed.
+- TRSM: Triangular Solve on decompose L/U against another node.
 
-GETRF LR -> not allowed.
+- GEMM: General Matrix Multiplication on node A, B, and C, so that A = A - B * C.
 
-GETRF H -> { GETRF H|i,i; TRSML H|i,k H|i,i; TRSMR H|j,i H|i,i; GEMM H|j,k H|j,i H|i,k; GETRF H|i+1,i+1 ... }
+- ACCM: Accumulation on node A, B, so that A = A + B.
 
-TRSM D L/U(D) -> Overwrites D with L^-1 x D.
+DAG: Direct Acyclic Graph. Connections exist when there are data dependencies between 2 h-ops.
 
-TRSM _ L/U(LR) -> not allowed.
+Instruction for GPU: A list of integers to retrieve data pointers and matrix dimensions.
 
-TRSM H L/U(H) -> { TRSML H|i L|i,i; GEMM H|i+1 L|j,i H|i, TRSML H|i+1 L|i+1,i+1; ... }
+## H - LU Behavior
 
-TRSM D L/U(H) -> Partition D to match with H
+1. Read H-structure and generate a tree of h-ops.
 
-TRSM LR L/U(_) -> L: TRSML UxS L; R: TRSMR V U;
+2. Create DAG from the tree of h-ops.
 
-GEMM D M1 M2 -> D = D - M1 x M2
+3. Schedule the DAG according to the number of workers.
 
-GEMM LR M1 M2 -> US = US - M1 x M2 x VT
+4. Interpret the DAG and Schedule into lists of Instructions.
 
-GEMM H M1 M2 -> { GEMM H|i,j M1|i M2|j }
+5. GPU Kernel executes the Instructions.
+
+## Others
+
+More information on this project in the "docs" folder.
