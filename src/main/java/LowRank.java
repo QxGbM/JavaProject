@@ -1,13 +1,13 @@
 
-public class LowRank implements Block {
+import Jama.Matrix;
 
-	private int level;
-	private int[] row_indices;
-	private int[] column_indices;
+public class LowRank implements Block {
 		
-	private Dense U;
-	private Dense S;
-	private Dense VT;
+	private Matrix U;
+	private Matrix S;
+	private Matrix VT;
+
+	public LowRank() {}
 
 	@Override
 	public int getRowDimension() {
@@ -25,7 +25,9 @@ public class LowRank implements Block {
 	
 	@Override
 	public Dense toDense() {
-		return null;
+		Dense d = new Dense(getRowDimension(), getColumnDimension());
+    d.plusEquals(U.times(S).times(VT.transpose()));
+		return d;
 	}
 
 	@Override
@@ -39,8 +41,19 @@ public class LowRank implements Block {
 	}
 
 	@Override
-	public boolean equals(Block b) {
-		return false;
+	public boolean equals (Block b) {
+		Dense d_this = this.toDense(), d_b = b.toDense();
+		double norm = d_this.minus(d_b).normF() / getRowDimension() / getColumnDimension();
+		return norm < 1.e-10;
 	}
+
+	public void setU (Matrix U)
+	{ this.U = U; }
+
+	public void setS (Matrix S)
+	{ this.S = S; }
+
+	public void setVT (Matrix VT)
+	{ this.VT = VT; }
 
 }

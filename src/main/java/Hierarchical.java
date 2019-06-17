@@ -1,10 +1,6 @@
 
 public class Hierarchical implements Block {
 
-	private int level;
-	private int[] row_indices;
-	private int[] column_indices;
-
 	@Override
 	public int getRowDimension() {
 		return 0;
