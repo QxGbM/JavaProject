@@ -42,26 +42,27 @@ public class Dense extends Matrix implements Block
   @Override
   public LowRank toLowRank()
   {
-    int step = getColumnDimension() > 32 ? 8 : getColumnDimension() / 4, r = step;
+    int n = getColumnDimension(), step = n > 32 ? 8 : n / 4, r = step;
     QRDecomposition qr_;
     
     do {
-      Matrix X = this.times(random(getColumnDimension(), r));
+      Matrix X = this.times(random(n, r));
       qr_ = X.qr();
       r += step;
-    } while (qr_.isFullRank());
+    } while (r <= n && qr_.isFullRank());
 
     Matrix Q = qr_.getQ();
     Matrix Y = this.transpose().times(Q);
+
     qr_ = Y.qr();
     Matrix V = qr_.getQ();
     Matrix R = qr_.getR();
     SingularValueDecomposition svd_ = R.svd();
 
     LowRank lr = new LowRank();
-    lr.setU(Q.times(svd_.getU()));
+    lr.setU(Q.times(svd_.getV()));
     lr.setS(svd_.getS());
-    lr.setVT(V.times(svd_.getV().transpose()));
+    lr.setVT(V.times(svd_.getU()));
 
     return lr;
   }

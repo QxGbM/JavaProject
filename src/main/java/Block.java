@@ -1,22 +1,22 @@
 
 public interface Block {
 
-	enum Block_t { DENSE, LOW_RANK, HIERARCHICAL }
-	
-	abstract public int getRowDimension();
+  enum Block_t { DENSE, LOW_RANK, HIERARCHICAL }
 
-	abstract public int getColumnDimension();
+  abstract public int getRowDimension();
 
-	abstract public Block_t getType();
-			
-	abstract public Dense toDense();
-	
-	abstract public LowRank toLowRank();
-	
-	abstract public Hierarchical toHierarchical (int m, int n);
+  abstract public int getColumnDimension();
 
-	abstract public String toString();
+  abstract public Block_t getType();
+		
+  abstract public Dense toDense();
 
-	abstract public boolean equals (Block b);
+  abstract public LowRank toLowRank();
+
+  abstract public Hierarchical toHierarchical (int m, int n);
+
+  abstract public String toString();
+
+  abstract public boolean equals (Block b);
 
 }

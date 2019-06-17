@@ -1,16 +1,14 @@
 
 public class LU {
-	
-	public static void main(String args[]) {
-		/* A is a random matrix of dimension dxd
-		 * L and U are the decomposed matrices of matrix A
-		 * C is the product of L and U (is identical to A)
-		 * B is a random vector of dimension d
-		 * x is the solution of the linear system Ax = B
-		 * Correctness verified
-		 * */
-		System.out.println("L:\n");
-		
-		
-	}
+  
+  public static void main (String args[]) {
+
+    Dense d = new Dense(16, 16);
+    d.plusEquals(Dense.random(16, 16));
+
+    LowRank lr = d.toLowRank();
+    boolean b = lr.equals(d);
+    System.out.println(b);
+
+  }
 }
