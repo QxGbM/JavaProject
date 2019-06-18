@@ -15,8 +15,8 @@ public interface Block {
 
   abstract public Hierarchical toHierarchical (int m, int n);
 
-  abstract public String toString();
-
   abstract public boolean equals (Block b);
+
+  abstract public void print (int w, int d);
 
 }
