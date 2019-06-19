@@ -1,3 +1,4 @@
+import java.io.*;
 
 public class Hierarchical implements Block {
 
@@ -78,6 +79,49 @@ public class Hierarchical implements Block {
   }
 
   @Override
+  public String structure ()
+  {
+    String s = "H " + Integer.toString(getNRowBlocks()) + " " + Integer.toString(getNColumnBlocks()) + "\n";
+
+    for (int i = 0; i < getNRowBlocks(); i++)
+    {
+      for (int j = 0; j < getNColumnBlocks(); j++)
+      { s += e[i][j].structure(); }
+    }
+
+    return s;
+  }
+
+  @Override
+  public void writeBinary (OutputStream stream) throws IOException
+  {
+    for (int i = 0; i < getNRowBlocks(); i++)
+    {
+      for (int j = 0; j < getNColumnBlocks(); j++)
+      { e[i][j].writeBinary(stream); }
+    }
+  }
+
+  @Override
+  public void writeToFile (String name) throws IOException
+  {
+    File directory = new File("bin");
+    if (!directory.exists())
+    { directory.mkdir(); }
+    
+    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
+    String struct = structure();
+    writer.write(struct);
+    writer.flush();
+    writer.close();
+
+    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
+    writeBinary(stream);
+    stream.flush();
+    stream.close();
+  }
+
+  @Override
   public void print (int w, int d)
   {
     for (int i = 0; i < getNRowBlocks(); i++)
@@ -91,6 +135,11 @@ public class Hierarchical implements Block {
   {
     if (m < getNRowBlocks() && n < getNColumnBlocks())
     { e[m][n] = b; }
+  }
+
+  public static Hierarchical readFromFile (String name) throws IOException
+  {
+    return null;
   }
 	
 	

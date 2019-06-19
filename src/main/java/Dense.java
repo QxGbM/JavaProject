@@ -1,4 +1,7 @@
 
+import java.io.*;
+import java.nio.ByteBuffer;
+
 import Jama.Matrix;
 import Jama.QRDecomposition;
 import Jama.SingularValueDecomposition;
@@ -106,8 +109,91 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
+  public String structure ()
+  { return "D " + Integer.toString(getRowDimension()) + " " + Integer.toString(getColumnDimension()) + "\n"; }
+
+  @Override
+  public void writeBinary (OutputStream stream) throws IOException
+  {
+    int m = getRowDimension(), n = getColumnDimension();
+    byte data[] = new byte[8 * m * n];
+    double data_ptr[][] = getArray();
+
+    for (int i = 0; i < m; i++)
+    {
+      for (int j = 0; j < n; j++)
+      { ByteBuffer.wrap(data).putDouble((i * n + j) * 8, data_ptr[i][j]); }
+    }
+
+    stream.write(data);
+  }
+
+  @Override
+  public void writeToFile (String name) throws IOException
+  {
+    File directory = new File("bin");
+    if (!directory.exists())
+    { directory.mkdir(); }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
+    String struct = structure();
+    writer.write(struct);
+    writer.flush();
+    writer.close();
+
+    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
+    writeBinary(stream);
+    stream.flush();
+    stream.close();
+  }
+
+  @Override
   public void print (int w, int d)
   { super.print(w, d); }
+
+  public static Dense readFromFile (String name) throws IOException
+  {
+    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
+    String str = reader.readLine();
+    reader.close();
+
+    if (str.startsWith("H"))
+    {
+      Hierarchical h = Hierarchical.readFromFile(name);
+      return h.toDense();
+    }
+    else if (str.startsWith("LR"))
+    {
+      LowRank lr = LowRank.readFromFile(name);
+      return lr.toDense();
+    }
+    else if (str.startsWith("D"))
+    {
+      String[] args = str.split(" ");
+      int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
+      Dense d = new Dense(m, n);
+      double data[][] = d.getArray();
+
+      BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
+
+      for (int i = 0; i < m; i++)
+      {
+        for (int j = 0; j < n; j++)
+        {
+          byte b[] = stream.readNBytes(8);
+          data[i][j] = ByteBuffer.wrap(b).getDouble();
+        }
+      }
+
+      stream.close();
+
+      return d;
+    }
+    else
+    { return null; }
+
+
+  }
 
 
 }

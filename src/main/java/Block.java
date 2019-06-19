@@ -1,3 +1,4 @@
+import java.io.*;
 
 public interface Block {
 
@@ -16,6 +17,12 @@ public interface Block {
   abstract public Hierarchical toHierarchical (int m, int n);
 
   abstract public boolean equals (Block b);
+
+  abstract public String structure ();
+
+  abstract public void writeBinary (OutputStream stream) throws IOException;
+
+  abstract public void writeToFile (String name) throws IOException;
 
   abstract public void print (int w, int d);
 

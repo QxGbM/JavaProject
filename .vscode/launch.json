@@ -2,9 +2,9 @@
   "configurations": [
     {
       "type": "java",
-      "name": "CodeLens (Launch) - LU",
+      "name": "CodeLens (Launch) - PsplHMatrixPack",
       "request": "launch",
-      "mainClass": "LU",
+      "mainClass": "PsplHMatrixPack",
       "projectName": "Pastel-Palettes"
     }
   ]

@@ -1,4 +1,7 @@
 
+import java.io.*;
+import java.nio.ByteBuffer;
+
 import Jama.Matrix;
 
 public class LowRank implements Block {
@@ -75,6 +78,67 @@ public class LowRank implements Block {
   }
 
   @Override
+  public String structure ()
+  { return "LR " + Integer.toString(getRowDimension()) + " " + Integer.toString(getColumnDimension()) + " " + Integer.toString(getRank()) + "\n"; }
+
+  @Override
+  public void writeBinary (OutputStream stream) throws IOException
+  {
+    int m = getRowDimension(), n = getColumnDimension(), r = getRank();
+    byte data[] = new byte[8 * m * r];
+    double data_ptr[][] = U.getArray();
+
+    for (int i = 0; i < m; i++)
+    {
+      for (int j = 0; j < r; j++)
+      { ByteBuffer.wrap(data).putDouble((i * r + j) * 8, data_ptr[i][j]); }
+    }
+
+    stream.write(data);
+
+    data = new byte[8 * r * r];
+    data_ptr = S.getArray();
+
+    for (int i = 0; i < r; i++)
+    {
+      for (int j = 0; j < r; j++)
+      { ByteBuffer.wrap(data).putDouble((i * r + j) * 8, data_ptr[i][j]); }
+    }
+
+    stream.write(data);
+
+    data = new byte[8 * n * r];
+    data_ptr = VT.getArray();
+
+    for (int i = 0; i < n; i++)
+    {
+      for (int j = 0; j < r; j++)
+      { ByteBuffer.wrap(data).putDouble((i * r + j) * 8, data_ptr[i][j]); }
+    }
+
+    stream.write(data);
+  }
+
+  @Override
+  public void writeToFile (String name) throws IOException
+  {
+    File directory = new File("bin");
+    if (!directory.exists())
+    { directory.mkdir(); }
+    
+    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
+    String struct = structure();
+    writer.write(struct);
+    writer.flush();
+    writer.close();
+
+    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
+    writeBinary(stream);
+    stream.flush();
+    stream.close();
+  }
+
+  @Override
   public void print (int w, int d)
   { U.print(w, d); S.print(w, d); VT.print(w, d); }
 
@@ -86,5 +150,10 @@ public class LowRank implements Block {
 
   public void setVT (Matrix VT)
   { this.VT.setMatrix(0, getColumnDimension() - 1, 0, getRank() - 1, VT); }
+
+  public static LowRank readFromFile (String name) throws IOException
+  {
+    return null;
+  }
 
 }
