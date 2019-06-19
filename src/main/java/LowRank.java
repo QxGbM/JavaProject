@@ -82,6 +82,38 @@ public class LowRank implements Block {
   { return "LR " + Integer.toString(getRowDimension()) + " " + Integer.toString(getColumnDimension()) + " " + Integer.toString(getRank()) + "\n"; }
 
   @Override
+  public void loadBinary (InputStream stream) throws IOException
+  {
+    int m = getRowDimension(), n = getColumnDimension(), r = getRank();
+    byte data[] = stream.readNBytes(8 * m * r);
+    double data_ptr[][] = U.getArray();
+
+    for (int i = 0; i < m; i++)
+    {
+      for (int j = 0; j < r; j++)
+      { data_ptr[i][j] = ByteBuffer.wrap(data).getDouble((i * r + j) * 8); }
+    }
+
+    data = stream.readNBytes(8 * r * r);
+    data_ptr = S.getArray();
+
+    for (int i = 0; i < r; i++)
+    {
+      for (int j = 0; j < r; j++)
+      { data_ptr[i][j] = ByteBuffer.wrap(data).getDouble((i * r + j) * 8); }
+    }
+
+    data = stream.readNBytes(8 * n * r);
+    data_ptr = VT.getArray();
+
+    for (int i = 0; i < n; i++)
+    {
+      for (int j = 0; j < r; j++)
+      { data_ptr[i][j] = ByteBuffer.wrap(data).getDouble((i * r + j) * 8); }
+    }
+  }
+
+  @Override
   public void writeBinary (OutputStream stream) throws IOException
   {
     int m = getRowDimension(), n = getColumnDimension(), r = getRank();
@@ -153,7 +185,35 @@ public class LowRank implements Block {
 
   public static LowRank readFromFile (String name) throws IOException
   {
-    return null;
+    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
+    String str = reader.readLine();
+    reader.close();
+
+    if (str.startsWith("H"))
+    {
+      Hierarchical h = Hierarchical.readFromFile(name);
+      return h.toLowRank();
+    }
+    else if (str.startsWith("D"))
+    {
+      Dense d = Dense.readFromFile(name);
+      return d.toLowRank();
+    }
+    else if (str.startsWith("LR"))
+    {
+      String[] args = str.split(" ");
+      int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]), r = Integer.parseInt(args[3]);
+      LowRank lr = new LowRank(m, n, r);
+
+      BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
+      lr.loadBinary(stream);
+      stream.close();
+
+      return lr;
+    }
+    else
+    { return null; }
+    
   }
 
 }

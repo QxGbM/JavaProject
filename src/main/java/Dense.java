@@ -113,6 +113,20 @@ public class Dense extends Matrix implements Block
   { return "D " + Integer.toString(getRowDimension()) + " " + Integer.toString(getColumnDimension()) + "\n"; }
 
   @Override
+  public void loadBinary (InputStream stream) throws IOException
+  {
+    int m = getRowDimension(), n = getColumnDimension();
+    byte data[] = stream.readNBytes(8 * m * n);
+    double data_ptr[][] = getArray();
+
+    for (int i = 0; i < m; i++)
+    {
+      for (int j = 0; j < n; j++)
+      { data_ptr[i][j] = ByteBuffer.wrap(data).getDouble((i * n + j) * 8); }
+    }
+  }
+
+  @Override
   public void writeBinary (OutputStream stream) throws IOException
   {
     int m = getRowDimension(), n = getColumnDimension();
@@ -172,19 +186,9 @@ public class Dense extends Matrix implements Block
       String[] args = str.split(" ");
       int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
       Dense d = new Dense(m, n);
-      double data[][] = d.getArray();
 
       BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
-
-      for (int i = 0; i < m; i++)
-      {
-        for (int j = 0; j < n; j++)
-        {
-          byte b[] = stream.readNBytes(8);
-          data[i][j] = ByteBuffer.wrap(b).getDouble();
-        }
-      }
-
+      d.loadBinary(stream);
       stream.close();
 
       return d;

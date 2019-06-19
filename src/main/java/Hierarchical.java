@@ -93,6 +93,16 @@ public class Hierarchical implements Block {
   }
 
   @Override
+  public void loadBinary (InputStream stream) throws IOException
+  {
+    for (int i = 0; i < getNRowBlocks(); i++)
+    {
+      for (int j = 0; j < getNColumnBlocks(); j++)
+      { e[i][j].loadBinary(stream); }
+    }
+  }
+
+  @Override
   public void writeBinary (OutputStream stream) throws IOException
   {
     for (int i = 0; i < getNRowBlocks(); i++)
@@ -137,10 +147,52 @@ public class Hierarchical implements Block {
     { e[m][n] = b; }
   }
 
+  public static Hierarchical readStructureFromFile (BufferedReader reader) throws IOException
+  {
+    String str = reader.readLine();
+    String[] args = str.split(" ");
+    int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
+
+    if (str.startsWith("D"))
+    {
+      reader.close();
+      Dense d = new Dense(m, n);
+      return d.toHierarchical(1, 1);
+    }
+    else if (str.startsWith("LR"))
+    {
+      reader.close();
+      int r = Integer.parseInt(args[3]);
+      LowRank lr = new LowRank(m, n, r);
+      return lr.toHierarchical(1, 1);
+    }
+    else if (str.startsWith("H"))
+    {
+      Hierarchical h = new Hierarchical(m, n);
+
+      for (int i = 0; i < m; i++)
+      {
+        for (int j = 0; j < n; j++)
+        { h.e[i][j] = Block.readStructureFromFile(reader); }
+      }
+      return h;
+    }
+    else
+    { return null; }  
+  }
+
   public static Hierarchical readFromFile (String name) throws IOException
   {
-    return null;
+    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
+    Hierarchical h = readStructureFromFile(reader);
+    reader.close();
+
+    BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
+    h.loadBinary(stream);
+    stream.close();
+    return h;
   }
+
 	
 	
 }
