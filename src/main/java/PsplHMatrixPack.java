@@ -5,7 +5,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    /*Dense d = new Dense(8, 8);
+    Dense d = new Dense(8, 8);
     d.plusEquals(Dense.random(8, 3).times(Dense.random(3, 8)));
 
     LowRank lr = d.toLowRank();
@@ -19,15 +19,16 @@ public class PsplHMatrixPack {
     System.out.println(b);
     
     try {
-      h.print(4, 4);
       h.writeToFile("test");
     } catch (IOException e) {
       e.printStackTrace();
-    }*/
+    }
 
     try {
-      Hierarchical h = Hierarchical.readFromFile("test");
-      h.print(4, 4);
+      h = Hierarchical.readFromFile("test");
+      b = h.equals(d);
+      System.out.println(b);
+
     } catch (IOException e) {
       e.printStackTrace();
     }

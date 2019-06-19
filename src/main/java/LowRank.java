@@ -94,14 +94,7 @@ public class LowRank implements Block {
       { data_ptr[i][j] = ByteBuffer.wrap(data).getDouble((i * r + j) * 8); }
     }
 
-    data = stream.readNBytes(8 * r * r);
-    data_ptr = S.getArray();
-
-    for (int i = 0; i < r; i++)
-    {
-      for (int j = 0; j < r; j++)
-      { data_ptr[i][j] = ByteBuffer.wrap(data).getDouble((i * r + j) * 8); }
-    }
+    S = Matrix.identity(r, r);
 
     data = stream.readNBytes(8 * n * r);
     data_ptr = VT.getArray();
@@ -123,18 +116,7 @@ public class LowRank implements Block {
     for (int i = 0; i < m; i++)
     {
       for (int j = 0; j < r; j++)
-      { ByteBuffer.wrap(data).putDouble((i * r + j) * 8, data_ptr[i][j]); }
-    }
-
-    stream.write(data);
-
-    data = new byte[8 * r * r];
-    data_ptr = S.getArray();
-
-    for (int i = 0; i < r; i++)
-    {
-      for (int j = 0; j < r; j++)
-      { ByteBuffer.wrap(data).putDouble((i * r + j) * 8, data_ptr[i][j]); }
+      { ByteBuffer.wrap(data).putDouble((i * r + j) * 8, data_ptr[i][j] * S.get(j, j)); }
     }
 
     stream.write(data);
@@ -201,7 +183,7 @@ public class LowRank implements Block {
     }
     else if (str.startsWith("LR"))
     {
-      String[] args = str.split(" ");
+      String[] args = str.split("\\s+");
       int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]), r = Integer.parseInt(args[3]);
       LowRank lr = new LowRank(m, n, r);
 

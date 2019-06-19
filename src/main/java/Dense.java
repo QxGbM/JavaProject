@@ -183,7 +183,7 @@ public class Dense extends Matrix implements Block
     }
     else if (str.startsWith("D"))
     {
-      String[] args = str.split(" ");
+      String[] args = str.split("\\s+");
       int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
       Dense d = new Dense(m, n);
 

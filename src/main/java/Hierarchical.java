@@ -150,7 +150,7 @@ public class Hierarchical implements Block {
   public static Hierarchical readStructureFromFile (BufferedReader reader) throws IOException
   {
     String str = reader.readLine();
-    String[] args = str.split(" ");
+    String[] args = str.split("\\s+");
     int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
 
     if (str.startsWith("D"))
