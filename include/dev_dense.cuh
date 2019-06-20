@@ -459,6 +459,36 @@ public:
     return nullptr;
   }
 
+  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  {
+    int real_l = (int) sizeof(T);
+    unsigned char * buf = new unsigned char[nx * ny * real_l];
+
+    if (stream != nullptr && fread(buf, sizeof(T), nx * ny, stream) > 0)
+    {
+#pragma omp parallel if (omp_in_parallel == 0)
+      for (int i = 0; i < ny * nx; i++)
+      {
+        int buf_start = i * real_l;
+        for (int bit = 0; bit < real_l / 2; bit++)
+        {
+          int i1 = buf_start + bit, i2 = buf_start + real_l - bit - 1;
+          unsigned char c = buf[i1]; buf[i1] = buf[i2]; buf[i2] = c;
+        }
+      }
+
+      cudaError_t error = cudaMemcpy (elements, buf, nx * ny * real_l, cudaMemcpyDefault);
+      delete[] buf;
+      return error;
+    }
+    else
+    {
+      printf("Error Reading from File.\n");
+      delete[] buf;
+      return cudaErrorFileNotFound;
+    }
+
+  }
 
    
   __host__ void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const

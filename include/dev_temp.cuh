@@ -37,7 +37,6 @@ public:
     if (size_in > 0 && size != size_in)
     {
       int * ids_new = new int [size_in], * sizes_new = new int [size_in], n = size_in > size ? size : size_in;
-      bool * in_use_new = new bool [size_in];
       void ** ptrs_new = new void * [size_in];
 
       for (int i = 0; i < n; i++)

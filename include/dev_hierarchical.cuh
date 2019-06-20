@@ -828,6 +828,50 @@ public:
     return nullptr;
   }
 
+  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  {
+    cudaError_t error = cudaSuccess;
+    for (int i = 0; i < nx * ny; i++)
+    {
+      if (error != cudaSuccess)
+      { return error; }
+      else
+      { elements[i].loadBinary_ReverseEndian (stream); }
+    }
+    return error;
+  }
+
+  __host__ static dev_hierarchical <T> * readStructureFromFile (FILE * stream)
+  {
+    char * buf = new char[32];
+    if (stream != nullptr && fgets(buf, 32, stream) > 0)
+    {
+      int ny, nx;
+      if (buf[0] == 'H')
+      { sscanf(buf, "H %d %d\n", &ny, &nx); }
+      else
+      { ny = nx = 1; }
+      dev_hierarchical<T> * h = new dev_hierarchical<T> (nx, ny);
+
+      for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
+      {
+        element_t type;
+        void * element = dev_h_element <T> :: readStructureFromFile (stream, &type);
+        h -> setElement(element, type, j, i);
+      }
+
+      delete[] buf;
+      return h;
+    }
+    else
+    { 
+      printf("Error Reading from File.\n");
+      delete[] buf;
+      return nullptr;
+    }
+
+  }
+
   __host__ void print(const h_index * index_in) const
   {
     for (int i = 0; i < ny * nx; i++)

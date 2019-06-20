@@ -98,11 +98,26 @@ int test1()
 }
 
 
+void test2()
+{
+  FILE * stream = fopen("bin/test.struct", "r");
+  dev_hierarchical<double> * h = dev_hierarchical<double>::readStructureFromFile(stream);
+  fclose(stream);
+
+  stream = fopen("bin/test.bin", "rb");
+  h->loadBinary_ReverseEndian(stream);
+  fclose(stream);
+
+  h->print();
+  delete h;
+}
+
 
 int main(int argc, char **argv)
 {
-  test0 <double> ();
+  //test0 <double> ();
   //test1();
+  test2();
 
   return 0;
 }

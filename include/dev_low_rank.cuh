@@ -683,14 +683,10 @@ public:
     return nullptr;
   }
 
-
-
-  __host__ dev_dense <T> * convertToDense () const
+  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
   {
-    dev_dense<T> * t1 = VT -> transpose();
-    dev_dense<T> * t2 = UxS -> matrixMultiplication(t1);
-    delete t1;
-    return t2;
+    cudaError_t error = UxS -> loadBinary_ReverseEndian(stream);
+    return error == cudaSuccess ? VT -> loadBinary_ReverseEndian(stream) : error;
   }
 
 

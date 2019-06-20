@@ -557,6 +557,77 @@ public:
     return nullptr;
   }
 
+  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  {
+    dev_dense<T> *d = getElementDense();
+    dev_low_rank<T> *lr = getElementLowRank();
+    dev_hierarchical <T> *h = getElementHierarchical();
+
+    if (d != nullptr)
+    { return d -> loadBinary_ReverseEndian(stream); }
+    if (lr != nullptr)
+    { return lr -> loadBinary_ReverseEndian(stream); }
+    if (h != nullptr)
+    { return h -> loadBinary_ReverseEndian(stream); }
+
+    return cudaErrorMissingConfiguration;
+  }
+
+  __host__ static void * readStructureFromFile (FILE * stream, element_t * type)
+  {
+    char * buf = new char[32];
+    if (stream != nullptr && fgets(buf, 32, stream) > 0)
+    {
+      int ny, nx, rank;
+
+      if (buf[0] == 'H')
+      { 
+        * type = hierarchical;
+        sscanf(buf, "H %d %d\n", &ny, &nx);
+        delete[] buf;
+
+        dev_hierarchical<T> * h = new dev_hierarchical<T> (nx, ny);
+
+        for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
+        {
+          element_t type;
+          void * element = readStructureFromFile (stream, &type);
+          h -> setElement(element, type, j, i);
+        }
+
+        return h;
+      }
+      else if (buf[0] == 'D')
+      { 
+        * type = dense; 
+        sscanf(buf, "D %d %d\n", &ny, &nx);
+        delete[] buf;
+        return new dev_dense <T> (nx, ny);
+      }
+      else if (buf[0] == 'L' && buf[1] == 'R')
+      { 
+        * type = low_rank; 
+        sscanf(buf, "LR %d %d %d\n", &ny, &nx, &rank);
+        delete[] buf;
+        return new dev_low_rank <T> (nx, ny, rank);
+      }
+      else
+      { 
+        * type = empty; 
+        ny = nx = rank = 0;
+        delete[] buf;
+        return nullptr;
+      }
+    }
+    else
+    {
+      printf("Error Reading from File.\n");
+      delete[] buf;
+      return nullptr;
+    }
+
+  }
+
 
   __host__ void print (const h_index *index) const
   {
