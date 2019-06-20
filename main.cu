@@ -108,8 +108,10 @@ void test2()
   h->loadBinary_ReverseEndian(stream);
   fclose(stream);
 
-  h->print();
+
+  dev_dense<double> * d = h->convertToDense();
   delete h;
+  delete d;
 }
 
 

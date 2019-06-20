@@ -851,6 +851,8 @@ public:
       { sscanf(buf, "H %d %d\n", &ny, &nx); }
       else
       { ny = nx = 1; }
+      delete[] buf;
+
       dev_hierarchical<T> * h = new dev_hierarchical<T> (nx, ny);
 
       for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
@@ -860,7 +862,7 @@ public:
         h -> setElement(element, type, j, i);
       }
 
-      delete[] buf;
+      h -> updateOffsets();
       return h;
     }
     else

@@ -595,6 +595,7 @@ public:
           h -> setElement(element, type, j, i);
         }
 
+        h -> updateOffsets();
         return h;
       }
       else if (buf[0] == 'D')
