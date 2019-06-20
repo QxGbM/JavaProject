@@ -3,6 +3,8 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
+  static final double epi = 1.e-10;
+
   @FunctionalInterface
   public interface dataFunction
   { public double body (int i, int j, int y_start, int x_start); }
@@ -12,28 +14,22 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 2, dim = 16, admis = 1;
+    int level = 6, nblocks = 2, dim = 8192, admis = 0;
 
     Dense d = Dense.generateDense(dim, dim, 0, 0, testFunc);
 
     Hierarchical h = Hierarchical.buildHMatrix(level, nblocks, dim, admis, 0, 0, testFunc);
-    boolean b = d.equals(h);
-    System.out.println(b);
+    double compress = h.getCompressionRatio();
+    System.out.println(compress);
     
     try {
+      d.writeToFile("ref");
       h.writeToFile("test");
     } catch (IOException e) {
       e.printStackTrace();
     }
 
-    try {
-      h = Hierarchical.readFromFile("test");
-      b = h.equals(d);
-      System.out.println(b);
-
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-
   }
+
+
 }

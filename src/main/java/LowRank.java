@@ -74,8 +74,12 @@ public class LowRank implements Block {
   public boolean equals (Block b) 
   {
     double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
-    return norm < 1.e-10;
+    return norm < PsplHMatrixPack.epi;
   }
+
+  @Override
+  public double getCompressionRatio ()
+  { return (double) getRank() * (getColumnDimension() + getRowDimension()) / (getColumnDimension() * getRowDimension()); }
 
   @Override
   public String structure ()

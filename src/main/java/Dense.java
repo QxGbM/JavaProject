@@ -46,7 +46,7 @@ public class Dense extends Matrix implements Block
   public LowRank toLowRank()
   {
     int m = getRowDimension(), n = getColumnDimension();
-    int step = n > 32 ? 16 : (n < 2 ? 1 : n / 2), r = 0;
+    int step = n > 64 ? 16 : (n < 4 ? 1 : n / 4), r = 0;
 
     boolean approx;
     Matrix Q, Y;
@@ -61,7 +61,7 @@ public class Dense extends Matrix implements Block
       Y = transpose().times(Q);
       Matrix A = Q.times(Y.transpose()).minus(this);
       double norm = A.normF() / (m * r);
-      approx = norm <= 1.e-10;
+      approx = norm <= PsplHMatrixPack.epi;
 
     } while (r < n && !approx);
 
@@ -105,8 +105,12 @@ public class Dense extends Matrix implements Block
   public boolean equals (Block b) 
   {
     double norm = this.minus(b.toDense()).normF() / getColumnDimension() / getRowDimension();
-    return norm <= 1.e-10; 
+    return norm <= PsplHMatrixPack.epi; 
   }
+
+  @Override
+  public double getCompressionRatio() 
+  { return 1.; }
 
   @Override
   public String structure ()

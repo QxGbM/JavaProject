@@ -18,6 +18,8 @@ public interface Block {
 
   abstract public boolean equals (Block b);
 
+  abstract public double getCompressionRatio ();
+
   abstract public String structure ();
 
   abstract public void loadBinary (InputStream stream) throws IOException;

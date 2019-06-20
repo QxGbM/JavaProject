@@ -75,7 +75,21 @@ public class Hierarchical implements Block {
   public boolean equals (Block b) 
   {
     double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
-    return norm < 1.e-10;
+    return norm < PsplHMatrixPack.epi;
+  }
+
+  @Override
+  public double getCompressionRatio ()
+  {
+    double compress = 0.;
+
+    for (int i = 0; i < getNRowBlocks(); i++)
+    {
+      for (int j = 0; j < getNColumnBlocks(); j++)
+      { compress += e[i][j].getCompressionRatio() * e[i][j].getRowDimension() * e[i][j].getColumnDimension(); }
+    }
+
+    return compress / getColumnDimension() / getRowDimension();
   }
 
   @Override
@@ -146,6 +160,8 @@ public class Hierarchical implements Block {
     if (m < getNRowBlocks() && n < getNColumnBlocks())
     { e[m][n] = b; }
   }
+
+
 
   public static Hierarchical readStructureFromFile (BufferedReader reader) throws IOException
   {
