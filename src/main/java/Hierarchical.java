@@ -193,6 +193,35 @@ public class Hierarchical implements Block {
     return h;
   }
 
-	
-	
+  public static Hierarchical buildHMatrix (int level, int nblocks, int dim, int admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func)
+  {
+    Hierarchical h = new Hierarchical(nblocks, nblocks);
+    int blockSize = dim / nblocks, old_x_start = x_start;
+
+    for (int i = 0; i < nblocks; i++)
+    {
+      x_start = old_x_start;
+      for (int j = 0; j < nblocks; j++)
+      {
+        int loc = Math.abs(y_start - x_start);
+        boolean admisBlock = loc < admis + blockSize, admisLeaf = loc < (admis + 1) * blockSize;
+
+        if (level > 0 && admisBlock)
+        { h.e[i][j] = buildHMatrix (level - 1, nblocks, blockSize, admis, y_start, x_start, func); }
+        else if (level <= 0 && admisLeaf)
+        { h.e[i][j] = Dense.generateDense (blockSize, blockSize, y_start, x_start, func); }
+        else 
+        {
+          Dense d = Dense.generateDense (blockSize, blockSize, y_start, x_start, func);
+          h.e[i][j] = d.toLowRank();
+        }
+        x_start += blockSize;
+
+      }
+      y_start += blockSize;
+    }
+
+    return h;
+  }
+
 }

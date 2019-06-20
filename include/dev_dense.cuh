@@ -127,60 +127,6 @@ public:
     return cudaSuccess;
   }
 
-  __host__ dev_dense <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
-  {
-    if (x > 1 && y > 1) 
-    { 
-      dev_dense <T> ** list = new dev_dense <T> * [x * y];
-      for (int i = 0; i < y; i++)
-      {
-        const int y_start = ys[i], ny_i = ys[i + 1] - y_start;
-        for (int j = 0; j < x; j++)
-        {
-          int x_start = xs[j], nx_i = xs[j + 1] - x_start;
-          dev_dense <T> * ptr = new dev_dense <T> (nx_i, ny_i, nx_i, pivoted, device_id);
-          for (int k = 0; k < ny_i; k++) for (int l = 0; l < nx_i; l++)
-          { (ptr -> elements)[k * nx_i + l] = elements[(y_start + k) * ld + x_start + l]; }
-          list[i * x + j] = ptr;
-        }
-      }
-      return list;
-    }
-    else if (x > 1 && y <= 1)
-    {
-      dev_dense <T> ** list = new dev_dense <T> * [x];
-      for (int j = 0; j < x; j++)
-      {
-        int x_start = xs[j], nx_i = xs[j + 1] - x_start;
-        dev_dense <T> * ptr = new dev_dense <T> (nx_i, ny, nx_i, pivoted, device_id);
-        for (int k = 0; k < ny; k++) for (int l = 0; l < nx_i; l++)
-        { (ptr -> elements)[k * nx_i + l] = elements[k * ld + x_start + l]; }
-        list[j] = ptr;
-      }
-      return list;
-    }
-    else if (x <= 1 && y > 1)
-    {
-      dev_dense <T> ** list = new dev_dense <T> * [y];
-      for (int i = 0; i < y; i++)
-      {
-        const int y_start = ys[i], ny_i = ys[i + 1] - y_start;
-        dev_dense <T> * ptr = new dev_dense <T> (nx, ny_i, nx, pivoted, device_id);
-        for (int k = 0; k < ny_i; k++) for (int l = 0; l < nx; l++)
-        { (ptr -> elements)[k * nx + l] = elements[(y_start + k) * ld + l]; }
-        list[i] = ptr;
-      }
-      return list;
-    }
-    else
-    { 
-      dev_dense <T> * ptr = new dev_dense <T> (nx, ny, nx, pivoted, device_id);
-      for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
-      { (ptr -> elements)[i * nx + j] = elements[i * ld + j]; }
-      return new dev_dense <T> * [1] { ptr }; 
-    }
-  }
-
   __host__ static h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
   { 
     return new h_ops_tree (getrf, self); 

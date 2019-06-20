@@ -47,7 +47,7 @@ public class LowRank implements Block {
   {
     Hierarchical h = new Hierarchical(m, n);
     int i0 = 0, r = getRank();
-    int step_i = getRowDimension() / m - 1, step_j = getColumnDimension() / n - 1;
+    int step_i = (getRowDimension() - m + 1) / m, step_j = (getColumnDimension() - n + 1) / n;
 
     for (int i = 0; i < m; i++)
     {

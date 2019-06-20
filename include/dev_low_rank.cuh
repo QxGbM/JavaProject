@@ -83,52 +83,6 @@ public:
     else
     { return cudaSuccess; }
   }
-  
-  __host__ dev_low_rank <T> ** createPartitions (const int y = 1, const int * ys = nullptr, const int x = 1, const int * xs = nullptr) const
-  {
-    if (rank >= nx || rank >= ny)
-    { 
-      printf("-- Shouldn't be partitioning a low-rank object that is already compressed. --\n");
-      return nullptr;
-    }
-    else if (x > 1 && y > 1) 
-    { 
-      dev_low_rank <T> ** list = new dev_low_rank <T> * [x * y];
-      dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, x, xs);
-
-      for (int i = 0; i < x * y; i++)
-      { list[i] = new dev_low_rank <T> (U_list[i]); }
-
-      delete[] U_list;
-      return list;
-    }
-    else if (x > 1 && y <= 1)
-    {
-      dev_low_rank <T> ** list = new dev_low_rank <T> * [x];
-      dev_dense <T> ** U_list = UxS -> createPartitions (1, nullptr, x, xs);
-
-      for (int i = 0; i < x; i++)
-      { list[i] = new dev_low_rank <T> (U_list[i]); }
-
-      delete[] U_list;
-      return list;
-    }
-    else if (x <= 1 && y > 1)
-    {
-      dev_low_rank <T> ** list = new dev_low_rank <T> * [y];
-      dev_dense <T> ** U_list = UxS -> createPartitions (y, ys, 1, nullptr);
-
-      for (int i = 0; i < y; i++)
-      { list[i] = new dev_low_rank <T> (U_list[i]); }
-
-      delete[] U_list;
-      return list;
-    }
-    else
-    { 
-      return nullptr;
-    }
-  }
 
   __host__ static h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
   { 

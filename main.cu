@@ -9,12 +9,6 @@ __global__ void partial_pivot_kernel(double *matrix, const int nx, const int ny,
   blockDenseGetrf_shm <double>(matrix, pivot, nx, ny, ld, &shm[0]);
 }
 
-__global__ void recover_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
-{
-  __shared__ double shm[6144];
-  blockApplyPivot <double>(matrix, pivot, nx, ny, ld, true, &shm[0], 6144);
-}
-
 template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
@@ -105,51 +99,10 @@ int test1()
 
 
 
-__host__ int test2()
-{
-  cudaSetDevice(0);
-  cudaDeviceReset();
-  const int nx = 512, ny = 512;
-
-  dev_dense <double> *a = new dev_dense <double> (nx, ny, nx, true);
-  a -> loadRandomMatrix(-10, 10, 999);
-
-  timer myTimer = timer();
-
-  myTimer.newEvent("pivot", start);
-  partial_pivot_kernel <<<1, 1024, 0, 0 >>> (a -> getElements(), nx, ny, nx, a -> getPivot());
-  myTimer.newEvent("pivot", end);
-  cudaDeviceSynchronize();
-
-  dev_dense <double> *b = a -> restoreLU();
-
-  myTimer.newEvent("pivot recovery", start);
-  recover_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), nx, ny, nx, a->getPivot());
-  myTimer.newEvent("pivot recovery", end);
-
-  myTimer.printStatus();
-  myTimer.dumpAllEvents_Sync();
-
-  a->loadRandomMatrix(-10, 10, 999);
-  printf("Rel. L2 Error: %e\n\n", b -> L2Error(a));
-
-  delete a;
-  delete b;
-
-  return 0;
-}
-
-void test3()
-{
-  
-}
-
-
 int main(int argc, char **argv)
 {
   test0 <double> ();
   //test1();
-  //test2();
 
   return 0;
 }

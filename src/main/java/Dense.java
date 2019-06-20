@@ -46,7 +46,7 @@ public class Dense extends Matrix implements Block
   public LowRank toLowRank()
   {
     int m = getRowDimension(), n = getColumnDimension();
-    int step = n > 32 ? 8 : n / 4, r = 0;
+    int step = n > 32 ? 16 : (n < 2 ? 1 : n / 2), r = 0;
 
     boolean approx;
     Matrix Q, Y;
@@ -82,7 +82,7 @@ public class Dense extends Matrix implements Block
   {
     Hierarchical h = new Hierarchical(m, n);
     int i0 = 0;
-    int step_i = getRowDimension() / m - 1, step_j = getColumnDimension() / n - 1;
+    int step_i = (getRowDimension() - m + 1) / m, step_j = (getColumnDimension() - n + 1) / n;
 
     for (int i = 0; i < m; i++)
     {
@@ -197,6 +197,20 @@ public class Dense extends Matrix implements Block
     { return null; }
 
 
+  }
+
+  public static Dense generateDense (int m, int n, int y_start, int x_start, PsplHMatrixPack.dataFunction func)
+  {
+    Dense d = new Dense(m, n);
+    double data[][] = d.getArray();
+
+    for (int i = 0; i < m; i++)
+    {
+      for (int j = 0; j < n; j++)
+      { data[i][j] = func.body(i, j, y_start, x_start); }
+    }
+
+    return d;
   }
 
 
