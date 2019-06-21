@@ -901,57 +901,6 @@ public:
     delete root;
   }
 
-  __host__ cudaError_t loadTestMatrix (const int levels, const int dim, const int dim_e, const int admis, compressor * comp = nullptr, const int x_start = 0, const int y_start = 0)
-  {
-    bool new_comp = false;
-    if (comp == nullptr) 
-    { comp = new compressor (); new_comp = true; }
-
-    const int block_size = dim_e / dim;
-
-    for (int y = 0, y_offset = y_start; y < ny; y++)
-    {
-      for (int x = 0, x_offset = x_start; x < nx; x++)
-      {
-        const int loc = abs(x_offset - y_offset);
-        const bool admis_block = loc < admis + block_size, admis_leaf = loc < (admis + 1) * block_size;
-
-        if (levels > 0 && admis_block)
-        { 
-          dev_hierarchical <T> *e = new dev_hierarchical <T> (dim, dim);
-          e -> loadTestMatrix (levels - 1, dim, block_size, admis, comp, x_offset, y_offset);
-          setElement (e, hierarchical, x, y);
-        }
-        else if (levels <= 0 && admis_leaf)
-        {
-          dev_dense <T> *e = new dev_dense <T> (block_size, block_size);
-          e -> loadTestMatrix (x_offset, y_offset);
-          setElement (e, dense, x, y);
-        }
-        else
-        {
-          dev_low_rank <T> *e = new dev_low_rank <T> (block_size, block_size);
-          e -> loadTestMatrix (comp, x_offset, y_offset);
-          setElement (e, low_rank, x, y);
-        }
-        x_offset += block_size;
-      }
-      y_offset += block_size;
-    }
-
-    updateOffsets();
-    cudaError_t error = cudaSuccess;
-
-    if (new_comp)
-    {
-      error = comp -> launch <T, 12288, 32> ();
-      delete comp;
-    }
-
-    return error;
-
-  }
-
 
 };
 

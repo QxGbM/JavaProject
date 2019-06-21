@@ -697,13 +697,6 @@ public:
     VT -> print(x_start, nx_in, 0, rank_in);
   }
 
-  __host__ void loadTestMatrix (compressor * comp, const int x_start = 0, const int y_start = 0)
-  {
-    comp -> compress <T> (this);
-    UxS -> loadTestMatrix(x_start, y_start);
-    VT -> loadIdentityMatrix();
-  }
-
 };
 
 
