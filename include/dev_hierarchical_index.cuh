@@ -18,13 +18,11 @@ private:
   int offset_x;
   int offset_y;
   int rank;
-  bool transpose;
 
   int n_ptrs;
   void ** data_ptrs;
   int tmp_id;
 
-  const void * struct_ptr;
   const void * root_ptr;
 
 public:
@@ -36,11 +34,9 @@ public:
     type = empty;
     nx = ny = ld_x = ld_y = 0;
     offset_x = offset_y = rank = 0;
-    transpose = false;
     n_ptrs = 0;
     data_ptrs = nullptr;
     tmp_id = -1;
-    struct_ptr = nullptr;
     root_ptr = nullptr;
   }
 
@@ -61,11 +57,9 @@ public:
     offset_x = index -> offset_x;
     offset_y = index -> offset_y;
     rank = index -> rank;
-    transpose = index -> transpose;
 
     n_ptrs = index -> n_ptrs;
     tmp_id = index -> tmp_id;
-    struct_ptr = index -> struct_ptr;
     root_ptr = index -> root_ptr;
 
     indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
@@ -87,12 +81,10 @@ public:
     ny = h -> getNy_abs();
     ld_x = ld_y = 0;
     offset_x = offset_y = rank = 0;
-    transpose = false;
 
     n_ptrs = 0;
     data_ptrs = nullptr;
     tmp_id = -1;
-    struct_ptr = h;
     root_ptr = h;
   }
 
@@ -113,7 +105,6 @@ public:
     ny = element -> getNy();
 
     offset_x = offset_y = 0;
-    transpose = index -> transpose;
     tmp_id = -1;
 
     if (type == hierarchical)
@@ -121,7 +112,6 @@ public:
       ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
-      struct_ptr = element -> getElementHierarchical();
     }
     else if (type == low_rank)
     {
@@ -131,7 +121,6 @@ public:
       ld_y = lr -> getVT() -> getLd();
       rank = lr -> getRank();
       data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
-      struct_ptr = lr;
     }
     else if (type == dense)
     {
@@ -140,14 +129,12 @@ public:
       ld_x = d -> getLd();
       ld_y = rank = 0;
       data_ptrs = new void *[1] { d -> getElements() };
-      struct_ptr = d;
     }
     else
     {
       ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
-      struct_ptr = nullptr;
     }
 
     root_ptr = index -> root_ptr;
@@ -172,7 +159,6 @@ public:
     offset_x = index -> offset_x + x_start;
     offset_y = index -> offset_y + y_start;
     rank = index -> rank;
-    transpose = index -> transpose;
 
     n_ptrs = index -> n_ptrs;
     data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
@@ -181,7 +167,6 @@ public:
     for (int i = 0; i < n_ptrs; i++)
     { data_ptrs[i] = (index -> data_ptrs)[i]; }
 
-    struct_ptr = index -> struct_ptr;
     root_ptr = index -> root_ptr;
   }
 
@@ -222,7 +207,7 @@ public:
   { return min > rank ? rank : min; }
 
   __host__ inline int getTranspose() const
-  { return (int) transpose; }
+  { return (int) isVT(); }
 
   __host__ relation_t compare (const h_index * index) const
   {
@@ -276,11 +261,9 @@ public:
       addr -> offset_x = offset_x;
       addr -> offset_y = offset_y;
       addr -> rank = rank;
-      addr -> transpose = transpose;
 
       addr -> n_ptrs = n_ptrs;
       addr -> tmp_id = tmp_id;
-      addr -> struct_ptr = struct_ptr;
       addr -> root_ptr = root_ptr;
 
       addr -> indexs = (index_lvls > 0) ? new int [index_lvls] : nullptr;
@@ -304,7 +287,7 @@ public:
   __host__ void setVT ()
   { 
     if (isLowRank_Full())
-    { offset_y = -1; transpose = !transpose; }
+    { offset_y = -1; }
   }
 
   __host__ void setTemp_Dense (const int block_id)
@@ -314,7 +297,6 @@ public:
     ld_y = 0;
     rank = 0;
     tmp_id = block_id;
-    struct_ptr = nullptr;
     root_ptr = nullptr;
 
     if (data_ptrs != nullptr) 
@@ -332,7 +314,6 @@ public:
     ld_y = rank_in;
     rank = rank_in;
     tmp_id = block_id;
-    struct_ptr = nullptr;
     root_ptr = nullptr;
 
     if (data_ptrs != nullptr) 
@@ -404,10 +385,10 @@ public:
   { return isLowRank() && offset_x >= 0 && offset_y >= 0; }
 
   __host__ inline bool isU () const
-  { return isLowRank() && !transpose && offset_x == -1; }
+  { return isLowRank() && offset_x == -1; }
 
   __host__ inline bool isVT () const
-  { return isLowRank() && transpose && offset_y == -1; }
+  { return isLowRank() && offset_y == -1; }
 
   __host__ void print() const
   {

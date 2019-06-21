@@ -6,20 +6,21 @@
 
 template <class T>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ void matrixCopy_fromRM (const T * __restrict__ from, T * __restrict__ to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
+__device__ void matrixCopy_fromRM (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to, const bool transpose)
 {
-  for (int i = thread_rank(); i < nx * ny; i += block_dim())
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
+
+  if (transpose)
+  for (int row = w_id; row < nx_to; row += n_wp)
   {
-    if (transpose)
-    { 
-      const int row = i / ny, col = i - row * ny;
-      to[col * ld_to + row] = from[row * ld_from + col]; 
-    }
-    else
-    { 
-      const int row = i / nx, col = i - row * nx;
-      to[row * ld_to + col] = from[row * ld_from + col]; 
-    }
+    for (int col = l_id; col < ny_to; col += warpSize)
+    { to[col * ld_to + row] = from[row * ld_from + col]; }
+  }
+  else
+  for (int row = w_id; row < ny_to; row += n_wp)
+  {
+    for (int col = l_id; col < nx_to; col += warpSize)
+    { to[row * ld_to + col] = from[row * ld_from + col]; }
   }
 }
 
@@ -487,6 +488,25 @@ template <class T>
    }
 
 }
+
+
+ template <class T>
+ __device__ void matrixCopy_fromRM_old(const T* __restrict__ from, T* __restrict__ to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
+ {
+   for (int i = thread_rank(); i < nx * ny; i += block_dim())
+   {
+     if (transpose)
+     {
+       const int row = i / ny, col = i - row * ny;
+       to[col * ld_to + row] = from[row * ld_from + col];
+     }
+     else
+     {
+       const int row = i / nx, col = i - row * nx;
+       to[row * ld_to + col] = from[row * ld_from + col];
+     }
+   }
+ }
 
 
 #endif

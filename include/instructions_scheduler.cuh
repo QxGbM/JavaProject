@@ -9,6 +9,7 @@ private:
   int inst;
   int n_deps;
   bool ex_w;
+  long long flops_at;
   instructions_queue * next;
 
 public:
