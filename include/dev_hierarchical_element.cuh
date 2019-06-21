@@ -639,8 +639,8 @@ public:
 
     index -> print();
 
-    if (d != nullptr) { d -> print(); }
-    if (lr != nullptr) { lr -> print(); }
+    if (d != nullptr) { d -> print(0, 8, 0, 8); }
+    if (lr != nullptr) { lr -> print(0, 8, 0, 8, 8); }
     if (h != nullptr) { h -> print(index); } 
   }
 

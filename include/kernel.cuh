@@ -184,13 +184,14 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   cudaStreamCreate(&main_stream);
 
   double clock_start, clock_end;
+  cudaError_t error = cudaSuccess;
   dev_temp tmp_mngr = dev_temp();
 
   clock_start = omp_get_wtime();
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
-  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); //tree->print();
+  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); tree->print();
 
   clock_start = omp_get_wtime();
   h_ops_dag dag = h_ops_dag (tree);
@@ -216,7 +217,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   args = new void *[3] { &dev_insts, &dev_ptrs, &comm_space };
 
   myTimer.newEvent("Kernel", start, main_stream);
-  cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T, shm_size>, workers, num_threads, args, 0, main_stream);
+  error = cudaLaunchKernel((void *) kernel_dynamic <T, shm_size>, workers, num_threads, args, 0, main_stream);
   myTimer.newEvent("Kernel", end, main_stream);
 
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));

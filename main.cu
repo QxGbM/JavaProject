@@ -14,7 +14,7 @@ template <class T> __host__ int test0()
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int n = 2, levels = 1, dim = 256, admis = 1;
+  /*const int n = 2, levels = 1, dim = 256, admis = 1;
 
   dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
   a -> loadTestMatrix(levels, n, dim, admis);
@@ -24,7 +24,15 @@ template <class T> __host__ int test0()
   b -> loadTestMatrix();
   printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
   delete c; c = nullptr;
-#endif // ref
+#endif // ref*/
+
+  FILE * stream = fopen("bin/test.struct", "r");
+  dev_hierarchical<double> * a = dev_hierarchical<double>::readStructureFromFile(stream);
+  fclose(stream);
+
+  stream = fopen("bin/test.bin", "rb");
+  a -> loadBinary_ReverseEndian(stream);
+  fclose(stream);
 
   const int blocks = 160, threads = 1024;
   cudaError_t error = hierarchical_GETRF <T, 12288> (a, blocks, threads);
@@ -32,16 +40,18 @@ template <class T> __host__ int test0()
 #ifdef ref
   if (error == cudaSuccess)
   {
-    c = a -> convertToDense();
+    a->print();
+    dev_dense <T>* c = a->convertToDense(), * b = new dev_dense <T>(c->getNx(), c->getNy()); b -> loadTestMatrix();
+    //c = a->convertToDense();
+
     partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
     cudaDeviceSynchronize();
 
     printf("Rel. L2 Error: %e\n\n", b -> L2Error(c)); 
     delete b; b = nullptr;
+    delete c; c = nullptr;
   }
-  delete c; c = nullptr;
 #endif // ref
-
   delete a;
 
   return 0;
@@ -107,9 +117,13 @@ void test2()
   stream = fopen("bin/test.bin", "rb");
   h->loadBinary_ReverseEndian(stream);
   fclose(stream);
+  //h->print();
 
+  dev_dense<double> * d = h->convertToDense(), * ref_mat = new dev_dense<double> (d->getNx(), d->getNy());
+  ref_mat->loadTestMatrix();
 
-  dev_dense<double> * d = h->convertToDense();
+  printf("Rel. L2 Error: %e\n\n", d->L2Error(ref_mat));
+
   delete h;
   delete d;
 }
@@ -117,9 +131,9 @@ void test2()
 
 int main(int argc, char **argv)
 {
-  //test0 <double> ();
+  test0 <double> ();
   //test1();
-  test2();
+  //test2();
 
   return 0;
 }

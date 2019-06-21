@@ -24,8 +24,8 @@ public:
 
     rank = (rank_in > 0 && rank_in <= n) ? rank_in : n;
 
-    UxS = new dev_dense <T> (ny, rank); 
-    VT = new dev_dense <T> (nx, rank);
+    UxS = new dev_dense <T> (rank, ny); 
+    VT = new dev_dense <T> (rank, nx);
   }
 
   __host__ dev_low_rank (dev_dense <T> * data_in)
@@ -690,11 +690,11 @@ public:
   }
 
 
-  __host__ void print() const
+  __host__ void print(const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0, const int rank_in = 0) const
   {
     printf("\n-- LR: %d x %d, rank %d --\n", ny, nx, rank);
-    UxS -> print();
-    VT -> print();
+    UxS -> print(y_start, ny_in, 0, rank_in);
+    VT -> print(x_start, nx_in, 0, rank_in);
   }
 
   __host__ void loadTestMatrix (compressor * comp, const int x_start = 0, const int y_start = 0)
