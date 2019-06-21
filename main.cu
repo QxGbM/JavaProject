@@ -13,21 +13,20 @@ template <class T> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
+  unsigned int rnd_seed_in = 200;
 
-  /*const int n = 2, levels = 1, dim = 256, admis = 1;
+  T * rnd_seed = new T [_RND_SEED_LENGTH];
+  srand(rnd_seed_in);
 
-  dev_hierarchical <T> *a = new dev_hierarchical <T> (n, n);
-  a -> loadTestMatrix(levels, n, dim, admis);
+#pragma omp parallel for
+  for (int i = 0; i < _RND_SEED_LENGTH; i++) 
+  { rnd_seed[i] = (T) rand() / RAND_MAX; }
 
-#ifdef ref
-  dev_dense <T> *c = a -> convertToDense(), *b = new dev_dense <T> (dim, dim);
-  b -> loadTestMatrix();
-  printf("Compression Rel. L2 Error: %e\n\n", b -> L2Error(c));
-  delete c; c = nullptr;
-#endif // ref*/
+  cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(T), 0, cudaMemcpyHostToDevice);
+  delete[] rnd_seed;
 
   FILE * stream = fopen("bin/test.struct", "r");
-  dev_hierarchical<double> * a = dev_hierarchical<double>::readStructureFromFile(stream);
+  dev_hierarchical<T> * a = dev_hierarchical<T>::readStructureFromFile(stream);
   fclose(stream);
 
   stream = fopen("bin/test.bin", "rb");
@@ -40,9 +39,7 @@ template <class T> __host__ int test0()
 #ifdef ref
   if (error == cudaSuccess)
   {
-    a->print();
     dev_dense <T>* c = a->convertToDense(), * b = new dev_dense <T>(c->getNx(), c->getNy()); b -> loadTestMatrix();
-    //c = a->convertToDense();
 
     partial_pivot_kernel <<<1, 1024, 0, 0 >>> (b -> getElements(), b -> getNx(), b -> getNy(), b -> getLd(), nullptr);
     cudaDeviceSynchronize();
