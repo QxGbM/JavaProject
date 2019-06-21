@@ -1,9 +1,10 @@
 {
 	"folders": [
-		{
-			"path": "D:\\Workspace\\Pastel-Palettes"
-		}
-	],
+    {
+      "name": "Pastel-Palettes",
+      "path": "..\\"
+    }
+  ],
 	"settings": {
 		"maven.view": "hierarchical",
 		"java.configuration.updateBuildConfiguration": "interactive"
