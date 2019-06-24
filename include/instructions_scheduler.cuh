@@ -9,7 +9,6 @@ private:
   int inst;
   int n_deps;
   bool ex_w;
-  long long flops_at;
   instructions_queue * next;
 
 public:
@@ -110,9 +109,13 @@ class instructions_scheduler
 private:
   int length;
   int workers;
+
   instructions_queue * working_queue;
   instructions_queue ** result_queues;
+
   int * inward_deps_counter;
+  long long int * flops_after_inst;
+  long long int * flops_worker;
   int * state;
 
   __host__ void load_working_queue (const h_ops_dag * dag)
@@ -142,52 +145,67 @@ private:
 
   __host__ int commWriteToState (const int dep_src, const int dep_dest, const int worker_dest)
   {
-    if (state[worker_dest * length + dep_src] >= 0) { return -1; }
-
-    int worker_src = -1, signal_src = -1;
-
-    for (int i = 0; i < workers && signal_src == -1; i++)
-    { 
-      signal_src = result_queues[i] -> getIndex_InstExe (dep_src); 
-      if (signal_src != -1) { worker_src = i; } 
-    }
-
-    const int signal_dest = result_queues[worker_dest] -> getNumInsts();
-
-    for (int i = 0; i < length; i++)
+    if (state[worker_dest * length + dep_src] >= 0) 
+    { return -1; }
+    else
     {
-      const int inst_completed_src = state[worker_src * length + i], inst_completed_dest = state[worker_dest * length + i];
-      if (inst_completed_src >= 0 && inst_completed_src <= signal_src && inst_completed_dest == -1)
-      { state[worker_dest * length + i] = signal_dest; }
+      int worker_src = -1, signal_src = -1;
+
+      for (int i = 0; i < workers && signal_src == -1; i++)
+      { 
+        signal_src = result_queues[i] -> getIndex_InstExe (dep_src); 
+        if (signal_src != -1) { worker_src = i; } 
+      }
+
+      const int signal_dest = result_queues[worker_dest] -> getNumInsts();
+
+      for (int i = 0; i < length; i++)
+      {
+        const int inst_completed_src = state[worker_src * length + i], inst_completed_dest = state[worker_dest * length + i];
+        if (inst_completed_src >= 0 && inst_completed_src <= signal_src && inst_completed_dest == -1)
+        { state[worker_dest * length + i] = signal_dest; }
+      }
+
+      return dep_src;
     }
 
-    return dep_src;
   }
 
   __host__ void schedule (const h_ops_dag * dag)
   {
     int scheduled_insts = 0, iter = 0, comm_wait_counts = 0;
+
     while (scheduled_insts < length && iter < _MAX_SCHEDULER_ITERS)
     {
       load_working_queue (dag);
 
-#pragma omp parallel for reduction (+:scheduled_insts, comm_wait_counts)
+#pragma omp parallel for reduction (+: scheduled_insts, comm_wait_counts)
       for (int i = 0; i < workers; i++)
       {
         const int inst = working_queue -> getInst_Index(i);
+
         if (inst != -1)
         {
+          const long long int flops = dag -> getFlops(inst);
+          long long int flops_start = flops_worker[i];
+
           for (int j = 0; j < inst; j++)
           {
             if (dag -> getDep(j, inst) > no_dep)
             { 
               const int wait = commWriteToState(j, inst, i);
               if (wait >= 0) 
-              { add_inst(wait, false, i); comm_wait_counts ++; } 
+              { 
+                add_inst(wait, false, i);
+                const long long int flops_wait = flops_after_inst[wait];
+                flops_start = flops_start < flops_wait ? flops_wait : flops_start;
+                comm_wait_counts ++; 
+              } 
             }
           }
 
           state[i * length + inst] = add_inst(inst, true, i);
+          flops_after_inst[inst] = flops_worker[i] = flops_start + flops;
 
           for (int j = inst; j < length; j++)
           {
@@ -197,21 +215,39 @@ private:
           }
 
           inward_deps_counter[inst] = -1;
-          scheduled_insts++;
+          scheduled_insts ++;
         }
+
       }
       working_queue = working_queue -> removeFirst(workers);
       iter++;
+
     }
 
     if (scheduled_insts == length)
-    { 
-      const double DOP = 100. * length / iter / workers, CPI = 1. * comm_wait_counts / length;
-      printf("-- Scheduler --\n"
+    {
+      long long flops_max_worker = 0, flops_total = dag -> getFlops();
+
+      for (int i = 0; i < workers; i++)
+      {
+        const long long flops_worker_i = flops_worker[i];
+        if (flops_worker_i > flops_max_worker)
+        { flops_max_worker = flops_worker_i; }
+      }
+
+      const double heaviest_worker_to_total = 100. * flops_max_worker / flops_total;
+      const double inst_lvl_prll = 100. * length / iter / workers;
+      const double flops_prll = 100. * flops_total / flops_max_worker / workers;
+      const double comm_per_inst = 1. * comm_wait_counts / length;
+
+      printf("-- Scheduler Summary --\n"
         "Total # of Instructions: %d. \n"
         "Successfully scheduled with %d iterations. \n"
+        "Percent Heaviest Loaded Worker to Total Ratio: %f%%. \n"
         "Degree of Thread-Block Level Parallelism: %f%%. \n"
-        "Avg. # of Communications per Instruction: %f. \n\n", length, iter, DOP, CPI);
+        "Degree of Flops Parallelism: %f%%. \n"
+        "Avg. # of Communications per Instruction: %f. \n\n", 
+        length, iter, heaviest_worker_to_total, inst_lvl_prll, flops_prll, comm_per_inst);
     }
     else
     { printf("Reached max iterations: %d. \n", iter); }
@@ -226,6 +262,8 @@ public:
     working_queue = nullptr;
     result_queues = new instructions_queue * [workers];
     inward_deps_counter = new int [length];
+    flops_after_inst = new long long int [length];
+    flops_worker = new long long int [workers];
 
     const int size = length * workers;
     state = new int [size];
@@ -238,6 +276,8 @@ public:
     for (int i = 0; i < length; i++)
     { inward_deps_counter[i] = dag -> getDepCount_to(i); }
 
+    memset(flops_after_inst, 0, length * sizeof(long long int));
+    memset(flops_worker, 0, workers * sizeof(long long int));
     memset(state, 0xffffffff, size * sizeof(int));
 
     schedule (dag);
@@ -252,6 +292,8 @@ public:
 
     delete[] result_queues;
     delete[] inward_deps_counter;
+    delete[] flops_after_inst;
+    delete[] flops_worker;
     delete[] state;
   }
 
@@ -261,7 +303,7 @@ public:
   __host__ void print () const
   {
     for (int i = 0; i < workers; i++)
-    { printf("%d: ", i); result_queues[i] -> print(); }
+    { printf("%d: ", i); result_queues[i] -> print(); printf("flops: %lld \n", flops_worker[i]); }
   }
 };
 

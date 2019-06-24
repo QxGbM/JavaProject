@@ -440,6 +440,19 @@ __device__ void blockDenseGetrf_shm (T * __restrict__ M, int * __restrict__ p, c
 
 }
 
+template <class T> 
+/* LU decomposition of matrix of ny by nx, utilizes L1 cache. */
+__device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx > ny ? ny : nx;
+  
+  for (int i = 0; i < min_n; i += warpSize)
+  {
+    const int t_row = i + w_id, t_col = i + l_id, m_i = t_row * ld + t_col;
+  }
+
+}
+
 template <class T>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. Utilizes L1 cache. */
 __device__ void blockDenseTrsmL_shm (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, 

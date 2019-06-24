@@ -202,7 +202,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   clock_start = omp_get_wtime();
   instructions_scheduler schedule = instructions_scheduler (&dag, workers);
   clock_end = omp_get_wtime();
-  printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start));
+  printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); //schedule.print();
 
   T ** tmp_ptrs = tmp_mngr.allocate <T> ();
 

@@ -62,7 +62,7 @@ class h_ops_dag
 private:
 
   int length;
-  long long int flops;
+  long long int * flops;
   h_ops_tree * ops_list;
   dependency_linked_list ** deps_graph;
 
@@ -71,8 +71,9 @@ public:
   __host__ h_ops_dag (const h_ops_tree * ops, const int start_index = 0, const int length_max = 0) 
   {
     ops_list = ops -> flatten(start_index, length_max);
-    flops = ops_list -> getFlops();
     length = ops_list -> length();
+
+    flops = new long long int[length];
     deps_graph = new dependency_linked_list * [length];
 
 #pragma omp parallel for
@@ -86,6 +87,7 @@ public:
         if (dep > no_dep)
         { if (list == nullptr) list = new dependency_linked_list(j, dep); else list -> insertDependency(j, dep); }
       }
+      flops[i] = from -> getFlops();
       deps_graph[i] = list;
     }
   }
@@ -123,8 +125,19 @@ public:
     return sum;
   }
 
-  __host__ inline long long int getFlops () const
-  { return flops; }
+  __host__ long long int getFlops (const int index = -1) const
+  { 
+    if (index >= 0 && index < length) 
+    { return flops[index]; }
+    else
+    {
+      long long int accum = 0;
+#pragma omp parallel for reduction(+:accum)
+      for (int i = 0; i < length; i++)
+      { accum += flops[i]; }
+      return accum;
+    }
+  }
 
   __host__ void print() const
   {
@@ -153,9 +166,9 @@ public:
           printf("] ");
         }
       }
-      printf("Flops: %lld \n", to -> getFlops());
+      printf("Flops: %lld \n", flops[i]);
     }
-    printf("Total Flops: %lld.\n\n", flops);
+    printf("Total Flops: %lld.\n\n", getFlops());
   }
   
 };

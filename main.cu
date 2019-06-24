@@ -45,8 +45,12 @@ template <class T> __host__ int test0()
     c->loadBinary_ReverseEndian(stream);
     fclose(stream);
 
+    timer my_timer = timer();
+    my_timer.newEvent("ref", start);
     partial_pivot_kernel <<<1, 1024, 0, 0 >>> (c -> getElements(), c -> getNx(), c -> getNy(), c -> getLd(), nullptr);
-    cudaDeviceSynchronize();
+    my_timer.newEvent("ref", end);
+
+    my_timer.dumpAllEvents_Sync();
 
     printf("Rel. L2 Error: %e\n\n", c -> L2Error(b)); 
     delete b; b = nullptr;
