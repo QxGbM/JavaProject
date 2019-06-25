@@ -24,58 +24,6 @@ __device__ void matrixCopy_fromRM (const T * __restrict__ from, T * __restrict__
   }
 }
 
-template <class T>
-/* A convinient call to copy from shared memory to global or vice versa. Reading "to" in row major. */
-__device__ void matrixCopy_toRM (const T * __restrict__ from, T * __restrict__ to, const int nx, const int ny, const int ld_from, const int ld_to, const bool transpose)
-{
-  for (int i = thread_rank(); i < nx * ny; i += block_dim())
-  {
-    if (transpose)
-    { 
-      const int row = i / ny, col = i - row * ny;
-      to[row * ld_to + col] = from[col * ld_from + row]; 
-    }
-    else
-    { 
-      const int row = i / nx, col = i - row * nx;
-      to[row * ld_to + col] = from[row * ld_from + col]; 
-    }
-  }
-}
-
-template <class T> 
-/* Scalar of a vector of length n. */
-__device__ void blockVectorScalar(const T scale, T * V, const int n)
-{
-  for (int i = thread_rank(); i < n; i += block_dim())
-  { V[i] = (scale == 0) ? 0 : V[i] * scale; }
-}
-
-template <class T> 
-/* Scalar of a matrix of ny by nx. */
-__device__ void blockDenseScalar (const T scale, T * M, const int nx, const int ny, const int ld)
-{
-  for (int i = thread_rank(); i < nx * ny; i += block_dim())
-  { 
-    const int row = i / nx, col = i - row * nx;
-    M[row * ld + col] = (scale == 0) ? 0 : M[row * ld + col] * scale;
-  }
-}
-
-template <class T>
-/* An overloaded version of GEMM, specialized in substraction and k = 1. */
-__device__ void blockDenseGemm_K1_RM_Sub (T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, const int m, const int n,
-  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm)
-{
-  matrixCopy_fromRM <T> (B, &shm[0], n, 1, ld_b, n, b_T);
-  __syncthreads();
-
-  for (int i = thread_rank(); i < m * n; i += block_dim())
-  {
-    const int row = i / n, col = i - row * n;
-    M[row * ld_m + col] -= (a_T ? A[row] : A[row * ld_a]) * shm[col];
-  }
-}
 
 template <class T>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
@@ -402,11 +350,154 @@ __device__ void resetPivot (int *p, const int n)
   { p[i] = i; }
 }
 
+
+
+template <class T> 
+/* LU decomposition of matrix of ny by nx. */
+__device__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx > ny ? ny : nx;
+  
+  for (int i = 0; i < min_n; i ++)
+  {
+    for (int row = w_id + i + 1; row < ny; row += n_wp)
+    {
+      T left;
+      if (l_id == 0)
+      { left = M[row * ld + i] / M[i * ld + i]; M[row * ld + i] = left; }
+      __syncwarp();
+
+      left = __shfl_sync (0xffffffff, left, 0, warpSize);
+
+      for (int col = l_id + i + 1; col < nx; col += warpSize)
+      { M[row * ld + col] = M[row * ld + col] - left * M[i * ld + col]; }
+    }
+    __syncthreads();
+  }
+
+}
+
+template <class T>
+/* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
+__device__ void DenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_l > ny_b ? ny_b : nx_l;
+
+  for (int i = 0; i < min_n; i ++)
+  {
+    for (int row = w_id + i + 1; row < ny_b; row += n_wp)
+    {
+      T left = L[row * ld_l + i];
+
+      for (int col = l_id; col < nx_b; col += warpSize)
+      { B[row * ld_b + col] = B[row * ld_b + col] - B[i * ld_b + col] * left; }
+    }
+    __syncthreads();
+  }
+}
+
+template <class T>
+/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
+__device__ void DenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
+
+  for (int i = 0; i < min_n; i ++)
+  {
+    for (int row = w_id; row < ny_b; row += n_wp)
+    {
+      T left;
+      if (l_id == 0)
+      { left = B[row * ld_b + i] / U[i * ld_u + i]; B[row * ld_b + i] = left; }
+      __syncwarp();
+
+      left = __shfl_sync (0xffffffff, left, 0, warpSize);
+
+      for (int col = l_id + i + 1; col < nx_b; col += warpSize)
+      { B[row * ld_b + col] = B[row * ld_b + col] - U[i * ld_u + col] * left; }
+    }
+    __syncthreads();
+  }
+}
+
+template <class T>
+/* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
+__device__ void DenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
+
+  for (int i = 0; i < min_n; i ++)
+  {
+    if (w_id == 0)
+    {
+      for (int col = l_id; col < ny_b; col += warpSize)
+      { B[i * ld_b + col] = B[i * ld_b + col] / U[i * ld_u + i]; }
+    }
+    __syncthreads();
+
+    for (int row = w_id + i + 1; row < nx_b; row += n_wp)
+    {
+      T left = U[i * ld_u + row];
+
+      for (int col = l_id; col < ny_b; col += warpSize)
+      { B[row * ld_b + col] = B[row * ld_b + col] - left * B[i * ld_b + col]; }
+    }
+    __syncthreads();
+  }
+}
+
+template <class T, int block_dim> 
+/* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
+__device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
+{
+  const int min_n = nx > ny ? ny : nx;
+
+  for (int i = 0; i < min_n; i += block_dim)
+  {
+    int diag_nx, diag_ny, remain_nx, remain_ny;
+
+    if (nx - i >= block_dim)
+    { diag_nx = block_dim; remain_nx = nx - i - block_dim; }
+    else
+    { diag_nx = nx - i; remain_nx = 0; }
+
+    if (ny - i >= block_dim)
+    { diag_ny = block_dim; remain_ny = ny - i - block_dim; }
+    else
+    { diag_ny = ny - i; remain_ny = 0; }
+
+    matrixCopy_fromRM <T> (&M[i * ld + i], shm, diag_nx, diag_ny, ld, diag_nx, false);
+    __syncthreads();
+
+    DenseGetrf <T> (shm, diag_nx, diag_ny, diag_nx);
+
+    matrixCopy_fromRM <T> (shm, &M[i * ld + i], diag_nx, diag_ny, diag_nx, ld, false);
+
+    bool solve_row = remain_nx > 0, solve_col = remain_ny > 0;
+
+    if (solve_row)
+    { DenseTrsmL <T> (&M[i * ld + i + diag_nx], shm, remain_nx, diag_ny, diag_nx, ld, diag_nx); }
+
+    if (solve_col)
+    { DenseTrsmR <T> (&M[(i + diag_ny) * ld + i], shm, diag_nx, remain_ny, diag_ny, ld, diag_nx); }
+
+    __syncthreads();
+
+    if (solve_row && solve_col)
+    {
+      blockDenseGemm_shm <T>(-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false, shm, 6144);;
+    }
+  }
+
+}
+
+
 template <class T> 
 /* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
 __device__ void blockDenseGetrf_shm (T * __restrict__ M, int * __restrict__ p, const int nx, const int ny, const int ld, T * __restrict__ shm)
 {
-  if (p != nullptr) { resetPivot(p, ny); }
+  DenseGetrf(M, nx, ny, ld);
+  /*if (p != nullptr) { resetPivot(p, ny); }
 
   for (int i = 0; i < nx && i < ny; i++)
   {
@@ -436,20 +527,7 @@ __device__ void blockDenseGetrf_shm (T * __restrict__ M, int * __restrict__ p, c
 
     matrixCopy_toRM <T> (&shm[0], &M[i * ld + i], 1, ny - i, 1, ld, false);
     __syncthreads();
-  }
-
-}
-
-template <class T> 
-/* LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld)
-{
-  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx > ny ? ny : nx;
-  
-  for (int i = 0; i < min_n; i += warpSize)
-  {
-    const int t_row = i + w_id, t_col = i + l_id, m_i = t_row * ld + t_col;
-  }
+  }*/
 
 }
 
@@ -458,11 +536,12 @@ template <class T>
 __device__ void blockDenseTrsmL_shm (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, 
   const int ld_b, const int ld_l, const bool B_T, T * __restrict__ shm, const int shm_size)
 {
-  for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
+  DenseTrsmL <T> (B, L, nx_b, ny_b, nx_l, ld_b, ld_l);
+  /*for (int i = 0; i < nx_l && i + 1 < ny_b; i++)
   { 
     blockDenseGemm_K1_RM_Sub <T> (&B[(i + 1) * ld_b], &L[(i + 1) * ld_l + i], &B[i * ld_b], ny_b - (i + 1), nx_b, ld_b, ld_l, ld_b, false, false, shm);
     __syncthreads();
-  }
+  }*/
 }
 
  
@@ -471,7 +550,11 @@ template <class T>
  __device__ void blockDenseTrsmR_shm (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, 
    const int ld_b, const int ld_u, const bool B_T, T * __restrict__ shm, const int shm_size)
 {
-   const int rows_block = shm_size / nx_b;
+   if (B_T)
+   { DenseTrsmR_transposeB <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u); }
+   else
+   { DenseTrsmR <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u); }
+   /*const int rows_block = shm_size / nx_b;
    int rows_index = 0;
 
    while (rows_index < ny_b)
@@ -498,7 +581,7 @@ template <class T>
      matrixCopy_toRM <T> (shm, &B[B_T ? rows_index : rows_index * ld_b], nx_b, rows, nx_b, ld_b, B_T);
      rows_index += rows;
      __syncthreads();
-   }
+   }*/
 
 }
 

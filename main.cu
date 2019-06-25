@@ -6,7 +6,9 @@
 __global__ void partial_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[6144];
-  blockDenseGetrf_shm <double>(matrix, pivot, nx, ny, ld, &shm[0]);
+  //blockDenseGetrf_shm <double>(matrix, pivot, nx, ny, ld, &shm[0]);
+  //DenseGetrf <double> (matrix, nx, ny, ld);
+  blockDenseGetrf <double, 64> (matrix, nx, ny, ld, shm);
 }
 
 template <class T> __host__ int test0()
