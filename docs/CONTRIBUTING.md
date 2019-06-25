@@ -20,9 +20,25 @@ Update: done (2019 / 6 / 13)
 
 Make dag flatten only some portions of the tree.
 
+Update: Necessary function is built, but not implemented yet (2019 / 6 / 25)
+
 ## 4. Java Compressor Rework
 
 As a alternative to GPU compression, possible visualization in the future.
+
+Update: done (2019 / 6 / 25)
+
+## 5. Fixing device Functions
+
+Device side GEMM has really unstable scaling. Consider changing to tiled versions.
+
+GETRF and TRSMs assumed dimensions smaller than some shared memory size, can fail on some large inputs.
+
+## 6. Using flops to schedule DAG
+
+Flops for each GPU instruction can differ significantly if the hierarchy is deep.
+
+The current scheduling heuristic works well if each instruction has similar flops, but not good with hierarchy.
 
 ## More
 
