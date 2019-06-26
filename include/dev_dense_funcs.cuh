@@ -4,24 +4,102 @@
 
 #include <pspl.cuh>
 
-template <class T>
+template <class T, int step_size>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ void matrixCopy_fromRM (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to, const bool transpose)
+__device__ void matrixCopy (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to, const bool transpose)
 {
-  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = step_size * n_wp;
 
   if (transpose)
-  for (int row = w_id; row < nx_to; row += n_wp)
   {
-    for (int col = l_id; col < ny_to; col += warpSize)
-    { to[col * ld_to + row] = from[row * ld_from + col]; }
+    for (int row_start = w_id * step_size; row_start < nx_to; row_start += iter_step)
+    {
+      #pragma unroll step_size
+      for (int row = 0; row < step_size; row ++)
+      {
+        if (row < nx_to)
+        {
+          const int row_at = row + row_start;
+          const T * from_row = &from[row_at * ld_from];
+          for (int col = l_id; col < ny_to; col += warpSize)
+          { to[col * ld_to + row_at] = from_row[col]; }
+        }
+      }
+    }
+
   }
   else
-  for (int row = w_id; row < ny_to; row += n_wp)
   {
-    for (int col = l_id; col < nx_to; col += warpSize)
-    { to[row * ld_to + col] = from[row * ld_from + col]; }
+    for (int row_start = w_id * step_size; row_start < ny_to; row_start += iter_step)
+    {
+      #pragma unroll step_size
+      for (int row = 0; row < step_size; row ++)
+      {
+        if (row < ny_to)
+        {
+          const int row_at = row + row_start;
+          T * to_row = &to[row_at * ld_to];
+          const T * from_row = &from[row_at * ld_from];
+          for (int col = l_id; col < nx_to; col += warpSize)
+          { to_row[col] = from_row[col]; }
+        }
+      }
+    }
+
   }
+}
+
+template <class T, int step_size>
+/* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
+__device__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const bool transpose)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = step_size * n_wp;
+
+  if (transpose)
+  {
+    const int ld_to = ny_to;
+
+    for (int row_start = w_id * step_size; row_start < nx_to; row_start += iter_step)
+    {
+      #pragma unroll step_size
+      for (int row = 0; row < step_size; row ++)
+      {
+        if (row < nx_to)
+        {
+          const int row_at = row + row_start;
+          T * to_row = &to[row_at * ld_to];
+          const T * from_row = &from[row_at * ld_from];
+          for (int col = l_id; col < ny_to; col += warpSize)
+          { to_row[col] = from_row[col]; }
+        }
+      }
+    }
+
+    return ld_to;
+  }
+  else
+  {
+    const int ld_to = nx_to;
+
+    for (int row_start = w_id * step_size; row_start < ny_to; row_start += iter_step)
+    {
+      #pragma unroll step_size
+      for (int row = 0; row < step_size; row ++)
+      {
+        if (row < ny_to)
+        {
+          const int row_at = row + row_start;
+          T * to_row = &to[row_at * ld_to];
+          const T * from_row = &from[row_at * ld_from];
+          for (int col = l_id; col < nx_to; col += warpSize)
+          { to_row[col] = from_row[col]; }
+        }
+      }
+    }
+
+    return ld_to;
+  }
+
 }
 
 
@@ -35,15 +113,16 @@ __device__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
   {
     for (int row = w_id + i + 1; row < ny; row += n_wp)
     {
-      T left;
+      T left, * M_top = &M[i * ld], * M_row = &M[row * ld];
+
       if (l_id == 0)
-      { left = M[row * ld + i] / M[i * ld + i]; M[row * ld + i] = left; }
+      { left = M_row[i] / M_top[i]; M_row[i] = left; }
       __syncwarp();
 
       left = __shfl_sync (0xffffffff, left, 0, warpSize);
 
       for (int col = l_id + i + 1; col < nx; col += warpSize)
-      { M[row * ld + col] -= left * M[i * ld + col]; }
+      { M_row[col] -= left * M_top[col]; }
     }
     __syncthreads();
   }
@@ -60,10 +139,10 @@ __device__ void DenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const 
   {
     for (int row = w_id + i + 1; row < ny_b; row += n_wp)
     {
-      T left = L[row * ld_l + i];
+      T left = L[row * ld_l + i], * B_top = &B[i * ld_b], * B_row = &B[row * ld_b];
 
       for (int col = l_id; col < nx_b; col += warpSize)
-      { B[row * ld_b + col] -= B[i * ld_b + col] * left; }
+      { B_row[col] -= left * B_top[col]; }
     }
     __syncthreads();
   }
@@ -79,15 +158,17 @@ __device__ void DenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const 
   {
     for (int row = w_id; row < ny_b; row += n_wp)
     {
-      T left;
+      T left, * B_row = &B[row * ld_b];
+      const T * U_top = &U[i * ld_u];
+
       if (l_id == 0)
-      { left = B[row * ld_b + i] / U[i * ld_u + i]; B[row * ld_b + i] = left; }
+      { left = B_row[i] / U_top[i]; B_row[i] = left; }
       __syncwarp();
 
       left = __shfl_sync (0xffffffff, left, 0, warpSize);
 
       for (int col = l_id + i + 1; col < nx_b; col += warpSize)
-      { B[row * ld_b + col] -= left * U[i * ld_u + col]; }
+      { B_row[col] -= left * U_top[col]; }
     }
     __syncthreads();
   }
@@ -101,19 +182,22 @@ __device__ void DenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict_
 
   for (int i = 0; i < min_n; i ++)
   {
+    T * B_top = &B[i * ld_b];
+    const T * U_top = &U[i * ld_u];
+
     if (w_id == 0)
     {
       for (int col = l_id; col < ny_b; col += warpSize)
-      { B[i * ld_b + col] /= U[i * ld_u + i]; }
+      { B_top[col] /= U_top[i]; }
     }
     __syncthreads();
 
     for (int row = w_id + i + 1; row < nx_b; row += n_wp)
     {
-      T left = U[i * ld_u + row];
+      T left = U_top[row], * B_row = &B[row * ld_b];
 
       for (int col = l_id; col < ny_b; col += warpSize)
-      { B[row * ld_b + col] -= left * B[i * ld_b + col]; }
+      { B_row[col] -= left * B_top[col]; }
     }
     __syncthreads();
   }
@@ -130,14 +214,16 @@ __device__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, cons
   if (beta == 0.)
   for (int row = w_id; row < m; row += n_wp)
   {
+    T * M_row = &M[row * ld_m];
     for (int col = l_id; col < n; col += warpSize)
-    { M[row * ld_m + col] = 0.; }
+    { M_row[col] = 0.; }
   }
   else if (beta != 1.)
   for (int row = w_id; row < m; row += n_wp)
   {
+    T * M_row = &M[row * ld_m];
     for (int col = l_id; col < n; col += warpSize)
-    { M[row * ld_m + col] *= beta; }
+    { M_row[col] *= beta; }
   }
   __syncthreads();
 
@@ -147,6 +233,7 @@ __device__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, cons
 
     for (int row = w_id; row < m; row += n_wp) 
     {
+      T * M_row = &M[row * ld_m];
       const T * A_start = a_T ? &A[row] : &A[row * ld_a];
 
       for (int col = l_id; col < n; col += warpSize)
@@ -157,11 +244,66 @@ __device__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, cons
         for (int i = 0; i < k; i++)
         { accum += A_start[i * A_step] * B_start[i * B_step]; }
 
-        M[row * ld_m + col] += alpha * accum;
+        M_row[col] += alpha * accum;
       }
     }
   }
   __syncthreads();
+
+}
+
+template <class T, int block_dim_m, int block_dim_k>
+/* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
+__device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+  const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm)
+{
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
+
+  if (beta == 0.)
+  for (int row = w_id; row < m; row += n_wp)
+  {
+    T * M_row = &M[row * ld_m];
+    for (int col = l_id; col < n; col += warpSize)
+    { M_row[col] = 0.; }
+  }
+  else if (beta != 1.)
+  for (int row = w_id; row < m; row += n_wp)
+  {
+    T * M_row = &M[row * ld_m];
+    for (int col = l_id; col < n; col += warpSize)
+    { M_row[col] *= beta; }
+  }
+  __syncthreads();
+
+  T * shm_2 = &shm[block_dim_m * block_dim_k];
+  
+  for (int i = 0; i < n; i += block_dim_m)
+  {
+    const int n_remain = n - i, n_block = n_remain > block_dim_m ? block_dim_m : n_remain;
+
+    for (int j = 0; j < k; j += block_dim_k)
+    {
+      const int k_remain = k - j, k_block = k_remain > block_dim_k ? block_dim_k : k_remain;
+      const int B_offset = b_T ? i * ld_b + j : j * ld_b + i;
+
+      const int ld_2 = matrixCopy_keepT <T, 2> (&B[B_offset], shm_2, n_block, k_block, ld_b, b_T);
+      __syncthreads();
+
+      for (int l = 0; l < m; l += block_dim_m)
+      {
+        const int m_remain = m - l, m_block = m_remain > block_dim_m ? block_dim_m : m_remain;
+        const int A_offset = a_T ? j * ld_a + l : l * ld_a + j;
+
+        const int ld_1 = matrixCopy_keepT <T, 2> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
+        __syncthreads();
+
+        DenseGemm <T> (alpha, 1., &M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
+
+      }
+
+    }
+
+  }
 
 }
 
@@ -193,8 +335,8 @@ __device__ void blockDenseGemm_shm (const T alpha, const T beta, T * __restrict_
     for (int i0 = 0; i0 < k; i0 += step)
     {
       const int k_ = (k - i0 > step) ? step : k - i0;
-      matrixCopy_fromRM <T> (&A[a_T ? i0 * ld_a: i0], shm, k_, m, ld_a, k_, a_T);
-      matrixCopy_fromRM <T> (&B[b_T ? i0 : i0 * ld_b], shm_B, k_, n, ld_b, k_, !b_T);
+      matrixCopy <T, 1> (&A[a_T ? i0 * ld_a: i0], shm, k_, m, ld_a, k_, a_T);
+      matrixCopy <T, 1> (&B[b_T ? i0 : i0 * ld_b], shm_B, k_, n, ld_b, k_, !b_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -244,7 +386,7 @@ __device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * __restri
       const int k_ = (k - i0 > step) ? step : k - i0;
 
       blockDenseGemm_shm <T> (1., 0., shm_C, C, &B[b_T ? i0 : i0 * ld_b], n, k_, l, k_, ld_c, ld_b, !c_T, !b_T, shm, step * m);
-      matrixCopy_fromRM <T> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
+      matrixCopy <T, 1> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -267,7 +409,7 @@ __device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * __restri
       const int l_ = (l - i0 > step) ? step : l - i0;
 
       blockDenseGemm_shm <T> (1., 0., shm, A, &B[b_T ? i0 * ld_b : i0], m, l_, k, l_, ld_a, ld_b, a_T, b_T, shm_C, step * n);
-      matrixCopy_fromRM <T> (&C[c_T ? i0 : i0 * ld_c], shm_C, l_, n, ld_c, l_, !c_T);
+      matrixCopy <T, 1> (&C[c_T ? i0 : i0 * ld_c], shm_C, l_, n, ld_c, l_, !c_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -318,7 +460,7 @@ __device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * __restri
       const int o_ = (o - i0 > step) ? step : o - i0;
 
       blockDenseGemm_3x_shm <T> (1., 0., shm, A, B, &C[c_T ? i0 * ld_c : i0], m, o_, k, l, o_, ld_a, ld_b, ld_c, a_T, b_T, c_T, shm_D, step * n);
-      matrixCopy_fromRM <T> (&D[d_T ? i0 : i0 * ld_d], shm_D, o_, n, ld_d, o_, !d_T);
+      matrixCopy <T, 1> (&D[d_T ? i0 : i0 * ld_d], shm_D, o_, n, ld_d, o_, !d_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -341,7 +483,7 @@ __device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * __restri
       const int k_ = (k - i0 > step) ? step : k - i0;
 
       blockDenseGemm_3x_shm <T> (1., 0., shm_D, D, C, &B[b_T ? i0 : i0 * ld_b], n, k_, o, l, k_, ld_d, ld_c, ld_b, !d_T, !c_T, !b_T, shm, step * m);
-      matrixCopy_fromRM <T> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
+      matrixCopy <T, 1> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -511,12 +653,12 @@ __device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny,
     else
     { diag_ny = ny - i; remain_ny = 0; }
 
-    matrixCopy_fromRM <T> (&M[i * ld + i], shm, diag_nx, diag_ny, ld, diag_nx, false);
+    matrixCopy_keepT <T, 2> (&M[i * ld + i], shm, diag_nx, diag_ny, ld, false);
     __syncthreads();
 
     DenseGetrf <T> (shm, diag_nx, diag_ny, diag_nx);
 
-    matrixCopy_fromRM <T> (shm, &M[i * ld + i], diag_nx, diag_ny, diag_nx, ld, false);
+    matrixCopy <T, 2> (shm, &M[i * ld + i], diag_nx, diag_ny, diag_nx, ld, false);
 
     bool solve_row = remain_nx > 0, solve_col = remain_ny > 0;
 
@@ -531,7 +673,8 @@ __device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny,
     if (solve_row && solve_col)
     {
       //blockDenseGemm_shm <T>(-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false, shm, 6144);
-      DenseGemm <T> (-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false);
+      //DenseGemm <T>(-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false);
+      blockDenseGemm <T, 64, 48> (-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false, shm);
     }
   }
 
