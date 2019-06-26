@@ -38,7 +38,7 @@ exe:
     T * M = (T *) ptrs[shm[3]]; 
     const int offset = shm[4], nx = shm[5], ny = shm[6], ld = shm[7];
     __syncthreads();
-    blockDenseGetrf_shm <T> (&M[offset], nullptr, nx, ny, ld, (T *) shm);
+    blockDenseGetrf <T, 64, 48, 2> (&M[offset], nx, ny, ld, (T *) shm);
     next_pc = 8; goto write;  
   }
 
@@ -68,7 +68,7 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm <T, 64, 48, 2> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = 17; goto write;
   }
 
@@ -78,7 +78,7 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm_shm <T> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm <T, 64, 48, 2> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = 17; goto write;
   }
 

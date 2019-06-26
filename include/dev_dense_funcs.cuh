@@ -252,7 +252,7 @@ __device__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, cons
 
 }
 
-template <class T, int block_dim_m, int block_dim_k>
+template <class T, int block_dim_m, int block_dim_k, int step_size>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
 __device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm)
@@ -286,7 +286,7 @@ __device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M,
       const int k_remain = k - j, k_block = k_remain > block_dim_k ? block_dim_k : k_remain;
       const int B_offset = b_T ? i * ld_b + j : j * ld_b + i;
 
-      const int ld_2 = matrixCopy_keepT <T, 2> (&B[B_offset], shm_2, n_block, k_block, ld_b, b_T);
+      const int ld_2 = matrixCopy_keepT <T, step_size> (&B[B_offset], shm_2, n_block, k_block, ld_b, b_T);
       __syncthreads();
 
       for (int l = 0; l < m; l += block_dim_m)
@@ -294,7 +294,7 @@ __device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M,
         const int m_remain = m - l, m_block = m_remain > block_dim_m ? block_dim_m : m_remain;
         const int A_offset = a_T ? j * ld_a + l : l * ld_a + j;
 
-        const int ld_1 = matrixCopy_keepT <T, 2> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
+        const int ld_1 = matrixCopy_keepT <T, step_size> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
         __syncthreads();
 
         DenseGemm <T> (alpha, 1., &M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
@@ -306,6 +306,52 @@ __device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M,
   }
 
 }
+
+template <class T, int block_dim_m, int block_dim_k, int step_size> 
+/* LU decomposition of matrix of ny by nx, utilizes L1 cache. */
+__device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
+{
+  const int min_n = nx > ny ? ny : nx;
+
+  for (int i = 0; i < min_n; i += block_dim_m)
+  {
+    int diag_nx, diag_ny, remain_nx, remain_ny;
+
+    if (nx - i >= block_dim_m)
+    { diag_nx = block_dim_m; remain_nx = nx - i - block_dim_m; }
+    else
+    { diag_nx = nx - i; remain_nx = 0; }
+
+    if (ny - i >= block_dim_m)
+    { diag_ny = block_dim_m; remain_ny = ny - i - block_dim_m; }
+    else
+    { diag_ny = ny - i; remain_ny = 0; }
+
+    T * M_diag = &M[i * ld + i], * M_top = &M_diag[diag_nx], * M_left = &M_diag[diag_ny * ld], * M_next = &M_left[diag_nx];
+
+    matrixCopy_keepT <T, step_size> (M_diag, shm, diag_nx, diag_ny, ld, false);
+    __syncthreads();
+
+    DenseGetrf <T> (shm, diag_nx, diag_ny, diag_nx);
+
+    matrixCopy <T, step_size> (shm, M_diag, diag_nx, diag_ny, diag_nx, ld, false);
+
+    bool solve_row = remain_nx > 0, solve_col = remain_ny > 0;
+
+    if (solve_row)
+    { DenseTrsmL <T> (M_top, shm, remain_nx, diag_ny, diag_nx, ld, diag_nx); }
+
+    if (solve_col)
+    { DenseTrsmR <T> (M_left, shm, diag_nx, remain_ny, diag_ny, ld, diag_nx); }
+
+    __syncthreads();
+
+    if (solve_row && solve_col)
+    { blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (-1., 1., M_next, M_left, M_top, remain_ny, remain_nx, block_dim_m, ld, ld, ld, false, false, shm); }
+  }
+
+}
+
 
 template <class T>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
@@ -633,52 +679,7 @@ __device__ void resetPivot (int *p, const int n)
 }
 
 
-template <class T, int block_dim> 
-/* Pivoted LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
-{
-  const int min_n = nx > ny ? ny : nx;
 
-  for (int i = 0; i < min_n; i += block_dim)
-  {
-    int diag_nx, diag_ny, remain_nx, remain_ny;
-
-    if (nx - i >= block_dim)
-    { diag_nx = block_dim; remain_nx = nx - i - block_dim; }
-    else
-    { diag_nx = nx - i; remain_nx = 0; }
-
-    if (ny - i >= block_dim)
-    { diag_ny = block_dim; remain_ny = ny - i - block_dim; }
-    else
-    { diag_ny = ny - i; remain_ny = 0; }
-
-    matrixCopy_keepT <T, 2> (&M[i * ld + i], shm, diag_nx, diag_ny, ld, false);
-    __syncthreads();
-
-    DenseGetrf <T> (shm, diag_nx, diag_ny, diag_nx);
-
-    matrixCopy <T, 2> (shm, &M[i * ld + i], diag_nx, diag_ny, diag_nx, ld, false);
-
-    bool solve_row = remain_nx > 0, solve_col = remain_ny > 0;
-
-    if (solve_row)
-    { DenseTrsmL <T> (&M[i * ld + i + diag_nx], shm, remain_nx, diag_ny, diag_nx, ld, diag_nx); }
-
-    if (solve_col)
-    { DenseTrsmR <T> (&M[(i + diag_ny) * ld + i], shm, diag_nx, remain_ny, diag_ny, ld, diag_nx); }
-
-    __syncthreads();
-
-    if (solve_row && solve_col)
-    {
-      //blockDenseGemm_shm <T>(-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false, shm, 6144);
-      //DenseGemm <T>(-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false);
-      blockDenseGemm <T, 64, 48> (-1., 1., &M[(i + diag_ny) * ld + i + diag_nx], &M[(i + diag_ny) * ld + i], &M[i * ld + i + diag_nx], remain_ny, remain_nx, block_dim, ld, ld, ld, false, false, shm);
-    }
-  }
-
-}
 
 
 template <class T> 
