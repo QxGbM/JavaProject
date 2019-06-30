@@ -17,6 +17,261 @@
     <ClInclude Include="include\instructions_manager.cuh" />
     <ClInclude Include="include\compressor.cuh" />
     <ClInclude Include="include\dev_temp.cuh" />
+    <ClInclude Include="include\cub\cub.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_allocator.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_arch.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_debug.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_device.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_macro.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_namespace.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_ptx.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\util_type.cuh">
+      <Filter>cub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_histogram.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_radix_sort_downsweep.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_radix_sort_upsweep.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_reduce.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_reduce_by_key.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_rle.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_scan.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_segment_fixup.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_select_if.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\agent_spmv_orig.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\agent\single_pass_scan_operators.cuh">
+      <Filter>cub\agent</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_adjacent_difference.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_discontinuity.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_exchange.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_histogram.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_load.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_radix_rank.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_radix_sort.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_raking_layout.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_reduce.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_scan.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_shuffle.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\block_store.cuh">
+      <Filter>cub\block</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_histogram_atomic.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_histogram_sort.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_reduce_raking.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_reduce_raking_commutative_only.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_reduce_warp_reductions.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_scan_raking.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_scan_warp_scans.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_scan_warp_scans2.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\block\specializations\block_scan_warp_scans3.cuh">
+      <Filter>cub\block\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_histogram.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_partition.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_radix_sort.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_reduce.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_run_length_encode.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_scan.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_segmented_radix_sort.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_segmented_reduce.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_select.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\device_spmv.cuh">
+      <Filter>cub\device</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_histogram.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_radix_sort.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_reduce.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_reduce_by_key.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_rle.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_scan.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_select_if.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\device\dispatch\dispatch_spmv_orig.cuh">
+      <Filter>cub\device\dispatch</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\grid\grid_barrier.cuh">
+      <Filter>cub\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\grid\grid_even_share.cuh">
+      <Filter>cub\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\grid\grid_mapping.cuh">
+      <Filter>cub\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\grid\grid_queue.cuh">
+      <Filter>cub\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\host\mutex.cuh">
+      <Filter>cub\host</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\arg_index_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\cache_modified_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\cache_modified_output_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\constant_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\counting_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\discard_output_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\tex_obj_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\tex_ref_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\iterator\transform_input_iterator.cuh">
+      <Filter>cub\iterator</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\thread\thread_load.cuh">
+      <Filter>cub\thread</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\thread\thread_operators.cuh">
+      <Filter>cub\thread</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\thread\thread_reduce.cuh">
+      <Filter>cub\thread</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\thread\thread_scan.cuh">
+      <Filter>cub\thread</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\thread\thread_search.cuh">
+      <Filter>cub\thread</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\thread\thread_store.cuh">
+      <Filter>cub\thread</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\warp\warp_reduce.cuh">
+      <Filter>cub\warp</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\warp\warp_scan.cuh">
+      <Filter>cub\warp</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\warp\specializations\warp_reduce_shfl.cuh">
+      <Filter>cub\warp\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\warp\specializations\warp_reduce_smem.cuh">
+      <Filter>cub\warp\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\warp\specializations\warp_scan_shfl.cuh">
+      <Filter>cub\warp\specializations</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cub\warp\specializations\warp_scan_smem.cuh">
+      <Filter>cub\warp\specializations</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
@@ -26,5 +281,43 @@
     <None Include="Makefile" />
     <None Include="docs\CONTRIBUTING.md" />
     <None Include=".gitignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="cub">
+      <UniqueIdentifier>{0cd5114e-0382-43b7-b658-2055d7b2ae1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\agent">
+      <UniqueIdentifier>{cb3867b8-30aa-4a04-87fb-020bb736e08e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\block">
+      <UniqueIdentifier>{802b72e7-b343-4856-b5c3-5e24c70dd0e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\block\specializations">
+      <UniqueIdentifier>{638c590d-5229-4393-8c5f-950851a7db95}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\device">
+      <UniqueIdentifier>{f9400748-1980-47b1-846a-c26235e5ba7f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\device\dispatch">
+      <UniqueIdentifier>{d9b5b59c-5d97-4bb9-b80b-1b32c3bc7b9d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\grid">
+      <UniqueIdentifier>{ee24a76d-c8ff-4077-a086-028442f15052}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\host">
+      <UniqueIdentifier>{f874a3ce-0f35-422e-b246-d59b66c02c2c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\iterator">
+      <UniqueIdentifier>{10cdf8ed-7bbc-4580-a56c-5d6bb66dc3f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\thread">
+      <UniqueIdentifier>{b3570707-a7ae-4ba7-8840-545ccaa03e9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\warp">
+      <UniqueIdentifier>{b202f734-9547-4956-b562-5a0c7dd943dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cub\warp\specializations">
+      <UniqueIdentifier>{d6496fe7-a78a-4601-9d88-7b8d9ec5ecc7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

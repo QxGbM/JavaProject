@@ -6,7 +6,7 @@
 
 template <class T, int step_size>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ void matrixCopy (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to, const bool transpose)
+__device__ __forceinline__ void matrixCopy (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to, const bool transpose)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = step_size * n_wp;
 
@@ -51,7 +51,7 @@ __device__ void matrixCopy (const T * __restrict__ from, T * __restrict__ to, co
 
 template <class T, int step_size>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const bool transpose)
+__device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const bool transpose)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = step_size * n_wp;
 
@@ -105,7 +105,7 @@ __device__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ t
 
 template <class T> 
 /* LU decomposition of matrix of ny by nx. */
-__device__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
+__device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx > ny ? ny : nx;
   
@@ -131,7 +131,7 @@ __device__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
 
 template <class T>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-__device__ void DenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
+__device__ __forceinline__ void DenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_l > ny_b ? ny_b : nx_l;
 
@@ -150,7 +150,7 @@ __device__ void DenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const 
 
 template <class T>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-__device__ void DenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+__device__ __forceinline__ void DenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
 
@@ -176,7 +176,7 @@ __device__ void DenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const 
 
 template <class T>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-__device__ void DenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+__device__ __forceinline__ void DenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
 
@@ -206,7 +206,7 @@ __device__ void DenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict_
 
 template <class T>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
-__device__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+__device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B,
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
@@ -254,7 +254,7 @@ __device__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, cons
 
 template <class T, int block_dim_m, int block_dim_k, int step_size>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
-__device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+__device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B,
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
@@ -309,7 +309,7 @@ __device__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M,
 
 template <class T, int block_dim_m, int block_dim_k, int step_size> 
 /* LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
+__device__ __forceinline__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
 {
   const int min_n = nx > ny ? ny : nx;
 

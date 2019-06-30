@@ -9,6 +9,7 @@
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
+#include <cub/cub.cuh>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,33 +47,33 @@ enum opcode_t { execute, signal_wait, finish };
 
 __constant__ double dev_rnd_seed [_RND_SEED_LENGTH];
 
-__forceinline__ __device__ int thread_rank()
+__device__ __forceinline__ int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
 
-__forceinline__ __device__ int block_dim()
+__device__ __forceinline__ int block_dim()
 { return blockDim.z * blockDim.y * blockDim.x; }
 
-__forceinline__ __device__ int block_rank()
+__device__ __forceinline__ int block_rank()
 { return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
 
-__forceinline__ __device__ int grid_dim()
+__device__ __forceinline__ int grid_dim()
 { return gridDim.z * gridDim.y * gridDim.x; }
 
-__forceinline__ __device__ int warp_rank()
+__device__ __forceinline__ int warp_rank()
 {
   unsigned int warpid;
   asm volatile("mov.u32 %0, %warpid;" : "=r"(warpid));
   return (int) warpid;
 }
 
-__forceinline__ __device__ int lane_rank()
+__device__ __forceinline__ int lane_rank()
 { 
   unsigned int laneid;
   asm volatile("mov.u32 %0, %laneid;" : "=r"(laneid));
   return (int) laneid;
 }
 
-__forceinline__ __device__ int num_warps()
+__device__ __forceinline__ int num_warps()
 { return (block_dim() + warpSize - 1) / warpSize; }
 
 template <class T> class dev_dense;
