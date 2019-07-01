@@ -2,6 +2,7 @@
 /* This part does nothing but to resolve mis-reported intellisense errors. */
 #ifdef __INTELLISENSE__
 
+#define __syncthreads()
 #define asm
 #define volatile()
 
@@ -9,7 +10,6 @@
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include <cub/cub.cuh>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +19,7 @@
 #include <time.h>
 
 #include <omp.h>
+#include <cub/cub.cuh>
 
 #ifndef _PSPL_CUH
 #define _PSPL_CUH

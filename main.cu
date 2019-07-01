@@ -70,12 +70,25 @@ __global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, con
 
 }
 
+__global__ void ExampleKernel(int* d_data)
+{
+  typedef cub::BlockLoad<int, 128, 4, cub::BLOCK_LOAD_TRANSPOSE> BlockLoad;
+  __shared__ int shm[12288];
+
+  //__shared__ typename BlockLoad::TempStorage temp_storage;
+  int thread_data[4];
+  BlockLoad().Load(d_data, thread_data);
+  __syncthreads();
+
+  if (thread_rank() == 0) for (int i = 0; i < 4; i++)
+  { printf("%d: %d\n", thread_rank(), thread_data[i]); }
+}
+
 int test1()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  const int nx = 8, ny = 8;
 
   srand(200);
   double * rnd_seed = new double[_RND_SEED_LENGTH];
@@ -84,20 +97,19 @@ int test1()
 
   cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
 
-  dev_dense <double> *A = new dev_dense <double> (nx, ny), *B = new dev_dense <double> (nx, ny);
-
-  //B->loadTestMatrix(200); B->print();
+  int* data;
+  cudaMallocManaged(&data, 512 * sizeof(int));
+  for (int i = 0; i < 512; i++)
+  { data[i] = i; }
 
   timer myTimer = timer();
 
   myTimer.newEvent("qr", start);
-  qr_kernel <<<1, 1024 >>> (A->getElements(), B->getElements(), nx, ny, nx, nx);
+  ExampleKernel <<<1, 128 >>> (data);
   myTimer.newEvent("qr", end);
 
   myTimer.dumpAllEvents_Sync();
-  A->print(); B->print();
 
-  delete A; delete B;
 
   return 0;
 }

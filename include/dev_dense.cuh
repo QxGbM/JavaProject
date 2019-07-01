@@ -489,11 +489,31 @@ public:
     {
       printf("Error Reading from File.\n");
       delete[] buf;
-      return cudaErrorFileNotFound;
+      return cudaErrorMissingConfiguration;
     }
 
   }
 
+  __host__ static dev_dense <T> * readStructureFromFile (FILE * stream)
+  {
+    element_t type;
+    void * d = dev_h_element <T> :: readStructureFromFile(stream, &type);
+
+    if (type == hierarchical)
+    { return (dev_dense <T> *) d; }
+    else
+    {
+      printf("The Matrix Loaded is not a dense matrix.\n");
+
+      if (type == hierarchical)
+      { dev_hierarchical<T> * h = (dev_hierarchical<T> *) d; delete h; }
+      else if (type == low_rank)
+      { dev_low_rank<T> * lr = (dev_low_rank<T> *) d; delete lr; }
+
+      return nullptr; 
+    }
+
+  }
    
   __host__ void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const
   {

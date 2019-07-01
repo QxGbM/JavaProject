@@ -843,33 +843,21 @@ public:
 
   __host__ static dev_hierarchical <T> * readStructureFromFile (FILE * stream)
   {
-    char * buf = new char[32];
-    if (stream != nullptr && fgets(buf, 32, stream) > 0)
-    {
-      int ny, nx;
-      if (buf[0] == 'H')
-      { sscanf(buf, "H %d %d\n", &ny, &nx); }
-      else
-      { ny = nx = 1; }
-      delete[] buf;
+    element_t type;
+    void * h = dev_h_element <T> :: readStructureFromFile(stream, &type);
 
-      dev_hierarchical<T> * h = new dev_hierarchical<T> (nx, ny);
-
-      for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
-      {
-        element_t type;
-        void * element = dev_h_element <T> :: readStructureFromFile (stream, &type);
-        h -> setElement(element, type, j, i);
-      }
-
-      h -> updateOffsets();
-      return h;
-    }
+    if (type == hierarchical)
+    { return (dev_hierarchical <T> *) h; }
     else
-    { 
-      printf("Error Reading from File.\n");
-      delete[] buf;
-      return nullptr;
+    {
+      printf("The Matrix Loaded is not a hierarchical matrix.\n");
+
+      if (type == dense)
+      { dev_dense<T> * d = (dev_dense<T> *) h; delete d; }
+      else if (type == low_rank)
+      { dev_low_rank<T> * lr = (dev_low_rank<T> *) h; delete lr; }
+
+      return nullptr; 
     }
 
   }

@@ -689,6 +689,27 @@ public:
     return error == cudaSuccess ? VT -> loadBinary_ReverseEndian(stream) : error;
   }
 
+  __host__ static dev_low_rank <T> * readStructureFromFile (FILE * stream)
+  {
+    element_t type;
+    void * lr = dev_h_element <T> :: readStructureFromFile(stream, &type);
+
+    if (type == hierarchical)
+    { return (dev_low_rank <T> *) lr; }
+    else
+    {
+      printf("The Matrix Loaded is not a low rank matrix.\n");
+
+      if (type == hierarchical)
+      { dev_hierarchical<T> * h = (dev_hierarchical<T> *) lr; delete h; }
+      else if (type == dense)
+      { dev_dense<T> * d = (dev_low_rank<T> *) lr; delete d; }
+
+      return nullptr; 
+    }
+
+  }
+
 
   __host__ void print(const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0, const int rank_in = 0) const
   {
