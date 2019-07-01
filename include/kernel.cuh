@@ -48,7 +48,10 @@ exe:
     const int offset_b = shm[5], offset_l = shm[6], nx_b = shm[7], ny_b = shm[8], nx_l = shm[9], ld_b = shm[10], ld_l = shm[11];
     const bool b_T = (bool) shm[12];
     __syncthreads();
-    blockDenseTrsmL_shm <T> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, b_T, (T *) shm, shm_size_acutal);
+    if (b_T)
+    { }
+    else
+    { blockDenseTrsmL <T, 64, 48, 2> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm); }
     next_pc = 13; goto write;
   }
 
@@ -58,7 +61,10 @@ exe:
     const int offset_b = shm[5], offset_u = shm[6], nx_b = shm[7], ny_b = shm[8], ny_u = shm[9], ld_b = shm[10], ld_u = shm[11];
     const bool b_T = (bool) shm[12];
     __syncthreads();
-    blockDenseTrsmR_shm <T> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, b_T, (T *) shm, shm_size_acutal);
+    if (b_T)
+    { blockDenseTrsmR_transposeB <T, 64, 48, 2> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
+    else
+    { blockDenseTrsmR <T, 64, 48, 2> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
     next_pc = 13; goto write;
   }
 
