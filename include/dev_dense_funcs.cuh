@@ -397,6 +397,89 @@ __device__ __forceinline__ void blockDenseTrsmR_transposeB (T * __restrict__ B, 
 
 }
 
+template <class T, int block_dim_m, int block_dim_k, int step_size>
+/* General Matrix multiplication with 3 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by n) + beta * old_M. */
+__device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
+  const T * __restrict__ C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
+  const bool a_T, const bool b_T, const bool c_T, const int control, const int t_size1, T * __restrict__ shm)
+{
+  const int t_id = thread_rank();
+
+  T * t1, ** t1_addr = (T **) &shm[0];
+
+  if (t_id == 0)
+  { * t1_addr = new T[t_size1]; }
+  __syncthreads();
+
+  t1 = * t1_addr;
+  __syncthreads();
+
+  if (control) /* A x (B x C) */
+  {
+    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (1., 0., t1, B, C, k, n, l, n, ld_b, ld_c, b_T, c_T, shm);
+    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (alpha, beta, M, A, t1, m, n, k, ld_m, ld_a, n, a_T, false, shm);
+  }
+  else /* (A x B) x C */
+  {
+    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (1., 0., t1, A, B, m, l, k, l, ld_a, ld_b, a_T, b_T, shm);
+    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (alpha, beta, M, t1, C, m, n, l, ld_m, l, ld_c, false, c_T, shm);
+  }
+
+  if (t_id == 0)
+  { delete[] t1; }
+  __syncthreads();
+
+}
+
+template <class T, int block_dim_m, int block_dim_k, int step_size>
+/* General Matrix multiplication with 4 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by o) * D (o by n) + beta * old_M. */
+__device__ void blockDenseGemm_4x (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, const T * __restrict__ C, 
+  const T * __restrict__ D, const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
+  const int ld_d, const bool a_T, const bool b_T, const bool c_T, const bool d_T, const int control, const int t_size1, const int t_size2, T * __restrict__ shm)
+{
+  const int t_id = thread_rank();
+
+  T * t1, ** t1_addr = (T **) &shm[0], * t2, ** t2_addr = (T **) & shm[1];
+
+  if (t_id == 0)
+  { * t1_addr = new T[t_size1]; * t2_addr = new T[t_size2]; }
+  __syncthreads();
+
+  t1 = * t1_addr;
+  t2 = * t2_addr;
+  __syncthreads();
+
+  switch (control) 
+  {
+  case 0: /* ((A x B) x C) x D */
+  {
+
+  }
+  case 1: /* (A x (B x C)) x D */
+  {
+
+  }
+  case 2: /* A x ((B x C) x D) */
+  {
+
+  }
+  case 3: /* A x (B x (C x D)) */
+  {
+
+  }
+  case 4: /* (A x B) x (C x D) */
+  {
+
+  }
+  default:
+  { break; }
+  }
+
+  if (t_id == 0)
+  { delete[] t1; delete[] t2; }
+  __syncthreads();
+}
+
 template <class T>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
 __device__ void blockDenseGemm_shm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 

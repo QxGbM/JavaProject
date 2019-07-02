@@ -859,6 +859,52 @@ public:
     }
   }
 
+  __host__ static int getControl_GEMM_3x (int * t_size, const int m, const int n, const int k, const int l)
+  {
+    const int size_1 = m * l, size_2 = n * k;
+
+    bool b_ab_a = size_1 * (k + n) <= size_2 * (m + l);
+    * t_size = b_ab_a ? size_1 : size_2;
+
+    return (int) b_ab_a; 
+  }
+
+  __host__ static int getControl_GEMM_4x (int * t_size1, int * t_size2, const int m, const int n, const int k, const int l, const int o)
+  {
+    const int size_1 = m * l, size_2 = m * o, size_3 = n * k, size_4 = n * l, size_5 = k * o;
+
+    const int f_ab = size_1 * k, f_bc = size_5 * l, f_cd = size_4 * o;
+    const bool b_ab_bc = f_ab <= f_bc, b_bc_cd = f_bc <= f_cd;
+
+    const int f_abc_d = b_ab_bc ? size_2 * (l + n) + f_ab : size_2 * (k + n) + f_bc;
+    const int f_a_bcd = b_bc_cd ? size_3 * (o + m) + f_bc : size_3 * (l + m) + f_cd;
+    const int f_ab_cd = f_ab + f_cd + size_1 * n;
+
+    const bool b_abc_a = f_abc_d <= f_a_bcd, b_abc_ab = f_abc_d <= f_ab_cd;
+    
+    int control;
+    if (b_abc_a && b_abc_ab) /* (A x B x C) x D */
+    {
+      * t_size2 = size_2;
+      if (b_ab_bc) /* ((A x B) x C) x D */
+      { control = 0; * t_size1 = size_1; }
+      else /* (A x (B x C)) x D */
+      { control = 1; * t_size1 = size_5; }
+    }
+    else if (b_abc_ab) /* A x (B x C x D) */
+    {
+      * t_size2 = size_3;
+      if (b_bc_cd) /* A x ((B x C) x D) */
+      { control = 2; * t_size1 = size_5; }
+      else /* A x (B x (C x D)) */
+      { control = 3; * t_size1 = size_4; }
+    }
+    else /* (A x B) x (C x D) */
+    { control = 4; * t_size1 = size_1; * t_size2 = size_4; }
+
+    return control; 
+  }
+
   __host__ static long long int getFlops_GETRF (const long long int nx, const long long int ny)
   {
     long long int accum = 0; const long long int n = nx > ny ? ny : nx;

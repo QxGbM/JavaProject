@@ -95,7 +95,8 @@ exe:
     const int ld_m = shm[15], ld_a = shm[16], ld_b = shm[17], ld_c = shm[18];
     const bool a_T = (bool) shm[19], b_T = (bool) shm[20], c_T = (bool) shm[21];
     __syncthreads();
-    blockDenseGemm_3x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
+    //blockDenseGemm_3x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_3x <T, 64, 48, 2> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, 1, n * k, (T *) shm);
     next_pc = 22; goto write;
   }
 
@@ -117,7 +118,7 @@ exe:
     const int offset_u1 = shm[7], offset_vt1 = shm[8], offset_u2 = shm[9], offset_vt2 = shm[10];
     const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
     __syncthreads();
-    blockLowRankAccum <T> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm, shm_size_acutal);
+    blockLowRankAccum <T, 64, 48, 2> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm);
     next_pc = 19; goto write;
   }
 

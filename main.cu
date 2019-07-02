@@ -72,16 +72,7 @@ __global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, con
 
 __global__ void ExampleKernel(int* d_data)
 {
-  typedef cub::BlockLoad<int, 128, 4, cub::BLOCK_LOAD_TRANSPOSE> BlockLoad;
-  __shared__ int shm[12288];
 
-  //__shared__ typename BlockLoad::TempStorage temp_storage;
-  int thread_data[4];
-  BlockLoad().Load(d_data, thread_data);
-  __syncthreads();
-
-  if (thread_rank() == 0) for (int i = 0; i < 4; i++)
-  { printf("%d: %d\n", thread_rank(), thread_data[i]); }
 }
 
 int test1()
