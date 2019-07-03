@@ -171,7 +171,7 @@ public:
       { 
         printf("Error: GETRF on incompatible block.\n");
         inst[0] = (int) nop;
-        return 1;  
+        return nop_l - 2;  
       }
 
       inst[0] = (int) getrf;
@@ -180,7 +180,7 @@ public:
       inst[3] = nx; 
       inst[4] = ny; 
       inst[5] = ld;
-      return 6;
+      return getrf_l - 2;
     }
     case trsml:
     {
@@ -216,7 +216,7 @@ public:
       { 
         printf("Error: TRSML on incompatible block.\n");
         inst[0] = (int) nop;
-        return 1;  
+        return nop_l - 2;
       }
 
       inst[0] = (int) trsml;
@@ -230,7 +230,7 @@ public:
       inst[8] = ld_b;
       inst[9] = ld_l;
       inst[10] = b_T;
-      return 11;
+      return trsml_l - 2;
     }
     case trsmr:
     {
@@ -266,7 +266,7 @@ public:
       { 
         printf("Error: TRSMR on incompatible block.\n");
         inst[0] = (int) nop;
-        return 1;  
+        return nop_l - 2;
       }
 
       inst[0] = (int) trsmr;
@@ -280,7 +280,7 @@ public:
       inst[8] = ld_b;
       inst[9] = ld_u;
       inst[10] = b_T;
-      return 11;
+      return trsmr_l - 2;
     }
     case gemm:
     {
@@ -364,7 +364,7 @@ public:
         inst[12] = ld_b;
         inst[13] = a_T;
         inst[14] = b_T;
-        return 15;
+        return gemm_l - 2;
       }
       else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
       {
@@ -487,7 +487,7 @@ public:
         inst[17] = a_T;
         inst[18] = b_T;
         inst[19] = c_T;
-        return 20;
+        return gemm_3x_l - 2;
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
       {
@@ -547,13 +547,13 @@ public:
         inst[22] = b_T;
         inst[23] = c_T;
         inst[24] = d_T;
-        return 25;
+        return gemm_4x_l - 2;
       }
       else
       {
         printf("Error: GEMM on incompatible block.\n"); print();
         inst[0] = (int) nop;
-        return 1;
+        return nop_l - 2;
       }
 
     }
@@ -592,7 +592,7 @@ public:
         inst[12] = ld_b;
         inst[13] = a_T;
         inst[14] = b_T;
-        return 15;
+        return gemm_plus_l - 2;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
       {
@@ -633,7 +633,7 @@ public:
         inst[15] = ld_u2;
         inst[16] = ld_vt2;
 
-        return 17;
+        return accum_l - 2;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
       {
@@ -645,13 +645,13 @@ public:
       {
         printf("Error: ACCUM on incompatible block.\n");
         inst[0] = (int) nop;
-        return 1;
+        return nop_l - 2;
       }
     }
     default:
     { 
       inst[0] = (int) nop;
-      return 1; 
+      return nop_l - 2;
     }
     }
 
@@ -838,9 +838,7 @@ public:
           rank1 = read_and_write[0].getRank();
           rank2 = read_only[0].getRank();
 
-          flops = getFlops_GEMM_3x(ny, rank1, rank1, nx) + getFlops_GEMM_3x(ny, rank2, rank2, nx);
-          flops += getFlops_QR(rank1, ny);
-          flops += getFlops_GEMM_3x(nx, rank1, rank1, ny) + getFlops_GEMM_3x(nx, rank2, rank2, ny);
+          flops = getFlops_LrAccum(nx, ny, rank1, rank2);
         }
         else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
         {
@@ -953,6 +951,14 @@ public:
   __host__ static long long int getFlops_QR (const long long int nx, const long long int ny)
   {
     long long int accum = nx * nx * (3 * ny - nx) * 2;
+    return accum;
+  }
+
+  __host__ static long long int getFlops_LrAccum (const long long int nx, const long long int ny, const long long int rank1, const long long int rank2)
+  {
+    long long int accum = getFlops_GEMM_3x(ny, rank1, rank1, nx) + getFlops_GEMM_3x(ny, rank2, rank2, nx);
+    accum += getFlops_QR(rank1, ny);
+    accum += getFlops_GEMM_3x(nx, rank1, rank1, ny) + getFlops_GEMM_3x(nx, rank2, rank2, ny);
     return accum;
   }
 

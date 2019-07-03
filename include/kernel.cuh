@@ -32,14 +32,14 @@ exe:
   switch ((operation_t) shm[2])
   {
   case nop:
-  { next_pc = 3; goto write; }
+  { next_pc = nop_l; goto write; }
   case getrf:
   {
     T * M = (T *) ptrs[shm[3]]; 
     const int offset = shm[4], nx = shm[5], ny = shm[6], ld = shm[7];
     __syncthreads();
     blockDenseGetrf <T, 64, 48, 2> (&M[offset], nx, ny, ld, (T *) shm);
-    next_pc = 8; goto write;  
+    next_pc = getrf_l; goto write;  
   }
 
   case trsml:
@@ -52,7 +52,7 @@ exe:
     { }
     else
     { blockDenseTrsmL <T, 64, 48, 2> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm); }
-    next_pc = 13; goto write;
+    next_pc = trsml_l; goto write;
   }
 
   case trsmr:
@@ -65,7 +65,7 @@ exe:
     { blockDenseTrsmR_transposeB <T, 64, 48, 2> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
     else
     { blockDenseTrsmR <T, 64, 48, 2> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
-    next_pc = 13; goto write;
+    next_pc = trsmr_l; goto write;
   }
 
   case gemm:
@@ -75,7 +75,7 @@ exe:
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
     blockDenseGemm <T, 64, 48, 2> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
-    next_pc = 17; goto write;
+    next_pc = gemm_l; goto write;
   }
 
   case gemm_plus:
@@ -85,7 +85,7 @@ exe:
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
     blockDenseGemm <T, 64, 48, 2> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
-    next_pc = 17; goto write;
+    next_pc = gemm_plus_l; goto write;
   }
 
   case gemm_3x:
@@ -97,7 +97,7 @@ exe:
     __syncthreads();
     //blockDenseGemm_3x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
     blockDenseGemm_3x <T, 64, 48, 2> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, 1, n * k, (T *) shm);
-    next_pc = 22; goto write;
+    next_pc = gemm_3x_l; goto write;
   }
 
   case gemm_4x:
@@ -109,7 +109,7 @@ exe:
     const bool a_T = (bool) shm[23], b_T = (bool) shm[24], c_T = (bool) shm[25], d_T = (bool) shm[26];
     __syncthreads();
     blockDenseGemm_4x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], &D[offset_d], m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
-    next_pc = 27; goto write;
+    next_pc = gemm_4x_l; goto write;
   }
 
   case accum:
@@ -119,7 +119,7 @@ exe:
     const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
     __syncthreads();
     blockLowRankAccum <T, 64, 48, 2> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm);
-    next_pc = 19; goto write;
+    next_pc = accum_l; goto write;
   }
 
   default: goto fin;
@@ -136,7 +136,6 @@ wait:
 write:
   if (t_id == 0)
   { comm_space[* signal_id] = 1; }
-  __threadfence();
   goto sync;
 
 sync:
@@ -162,6 +161,62 @@ __host__ void print_dev_mat (T * dev_mat, const int nx, const int ny)
      printf("\n");
    }
    delete[] data;
+}
+
+template <class T>
+__host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, double * total_lapse, long long * flops,
+  const h_ops_tree * tree, T ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
+{
+  double clock_start, clock_end, clock_lapse, clock_total = 0.;
+  printf("-- Host Summary: -- \n");
+
+  clock_start = omp_get_wtime();
+  h_ops_dag dag = h_ops_dag (tree, start_index, length_max);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("DAG Created in %f ms.\n", 1000. * clock_lapse); //dag.print();
+
+  clock_start = omp_get_wtime();
+  instructions_scheduler schedule = instructions_scheduler (&dag, workers);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("Schedule Created in %f ms.\n", 1000. * clock_lapse); //schedule.print();
+
+  clock_start = omp_get_wtime();
+  instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("Instruction generated in %f ms.\n", 1000. * clock_lapse); //ins.print();
+
+  clock_start = omp_get_wtime();
+  cudaError_t error = ins.getLaunchArgs(dev_insts, dev_ptrs, comm_space);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("Args generated in %f ms.\n", 1000. * clock_lapse);
+  fprintf(stderr, "-- Host Args Generation: %s. --\n\n", cudaGetErrorString(error));
+
+  * total_lapse = clock_total;
+  * flops = dag.getFlops();
+  return error;
+}
+
+template <class T, int shm_size>
+__host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, const int workers, const int num_threads, cudaStream_t main_stream = 0)
+{
+  void ** args = new void *[3] { &dev_insts, &dev_ptrs, &comm_space };
+  cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T, shm_size>, workers, num_threads, args, 0, main_stream);
+  fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
+
+  cudaFree(dev_insts);
+  cudaFree(dev_ptrs);
+  cudaFree(comm_space);
+  delete[] args;
+
+  return error;
 }
 
 template <class T, int shm_size> 
@@ -190,7 +245,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   cudaStream_t main_stream;
   cudaStreamCreate(&main_stream);
 
-  double clock_start, clock_end;
+  double clock_start, clock_end, clock_lapse;
   cudaError_t error = cudaSuccess;
   dev_temp tmp_mngr = dev_temp();
 
@@ -198,46 +253,29 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_index * root = h -> getRootIndex();
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
-  printf("Tree Generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); //tree->print();
-
-  clock_start = omp_get_wtime();
-  h_ops_dag dag = h_ops_dag (tree);
-  clock_end = omp_get_wtime();
-  delete tree;
-  printf("DAG Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); //dag.print();
-
-  clock_start = omp_get_wtime();
-  instructions_scheduler schedule = instructions_scheduler (&dag, workers);
-  clock_end = omp_get_wtime();
-  printf("Schedule Created in %f ms.\n\n", 1000. * (clock_end - clock_start)); //schedule.print();
+  clock_lapse = clock_end - clock_start;
+  printf("Tree Generated in %f ms.\n\n", 1000. * clock_lapse); //tree->print();
+  delete root;
 
   T ** tmp_ptrs = tmp_mngr.allocate <T> ();
 
-  clock_start = omp_get_wtime();
-  instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
-  clock_end = omp_get_wtime();
-  printf("Instruction generated in %f ms.\n\n", 1000. * (clock_end - clock_start)); //ins.print();
-
   int ** dev_insts, * comm_space;
-  void ** args, ** dev_ptrs;
-  fprintf(stderr, "Args: %s\n\n", cudaGetErrorString(ins.getLaunchArgs(&dev_insts, &dev_ptrs, &comm_space)));
-  args = new void *[3] { &dev_insts, &dev_ptrs, &comm_space };
+  void ** dev_ptrs;
+  long long int exeFLOPS;
+
+  error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &clock_lapse, &exeFLOPS, tree, tmp_ptrs, workers);
+  printf("Host %f ms.\n\n", 1000. * clock_lapse);
 
   myTimer.newEvent("Kernel", start, main_stream);
-  error = cudaLaunchKernel((void *) kernel_dynamic <T, shm_size>, workers, num_threads, args, 0, main_stream);
+  error = launchKernelWithArgs <T, shm_size> (dev_insts, dev_ptrs, comm_space, workers, num_threads, main_stream);
   myTimer.newEvent("Kernel", end, main_stream);
 
-  fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
-
   const double exeTime = myTimer.dumpAllEvents_Sync();
-
-  delete root;
-  delete[] args;
 
   cudaFree(tmp_ptrs[0]);
   delete[] tmp_ptrs;
 
-  const unsigned long long int exeFLOPS = dag.getFlops(), estFLOPS = h_ops::getFlops_GETRF(nx, ny);
+  const long long estFLOPS = h_ops::getFlops_GETRF(nx, ny);
   const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
   printf("-- Kernel Running Summary --\n"

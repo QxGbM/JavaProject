@@ -170,6 +170,42 @@ public:
     root_ptr = index -> root_ptr;
   }
 
+  template <class T> __host__ h_index (const dev_dense <T> * d)
+  {
+    index_lvls = 0;
+    indexs = nullptr;
+    type = dense;
+    nx = d -> getNx();
+    ny = d -> getNy();
+    ld_x = d -> getLd();
+    ld_y = 0;
+    offset_x = offset_y = rank = 0;
+    n_ptrs = 1;
+    data_ptrs = new void * [1];
+    data_ptrs[0] = d -> getElements();
+    tmp_id = -1;
+    root_ptr = d;
+  }
+
+  template <class T> __host__ h_index (const dev_low_rank <T> * lr)
+  {
+    index_lvls = 0;
+    indexs = nullptr;
+    type = low_rank;
+    nx = lr -> getNx();
+    ny = lr -> getNy();
+    ld_x = lr -> getLd_VT();
+    ld_y = lr -> getLd_UxS();
+    offset_x = offset_y = 0;
+    rank = lr -> getRank();
+    n_ptrs = 2;
+    data_ptrs = new void * [2];
+    data_ptrs[0] = lr -> getElements();
+    data_ptrs[1] = lr -> getElements(ny * rank);
+    tmp_id = -1;
+    root_ptr = nullptr;
+  }
+
   __host__ inline int getNx() const
   { return nx; }
 
