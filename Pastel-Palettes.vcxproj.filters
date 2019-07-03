@@ -272,6 +272,7 @@
     <ClInclude Include="include\cub\warp\specializations\warp_scan_smem.cuh">
       <Filter>cub\warp\specializations</Filter>
     </ClInclude>
+    <ClInclude Include="include\helper_math.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />

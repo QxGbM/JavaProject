@@ -102,22 +102,18 @@ __device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T 
 
 }
 
-template <class T, class vecT, int vec_size>
-__device__ __forceinline__ void vectorSubtract (vecT vec_from, vecT vec_amount, T mult)
+__device__ __forceinline__ void vectorSubtract (double2 & vec_from, double2 vec_amount, double mult)
 {
-#if vec_size >= 1
   vec_from.x -= vec_amount.x * mult;
-#endif
-
-#if vec_size >= 2
   vec_from.y -= vec_amount.y * mult;
-#endif
+}
 
-#if vec_size >= 4
+__device__ __forceinline__ void vectorSubtract (double4 & vec_from, double4 vec_amount, double mult)
+{
+  vec_from.x -= vec_amount.x * mult;
+  vec_from.y -= vec_amount.y * mult;
   vec_from.z -= vec_amount.z * mult;
   vec_from.w -= vec_amount.w * mult;
-#endif
-
 }
 
 
@@ -140,22 +136,23 @@ __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, c
       left = __shfl_sync (0xffffffff, left, 0, warpSize);
 
       const int x_start = i + 1, x_n = nx - x_start;
-      M_row = &M_row[x_start]; M_top = &M_top[x_start];
 
-      const int iter = x_n / vec_size, last = x_n - iter * vec_size;
-
-      for (int col = l_id; col < iter; col += warpSize)
-      { 
-        vecT vec0 = reinterpret_cast <vecT *> (M_top)[col];
-        vecT vec1 = reinterpret_cast <vecT *> (M_row)[col];
-        vectorSubtract <T, vecT, vec_size> (vec1, vec0, left);
-        reinterpret_cast <vecT *> (M_row)[col] = vec1;
-      }
+      const int iter = x_n / vec_size, last = x_n - iter * vec_size, align = x_start + last;
 
       if (l_id == 0 && last > 0)
       {
-        for (int col = iter * vec_size; col < x_n; col++)
+        for (int col = x_start; col < align; col++)
         { M_row[col] -= left * M_top[col]; }
+      }
+
+      M_row = &M_row[align]; M_top = &M_top[align];
+
+      for (int col = l_id; col < iter; col += warpSize)
+      {
+        vecT vec0 = reinterpret_cast <vecT *> (M_top)[col];
+        vecT vec1 = reinterpret_cast <vecT *> (M_row)[col];
+        vectorSubtract(vec1, vec0, left);
+        reinterpret_cast <vecT *> (M_row)[col] = vec1;
       }
 
     }
@@ -164,7 +161,7 @@ __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, c
 
 }
 
-template <class T>
+template <class T, class vecT, int vec_size>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
 __device__ __forceinline__ void DenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
@@ -175,9 +172,21 @@ __device__ __forceinline__ void DenseTrsmL (T * __restrict__ B, const T * __rest
     for (int row = w_id + i + 1; row < ny_b; row += n_wp)
     {
       T left = L[row * ld_l + i], * B_top = &B[i * ld_b], * B_row = &B[row * ld_b];
+      const int iter = nx_b / vec_size, last = nx_b - iter * vec_size;
 
-      for (int col = l_id; col < nx_b; col += warpSize)
-      { B_row[col] -= left * B_top[col]; }
+      for (int col = l_id; col < iter; col += warpSize)
+      {
+        vecT vec0 = reinterpret_cast <vecT *> (B_top)[col];
+        vecT vec1 = reinterpret_cast <vecT *> (B_row)[col];
+        vectorSubtract (vec1, vec0, left);
+        reinterpret_cast <vecT *> (B_row)[col] = vec1;
+      }
+
+      if (l_id == 0 && last > 0)
+      {
+        for (int col = iter * vec_size; col < nx_b; col ++)
+        { B_row[col] -= left * B_top[col]; }
+      }
     }
     __syncthreads();
   }
@@ -239,7 +248,7 @@ __device__ __forceinline__ void DenseTrsmR_transposeB (T * __restrict__ B, const
 }
 
 
-template <class T>
+template <class T, class vecT, int vec_size>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
 __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B,
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
@@ -247,24 +256,133 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
 
   if (beta == 0.)
-  for (int row = w_id; row < m; row += n_wp)
   {
-    T * M_row = &M[row * ld_m];
-    for (int col = l_id; col < n; col += warpSize)
-    { M_row[col] = 0.; }
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m];
+      for (int col = l_id; col < n; col += warpSize)
+      { M_row[col] = 0.; }
+    }
   }
-  else if (beta != 1.)
-  for (int row = w_id; row < m; row += n_wp)
-  {
-    T * M_row = &M[row * ld_m];
-    for (int col = l_id; col < n; col += warpSize)
-    { M_row[col] *= beta; }
+  else if (alpha != 0.)
+  { 
+    const double mult = beta / alpha;
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m];
+      for (int col = l_id; col < n; col += warpSize)
+      { M_row[col] *= mult; }
+    }
   }
   __syncthreads();
 
   if (alpha != 0.)
   {
-    const int A_step = a_T ? ld_a : 1, B_step = b_T ? 1 : ld_b;
+    const int A_step = a_T ? 1 : ld_a, B_step = b_T ? ld_b : 1;
+
+    const int iter_m = m / vec_size, iter_n = n / vec_size;
+    const int last_m = m - iter_m * vec_size, last_n = n - iter_n * vec_size;
+    
+    T thread_a[vec_size], thread_b[vec_size], thread_m[vec_size][vec_size];
+
+    for (int i = 0; i < k; i++)
+    {
+      const T * A_k = a_T ? &A[i * ld_a] : &A[i];
+      const T * B_k = b_T ? &B[i] : &B[i * ld_b];
+
+      for (int i1 = w_id; i1 < iter_m; i1 += n_wp)
+      {
+        for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
+        {
+          #pragma unroll
+          for (int i3 = 0; i3 < vec_size; i3++)
+          {
+            const int row = i1 * vec_size + i3;
+            thread_a[i3] = A_k[row * A_step];
+            reinterpret_cast <vecT *> (thread_m[i3])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
+          }
+
+          #pragma unroll
+          for (int i3 = 0; i3 < vec_size; i3++)
+          {
+            #pragma unroll
+            for (int i4 = 0; i4 < vec_size; i4++)
+            {
+              const int col = i2 * vec_size + i4;
+              thread_b[i4] = B_k[col * B_step];
+            }
+
+            #pragma unroll
+            for (int i4 = 0; i4 < vec_size; i4++)
+            { 
+              thread_m[i3][i4] += thread_a[i3] * thread_b[i4]; 
+            }
+          }
+
+          #pragma unroll
+          for (int i3 = 0; i3 < vec_size; i3++)
+          {
+            const int row = i1 * vec_size + i3;
+            reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[i3])[0];
+          }
+
+        }
+
+        if (l_id == 0 && last_n > 0)
+        {
+          #pragma unroll
+          for (int i3 = 0; i3 < vec_size; i3++)
+          {
+            const int row = i1 * vec_size + i3;
+            for (int col = iter_n * vec_size; col < n; col++)
+            { M[row * ld_m + col] += thread_a[i3] * B_k[col * B_step]; }
+          }
+        }
+      }
+
+      if (last_m - w_id > 0)
+      {
+        const int row = w_id; const T left = A_k[row * A_step];
+
+        for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
+        {
+          reinterpret_cast <vecT *> (thread_m[0])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
+
+          #pragma unroll
+          for (int i4 = 0; i4 < vec_size; i4++)
+          {
+            const int col = i2 * vec_size + i4;
+            thread_b[i4] = B_k[col * B_step]; 
+          }
+
+          #pragma unroll
+          for (int i4 = 0; i4 < vec_size; i4++)
+          { 
+            thread_m[0][i4] = thread_b[i4] * left; 
+          }
+
+          reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[0])[0];
+        }
+
+        if (l_id == 0 && last_n > 0)
+        {
+          for (int col = iter_n * vec_size; col < n; col++)
+          { M[row * ld_m + col] += left * B_k[col * B_step]; }
+        }
+      }
+    }
+
+    __syncthreads();
+
+    const double mult = alpha;
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T* M_row = &M[row * ld_m];
+      for (int col = l_id; col < n; col += warpSize)
+      { M_row[col] *= mult; }
+    }
+
+    /*const int A_step = a_T ? ld_a : 1, B_step = b_T ? 1 : ld_b;
 
     for (int row = w_id; row < m; row += n_wp) 
     {
@@ -279,9 +397,11 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
         for (int i = 0; i < k; i++)
         { accum += A_start[i * A_step] * B_start[i * B_step]; }
 
-        M_row[col] += alpha * accum;
+        M_row[col] = alpha * (M_row[col] + accum);
       }
-    }
+    }*/
+
+
   }
   __syncthreads();
 
@@ -332,7 +452,7 @@ __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T *
         const int ld_1 = matrixCopy_keepT <T, vecT, vec_size> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
         __syncthreads();
 
-        DenseGemm <T> (alpha, 1., &M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
+        DenseGemm <T, vecT, vec_size> (alpha, 1., &M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
 
       }
 
@@ -374,7 +494,7 @@ __device__ __forceinline__ void blockDenseGetrf (T * __restrict__ M, const int n
     bool solve_row = remain_nx > 0, solve_col = remain_ny > 0;
 
     if (solve_row)
-    { DenseTrsmL <T> (M_top, shm, remain_nx, diag_ny, diag_nx, ld, diag_nx); }
+    { DenseTrsmL <T, vecT, vec_size> (M_top, shm, remain_nx, diag_ny, diag_nx, ld, diag_nx); }
 
     if (solve_col)
     { DenseTrsmR <T> (M_left, shm, diag_nx, remain_ny, diag_ny, ld, diag_nx); }
@@ -409,7 +529,7 @@ __device__ __forceinline__ void blockDenseTrsmL (T * __restrict__ B, const T * _
     matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, diag_ny, diag_ny, ld_l, false);
     __syncthreads();
 
-    DenseTrsmL <T> (B_top, shm, nx_b, diag_ny, diag_ny, ld_b, diag_ny);
+    DenseTrsmL <T, vecT, vec_size> (B_top, shm, nx_b, diag_ny, diag_ny, ld_b, diag_ny);
 
     if (remain_ny > 0)
     { blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, L_left, B_top, remain_ny, nx_b, block_dim_m, ld_b, ld_l, ld_b, false, false, shm); }

@@ -103,6 +103,7 @@ class compressor;
 #include <dev_hierarchical_index.cuh>
 #include <dev_hierarchical_ops.cuh>
 
+#include <helper_math.cuh>
 #include <dev_dense_funcs.cuh>
 #include <dev_low_rank_funcs.cuh>
 
