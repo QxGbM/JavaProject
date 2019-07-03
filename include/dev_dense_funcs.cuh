@@ -4,18 +4,18 @@
 
 #include <pspl.cuh>
 
-template <class T, int step_size>
+template <class T, class vecT, int vec_size>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
 __device__ __forceinline__ void matrixCopy (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to, const bool transpose)
 {
-  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = step_size * n_wp;
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = vec_size * n_wp;
 
   if (transpose)
   {
-    for (int row_start = w_id * step_size; row_start < nx_to; row_start += iter_step)
+    for (int row_start = w_id * vec_size; row_start < nx_to; row_start += iter_step)
     {
-      #pragma unroll step_size
-      for (int row = 0; row < step_size; row ++)
+      #pragma unroll vec_size
+      for (int row = 0; row < vec_size; row ++)
       {
         if (row < nx_to)
         {
@@ -30,10 +30,10 @@ __device__ __forceinline__ void matrixCopy (const T * __restrict__ from, T * __r
   }
   else
   {
-    for (int row_start = w_id * step_size; row_start < ny_to; row_start += iter_step)
+    for (int row_start = w_id * vec_size; row_start < ny_to; row_start += iter_step)
     {
-      #pragma unroll step_size
-      for (int row = 0; row < step_size; row ++)
+      #pragma unroll vec_size
+      for (int row = 0; row < vec_size; row ++)
       {
         if (row < ny_to)
         {
@@ -49,20 +49,20 @@ __device__ __forceinline__ void matrixCopy (const T * __restrict__ from, T * __r
   }
 }
 
-template <class T, int step_size>
+template <class T, class vecT, int vec_size>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
 __device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const bool transpose)
 {
-  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = step_size * n_wp;
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = vec_size * n_wp;
 
   if (transpose)
   {
     const int ld_to = ny_to;
 
-    for (int row_start = w_id * step_size; row_start < nx_to; row_start += iter_step)
+    for (int row_start = w_id * vec_size; row_start < nx_to; row_start += iter_step)
     {
-      #pragma unroll step_size
-      for (int row = 0; row < step_size; row ++)
+      #pragma unroll vec_size
+      for (int row = 0; row < vec_size; row ++)
       {
         if (row < nx_to)
         {
@@ -81,10 +81,10 @@ __device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T 
   {
     const int ld_to = nx_to;
 
-    for (int row_start = w_id * step_size; row_start < ny_to; row_start += iter_step)
+    for (int row_start = w_id * vec_size; row_start < ny_to; row_start += iter_step)
     {
-      #pragma unroll step_size
-      for (int row = 0; row < step_size; row ++)
+      #pragma unroll vec_size
+      for (int row = 0; row < vec_size; row ++)
       {
         if (row < ny_to)
         {
@@ -102,8 +102,26 @@ __device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T 
 
 }
 
+template <class T, class vecT, int vec_size>
+__device__ __forceinline__ void vectorSubtract (vecT vec_from, vecT vec_amount, T mult)
+{
+#if vec_size >= 1
+  vec_from.x -= vec_amount.x * mult;
+#endif
 
-template <class T> 
+#if vec_size >= 2
+  vec_from.y -= vec_amount.y * mult;
+#endif
+
+#if vec_size >= 4
+  vec_from.z -= vec_amount.z * mult;
+  vec_from.w -= vec_amount.w * mult;
+#endif
+
+}
+
+
+template <class T, class vecT, int vec_size> 
 /* LU decomposition of matrix of ny by nx. */
 __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
 {
@@ -121,8 +139,25 @@ __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, c
 
       left = __shfl_sync (0xffffffff, left, 0, warpSize);
 
-      for (int col = l_id + i + 1; col < nx; col += warpSize)
-      { M_row[col] -= left * M_top[col]; }
+      const int x_start = i + 1, x_n = nx - x_start;
+      M_row = &M_row[x_start]; M_top = &M_top[x_start];
+
+      const int iter = x_n / vec_size, last = x_n - iter * vec_size;
+
+      for (int col = l_id; col < iter; col += warpSize)
+      { 
+        vecT vec0 = reinterpret_cast <vecT *> (M_top)[col];
+        vecT vec1 = reinterpret_cast <vecT *> (M_row)[col];
+        vectorSubtract <T, vecT, vec_size> (vec1, vec0, left);
+        reinterpret_cast <vecT *> (M_row)[col] = vec1;
+      }
+
+      if (l_id == 0 && last > 0)
+      {
+        for (int col = iter * vec_size; col < x_n; col++)
+        { M_row[col] -= left * M_top[col]; }
+      }
+
     }
     __syncthreads();
   }
@@ -252,7 +287,7 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
 
 }
 
-template <class T, int block_dim_m, int block_dim_k, int step_size>
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
 __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B,
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, T * __restrict__ shm)
@@ -286,7 +321,7 @@ __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T *
       const int k_remain = k - j, k_block = k_remain > block_dim_k ? block_dim_k : k_remain;
       const int B_offset = b_T ? i * ld_b + j : j * ld_b + i;
 
-      const int ld_2 = matrixCopy_keepT <T, step_size> (&B[B_offset], shm_2, n_block, k_block, ld_b, b_T);
+      const int ld_2 = matrixCopy_keepT <T, vecT, vec_size> (&B[B_offset], shm_2, n_block, k_block, ld_b, b_T);
       __syncthreads();
 
       for (int l = 0; l < m; l += block_dim_m)
@@ -294,7 +329,7 @@ __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T *
         const int m_remain = m - l, m_block = m_remain > block_dim_m ? block_dim_m : m_remain;
         const int A_offset = a_T ? j * ld_a + l : l * ld_a + j;
 
-        const int ld_1 = matrixCopy_keepT <T, step_size> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
+        const int ld_1 = matrixCopy_keepT <T, vecT, vec_size> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
         __syncthreads();
 
         DenseGemm <T> (alpha, 1., &M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
@@ -307,7 +342,7 @@ __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T *
 
 }
 
-template <class T, int block_dim_m, int block_dim_k, int step_size> 
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* LU decomposition of matrix of ny by nx, utilizes L1 cache. */
 __device__ __forceinline__ void blockDenseGetrf (T * __restrict__ M, const int nx, const int ny, const int ld, T * __restrict__ shm)
 {
@@ -329,12 +364,12 @@ __device__ __forceinline__ void blockDenseGetrf (T * __restrict__ M, const int n
 
     T * M_diag = &M[i * ld + i], * M_top = &M_diag[diag_nx], * M_left = &M_diag[diag_ny * ld], * M_next = &M_left[diag_nx];
 
-    matrixCopy_keepT <T, step_size> (M_diag, shm, diag_nx, diag_ny, ld, false);
+    matrixCopy_keepT <T, vecT, vec_size> (M_diag, shm, diag_nx, diag_ny, ld, false);
     __syncthreads();
 
-    DenseGetrf <T> (shm, diag_nx, diag_ny, diag_nx);
+    DenseGetrf <T, vecT, vec_size> (shm, diag_nx, diag_ny, diag_nx);
 
-    matrixCopy <T, step_size> (shm, M_diag, diag_nx, diag_ny, diag_nx, ld, false);
+    matrixCopy <T, vecT, vec_size> (shm, M_diag, diag_nx, diag_ny, diag_nx, ld, false);
 
     bool solve_row = remain_nx > 0, solve_col = remain_ny > 0;
 
@@ -347,13 +382,13 @@ __device__ __forceinline__ void blockDenseGetrf (T * __restrict__ M, const int n
     __syncthreads();
 
     if (solve_row && solve_col)
-    { blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (-1., 1., M_next, M_left, M_top, remain_ny, remain_nx, block_dim_m, ld, ld, ld, false, false, shm); }
+    { blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., M_next, M_left, M_top, remain_ny, remain_nx, block_dim_m, ld, ld, ld, false, false, shm); }
   }
 
 }
 
 
-template <class T, int block_dim_m, int block_dim_k, int step_size>
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, T * __restrict__ shm)
 {
@@ -371,25 +406,25 @@ __device__ __forceinline__ void blockDenseTrsmL (T * __restrict__ B, const T * _
     const T * L_diag = &L[i * ld_l + i], * L_left = &L_diag[diag_ny * ld_l];
     T * B_top = &B[i * ld_b], * B_next = &B_top[diag_ny * ld_b];
 
-    matrixCopy_keepT <T, step_size> (L_diag, shm, diag_ny, diag_ny, ld_l, false);
+    matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, diag_ny, diag_ny, ld_l, false);
     __syncthreads();
 
     DenseTrsmL <T> (B_top, shm, nx_b, diag_ny, diag_ny, ld_b, diag_ny);
 
     if (remain_ny > 0)
-    { blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (-1., 1., B_next, L_left, B_top, remain_ny, nx_b, block_dim_m, ld_b, ld_l, ld_b, false, false, shm); }
+    { blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, L_left, B_top, remain_ny, nx_b, block_dim_m, ld_b, ld_l, ld_b, false, false, shm); }
 
   }
 }
 
-template <class T, int block_dim_m, int block_dim_k, int step_size>
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * __restrict__ shm)
 {
   DenseTrsmR <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u);
 }
 
-template <class T, int block_dim_m, int block_dim_k, int step_size>
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * __restrict__ shm)
 {
@@ -397,7 +432,7 @@ __device__ __forceinline__ void blockDenseTrsmR_transposeB (T * __restrict__ B, 
 
 }
 
-template <class T, int block_dim_m, int block_dim_k, int step_size>
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* General Matrix multiplication with 3 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by n) + beta * old_M. */
 __device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
   const T * __restrict__ C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
@@ -416,13 +451,13 @@ __device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, 
 
   if (control) /* A x (B x C) */
   {
-    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (1., 0., t1, B, C, k, n, l, n, ld_b, ld_c, b_T, c_T, shm);
-    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (alpha, beta, M, A, t1, m, n, k, ld_m, ld_a, n, a_T, false, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, B, C, k, n, l, n, ld_b, ld_c, b_T, c_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, A, t1, m, n, k, ld_m, ld_a, n, a_T, false, shm);
   }
   else /* (A x B) x C */
   {
-    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (1., 0., t1, A, B, m, l, k, l, ld_a, ld_b, a_T, b_T, shm);
-    blockDenseGemm <T, block_dim_m, block_dim_k, step_size> (alpha, beta, M, t1, C, m, n, l, ld_m, l, ld_c, false, c_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, A, B, m, l, k, l, ld_a, ld_b, a_T, b_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, t1, C, m, n, l, ld_m, l, ld_c, false, c_T, shm);
   }
 
   if (t_id == 0)
@@ -431,7 +466,7 @@ __device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, 
 
 }
 
-template <class T, int block_dim_m, int block_dim_k, int step_size>
+template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* General Matrix multiplication with 4 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by o) * D (o by n) + beta * old_M. */
 __device__ void blockDenseGemm_4x (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, const T * __restrict__ C, 
   const T * __restrict__ D, const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
@@ -508,8 +543,8 @@ __device__ void blockDenseGemm_shm (const T alpha, const T beta, T * __restrict_
     for (int i0 = 0; i0 < k; i0 += step)
     {
       const int k_ = (k - i0 > step) ? step : k - i0;
-      matrixCopy <T, 1> (&A[a_T ? i0 * ld_a: i0], shm, k_, m, ld_a, k_, a_T);
-      matrixCopy <T, 1> (&B[b_T ? i0 : i0 * ld_b], shm_B, k_, n, ld_b, k_, !b_T);
+      matrixCopy <T, double2, 2> (&A[a_T ? i0 * ld_a: i0], shm, k_, m, ld_a, k_, a_T);
+      matrixCopy <T, double2, 2> (&B[b_T ? i0 : i0 * ld_b], shm_B, k_, n, ld_b, k_, !b_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -559,7 +594,7 @@ __device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * __restri
       const int k_ = (k - i0 > step) ? step : k - i0;
 
       blockDenseGemm_shm <T> (1., 0., shm_C, C, &B[b_T ? i0 : i0 * ld_b], n, k_, l, k_, ld_c, ld_b, !c_T, !b_T, shm, step * m);
-      matrixCopy <T, 1> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
+      matrixCopy <T, double2, 2> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -582,7 +617,7 @@ __device__ void blockDenseGemm_3x_shm (const T alpha, const T beta, T * __restri
       const int l_ = (l - i0 > step) ? step : l - i0;
 
       blockDenseGemm_shm <T> (1., 0., shm, A, &B[b_T ? i0 * ld_b : i0], m, l_, k, l_, ld_a, ld_b, a_T, b_T, shm_C, step * n);
-      matrixCopy <T, 1> (&C[c_T ? i0 : i0 * ld_c], shm_C, l_, n, ld_c, l_, !c_T);
+      matrixCopy <T, double2, 2> (&C[c_T ? i0 : i0 * ld_c], shm_C, l_, n, ld_c, l_, !c_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -633,7 +668,7 @@ __device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * __restri
       const int o_ = (o - i0 > step) ? step : o - i0;
 
       blockDenseGemm_3x_shm <T> (1., 0., shm, A, B, &C[c_T ? i0 * ld_c : i0], m, o_, k, l, o_, ld_a, ld_b, ld_c, a_T, b_T, c_T, shm_D, step * n);
-      matrixCopy <T, 1> (&D[d_T ? i0 : i0 * ld_d], shm_D, o_, n, ld_d, o_, !d_T);
+      matrixCopy <T, double2, 2> (&D[d_T ? i0 : i0 * ld_d], shm_D, o_, n, ld_d, o_, !d_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)
@@ -656,7 +691,7 @@ __device__ void blockDenseGemm_4x_shm (const T alpha, const T beta, T * __restri
       const int k_ = (k - i0 > step) ? step : k - i0;
 
       blockDenseGemm_3x_shm <T> (1., 0., shm_D, D, C, &B[b_T ? i0 : i0 * ld_b], n, k_, o, l, k_, ld_d, ld_c, ld_b, !d_T, !c_T, !b_T, shm, step * m);
-      matrixCopy <T, 1> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
+      matrixCopy <T, double2, 2> (&A[a_T ? i0 * ld_a : i0], shm, k_, m, ld_a, k_, a_T);
       __syncthreads();
 
       for (int i1 = t_id; i1 < m * n; i1 += tb_size)

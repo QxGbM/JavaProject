@@ -34,7 +34,7 @@ template <class T, class vecT, int vec_size> __host__ int test0()
   fclose(stream);
 
   const int blocks = 32, threads = 1024;
-  cudaError_t error = hierarchical_GETRF <T, vecT, 2, 12288> (a, blocks, threads);
+  cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads);
 
 #ifdef ref
   if (error == cudaSuccess)
