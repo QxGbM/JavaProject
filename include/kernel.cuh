@@ -316,9 +316,9 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   }
   printf("FLOPS/S.\n\n");
 
-  cudaStreamDestroy(main_stream);
+  error = cudaStreamDestroy(main_stream);
 
-  return cudaSuccess;
+  return error;
 }
 
 

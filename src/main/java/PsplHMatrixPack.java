@@ -14,7 +14,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 3, nblocks = 2, dim = 2048, admis = 2;
+    int level = 3, nblocks = 2, dim = 4096, admis = 1;
 
     Dense d = Dense.generateDense(dim, dim, 0, 0, testFunc);
 

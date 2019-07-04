@@ -51,69 +51,36 @@ __device__ __forceinline__ void matrixCopy (const T * __restrict__ from, T * __r
 
 template <class T, class vecT, int vec_size>
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const bool transpose)
+__device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T * __restrict__ to, const int nx_from, const int ny_from, const int ld_from, const bool transpose)
 {
-  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), iter_step = vec_size * n_wp;
+  const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
 
-  if (transpose)
+  const int nx_real = transpose ? ny_from : nx_from, ny_real = transpose ? nx_from : ny_from;
+  const int ld_to = ((nx_real + vec_size - 1) / vec_size) * vec_size;
+
+  const int iter = nx_real / vec_size, last = nx_real - iter * vec_size;
+
+  for (int row = w_id; row < ny_real; row += n_wp)
   {
-    const int ld_to = ny_to;
+    T * to_row = &to[row * ld_to];
+    const T * from_row = &from[row * ld_from];
 
-    for (int row_start = w_id * vec_size; row_start < nx_to; row_start += iter_step)
-    {
-      #pragma unroll vec_size
-      for (int row = 0; row < vec_size; row ++)
-      {
-        if (row < nx_to)
-        {
-          const int row_at = row + row_start;
-          T * to_row = &to[row_at * ld_to];
-          const T * from_row = &from[row_at * ld_from];
-          for (int col = l_id; col < ny_to; col += warpSize)
-          { to_row[col] = from_row[col]; }
-        }
-      }
-    }
-
-    return ld_to;
-  }
-  else
-  {
-    const int ld_to = nx_to;
-
-    for (int row_start = w_id * vec_size; row_start < ny_to; row_start += iter_step)
-    {
-      #pragma unroll vec_size
-      for (int row = 0; row < vec_size; row ++)
-      {
-        if (row < ny_to)
-        {
-          const int row_at = row + row_start;
-          T * to_row = &to[row_at * ld_to];
-          const T * from_row = &from[row_at * ld_from];
-          for (int col = l_id; col < nx_to; col += warpSize)
-          { to_row[col] = from_row[col]; }
-        }
-      }
-    }
-
-    return ld_to;
+    for (int col = l_id; col < iter; col += warpSize)
+    { reinterpret_cast <vecT *> (to_row)[col] = reinterpret_cast <const vecT *> (from_row)[col]; }
   }
 
-}
+  if (last > 0)
+  for (int row = w_id; row < ny_real; row += n_wp)
+  {
+    T * to_row = &to[row * ld_to];
+    const T * from_row = &from[row * ld_from];
 
-__device__ __forceinline__ void vectorSubtract (double2 & vec_from, double2 vec_amount, double mult)
-{
-  vec_from.x -= vec_amount.x * mult;
-  vec_from.y -= vec_amount.y * mult;
-}
+    for (int col = iter * vec_size + l_id; col < nx_real; col += warpSize)
+    { to_row[col] = from_row[col]; }
+  }
 
-__device__ __forceinline__ void vectorSubtract (double4 & vec_from, double4 vec_amount, double mult)
-{
-  vec_from.x -= vec_amount.x * mult;
-  vec_from.y -= vec_amount.y * mult;
-  vec_from.z -= vec_amount.z * mult;
-  vec_from.w -= vec_amount.w * mult;
+  return ld_to;
+
 }
 
 
@@ -122,37 +89,41 @@ template <class T, class vecT, int vec_size>
 __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, const int ld)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx > ny ? ny : nx;
+
+  T left, vec0[vec_size], vec1[vec_size];
   
   for (int i = 0; i < min_n; i ++)
   {
+    const int x_start = i + 1, x_n = nx - x_start;
+
+    const int iter = x_n / vec_size, last = x_n - iter * vec_size, align = x_start + last;
+
+    T * M_top = &M[i * ld], * M_top_align = &M_top[align];
+
     for (int row = w_id + i + 1; row < ny; row += n_wp)
     {
-      T left, * M_top = &M[i * ld], * M_row = &M[row * ld];
+      T * M_row = &M[row * ld], * M_row_align = &M_row[align];
 
       if (l_id == 0)
-      { left = M_row[i] / M_top[i]; M_row[i] = left; }
+      { M_row[i] = left = M_row[i] / M_top[i]; }
       __syncwarp();
 
-      left = __shfl_sync (0xffffffff, left, 0, warpSize);
+      left = __shfl_sync (0xffffffff, - left, 0, warpSize);
 
-      const int x_start = i + 1, x_n = nx - x_start;
-
-      const int iter = x_n / vec_size, last = x_n - iter * vec_size, align = x_start + last;
-
-      if (l_id == 0 && last > 0)
-      {
-        for (int col = x_start; col < align; col++)
-        { M_row[col] -= left * M_top[col]; }
-      }
-
-      M_row = &M_row[align]; M_top = &M_top[align];
+      if (last > 0)
+      for (int col = x_start + l_id; col < align; col += warpSize)
+      { M_row[col] = fma(M_top[col], left, M_row[col]); }
 
       for (int col = l_id; col < iter; col += warpSize)
       {
-        vecT vec0 = reinterpret_cast <vecT *> (M_top)[col];
-        vecT vec1 = reinterpret_cast <vecT *> (M_row)[col];
-        vectorSubtract(vec1, vec0, left);
-        reinterpret_cast <vecT *> (M_row)[col] = vec1;
+        reinterpret_cast <vecT *> (vec0)[0] = reinterpret_cast <vecT *> (M_top_align)[col];
+        reinterpret_cast <vecT *> (vec1)[0] = reinterpret_cast <vecT *> (M_row_align)[col];
+
+        #pragma unroll
+        for (int i1 = 0; i1 < vec_size; i1++)
+        { vec1[i1] = fma(vec0[i1], left, vec1[i1]); }
+
+        reinterpret_cast <vecT *> (M_row_align)[col] = reinterpret_cast <vecT *> (vec1)[0];
       }
 
     }
@@ -167,26 +138,30 @@ __device__ __forceinline__ void DenseTrsmL (T * __restrict__ B, const T * __rest
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_l > ny_b ? ny_b : nx_l;
 
+  const int iter = nx_b / vec_size, serial_start = iter * vec_size, last = nx_b - serial_start;
+  T vec0[vec_size], vec1[vec_size];
+
   for (int i = 0; i < min_n; i ++)
   {
     for (int row = w_id + i + 1; row < ny_b; row += n_wp)
     {
-      T left = L[row * ld_l + i], * B_top = &B[i * ld_b], * B_row = &B[row * ld_b];
-      const int iter = nx_b / vec_size, last = nx_b - iter * vec_size;
+      T left = - L[row * ld_l + i], * B_top = &B[i * ld_b], * B_row = &B[row * ld_b];
 
       for (int col = l_id; col < iter; col += warpSize)
       {
-        vecT vec0 = reinterpret_cast <vecT *> (B_top)[col];
-        vecT vec1 = reinterpret_cast <vecT *> (B_row)[col];
-        vectorSubtract (vec1, vec0, left);
-        reinterpret_cast <vecT *> (B_row)[col] = vec1;
+        reinterpret_cast <vecT *> (vec0)[0] = reinterpret_cast <vecT *> (B_top)[col];
+        reinterpret_cast <vecT *> (vec1)[0] = reinterpret_cast <vecT *> (B_row)[col];
+
+        #pragma unroll
+        for (int i1 = 0; i1 < vec_size; i1++)
+        { vec1[i1] = fma(vec0[i1], left, vec1[i1]); }
+
+        reinterpret_cast <vecT *> (B_row)[col] = reinterpret_cast <vecT *> (vec1)[0];
       }
 
-      if (l_id == 0 && last > 0)
-      {
-        for (int col = iter * vec_size; col < nx_b; col ++)
-        { B_row[col] -= left * B_top[col]; }
-      }
+      if (last > 0)
+      for (int col = serial_start + l_id; col < nx_b; col += warpSize)
+      { B_row[col] = fma(B_top[col], left, B_row[col]); }
     }
     __syncthreads();
   }
@@ -254,6 +229,7 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
+  T mult = beta / alpha;
 
   if (beta == 0.)
   {
@@ -263,147 +239,129 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
       for (int col = l_id; col < n; col += warpSize)
       { M_row[col] = 0.; }
     }
+    __syncthreads();
   }
-  else if (alpha != 0.)
+  else if (mult != 1.)
   { 
-    const double mult = beta / alpha;
     for (int row = w_id; row < m; row += n_wp)
     {
       T * M_row = &M[row * ld_m];
       for (int col = l_id; col < n; col += warpSize)
       { M_row[col] *= mult; }
     }
+    __syncthreads();
   }
-  __syncthreads();
 
-  if (alpha != 0.)
-  {
-    const int A_step = a_T ? 1 : ld_a, B_step = b_T ? ld_b : 1;
+  const int A_step = a_T ? 1 : ld_a, B_step = b_T ? ld_b : 1;
 
-    const int iter_m = m / vec_size, iter_n = n / vec_size;
-    const int last_m = m - iter_m * vec_size, last_n = n - iter_n * vec_size;
+  const int iter_m = m / vec_size, iter_n = n / vec_size;
+  const int last_m = m - iter_m * vec_size, last_n = n - iter_n * vec_size;
     
-    T thread_a[vec_size], thread_b[vec_size], thread_m[vec_size][vec_size];
+  T thread_a[vec_size], thread_b[vec_size], thread_m[vec_size][vec_size];
 
-    for (int i = 0; i < k; i++)
+  for (int i = 0; i < k; i++)
+  {
+    const T * A_k = a_T ? &A[i * ld_a] : &A[i];
+    const T * B_k = b_T ? &B[i] : &B[i * ld_b];
+
+    for (int i1 = w_id; i1 < iter_m; i1 += n_wp)
     {
-      const T * A_k = a_T ? &A[i * ld_a] : &A[i];
-      const T * B_k = b_T ? &B[i] : &B[i * ld_b];
+      const int row_start = i1 * vec_size;
 
-      for (int i1 = w_id; i1 < iter_m; i1 += n_wp)
+      for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
       {
-        for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
+        const int col_start = i2 * vec_size;
+
+        #pragma unroll
+        for (int i3 = 0; i3 < vec_size; i3++)
         {
-          #pragma unroll
-          for (int i3 = 0; i3 < vec_size; i3++)
-          {
-            const int row = i1 * vec_size + i3;
-            thread_a[i3] = A_k[row * A_step];
-            reinterpret_cast <vecT *> (thread_m[i3])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
-          }
-
-          #pragma unroll
-          for (int i3 = 0; i3 < vec_size; i3++)
-          {
-            #pragma unroll
-            for (int i4 = 0; i4 < vec_size; i4++)
-            {
-              const int col = i2 * vec_size + i4;
-              thread_b[i4] = B_k[col * B_step];
-            }
-
-            #pragma unroll
-            for (int i4 = 0; i4 < vec_size; i4++)
-            { 
-              thread_m[i3][i4] += thread_a[i3] * thread_b[i4]; 
-            }
-          }
-
-          #pragma unroll
-          for (int i3 = 0; i3 < vec_size; i3++)
-          {
-            const int row = i1 * vec_size + i3;
-            reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[i3])[0];
-          }
-
+          const int row = row_start + i3;
+          thread_a[i3] = A_k[row * A_step];
+          reinterpret_cast <vecT *> (thread_m[i3])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
         }
 
-        if (l_id == 0 && last_n > 0)
+        #pragma unroll
+        for (int i3 = 0; i3 < vec_size; i3++)
         {
           #pragma unroll
-          for (int i3 = 0; i3 < vec_size; i3++)
+          for (int i4 = 0; i4 < vec_size; i4++)
           {
-            const int row = i1 * vec_size + i3;
-            for (int col = iter_n * vec_size; col < n; col++)
-            { M[row * ld_m + col] += thread_a[i3] * B_k[col * B_step]; }
+            const int col = col_start + i4;
+            thread_b[i4] = B_k[col * B_step];
           }
         }
+
+        #pragma unroll
+        for (int i3 = 0; i3 < vec_size; i3++)
+        {
+          #pragma unroll
+          for (int i4 = 0; i4 < vec_size; i4++)
+          { thread_m[i3][i4] = fma (thread_a[i3], thread_b[i4], thread_m[i3][i4]); }
+        }
+
+        #pragma unroll
+        for (int i3 = 0; i3 < vec_size; i3++)
+        {
+          const int row = row_start + i3;
+          reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[i3])[0];
+        }
+
       }
 
-      if (last_m - w_id > 0)
+      if (l_id == 0 && last_n > 0)
       {
-        const int row = w_id; const T left = A_k[row * A_step];
-
-        for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
+        #pragma unroll
+        for (int i3 = 0; i3 < vec_size; i3++)
         {
-          reinterpret_cast <vecT *> (thread_m[0])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
-
-          #pragma unroll
-          for (int i4 = 0; i4 < vec_size; i4++)
-          {
-            const int col = i2 * vec_size + i4;
-            thread_b[i4] = B_k[col * B_step]; 
-          }
-
-          #pragma unroll
-          for (int i4 = 0; i4 < vec_size; i4++)
-          { 
-            thread_m[0][i4] = thread_b[i4] * left; 
-          }
-
-          reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[0])[0];
-        }
-
-        if (l_id == 0 && last_n > 0)
-        {
+          const int row = i1 * vec_size + i3;
           for (int col = iter_n * vec_size; col < n; col++)
-          { M[row * ld_m + col] += left * B_k[col * B_step]; }
+          { M[row * ld_m + col] += thread_a[i3] * B_k[col * B_step]; }
         }
       }
     }
 
-    __syncthreads();
+    if (last_m - w_id > 0)
+    {
+      const int row = w_id; const T left = A_k[row * A_step];
 
-    const double mult = alpha;
+      for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
+      {
+        reinterpret_cast <vecT *> (thread_m[0])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
+
+        #pragma unroll
+        for (int i4 = 0; i4 < vec_size; i4++)
+        {
+          const int col = i2 * vec_size + i4;
+          thread_b[i4] = B_k[col * B_step]; 
+        }
+
+        #pragma unroll
+        for (int i4 = 0; i4 < vec_size; i4++)
+        { thread_m[0][i4] = thread_b[i4] * left; }
+
+        reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[0])[0];
+      }
+
+      if (l_id == 0 && last_n > 0)
+      {
+        for (int col = iter_n * vec_size; col < n; col++)
+        { M[row * ld_m + col] += left * B_k[col * B_step]; }
+      }
+    }
+  }
+
+  __syncthreads();
+
+  if (alpha != 1.)
+  {
     for (int row = w_id; row < m; row += n_wp)
     {
       T* M_row = &M[row * ld_m];
       for (int col = l_id; col < n; col += warpSize)
-      { M_row[col] *= mult; }
+      { M_row[col] *= alpha; }
     }
-
-    /*const int A_step = a_T ? ld_a : 1, B_step = b_T ? 1 : ld_b;
-
-    for (int row = w_id; row < m; row += n_wp) 
-    {
-      T * M_row = &M[row * ld_m];
-      const T * A_start = a_T ? &A[row] : &A[row * ld_a];
-
-      for (int col = l_id; col < n; col += warpSize)
-      {
-        T accum = 0.;
-        const T * B_start = b_T ? &B[col * ld_b] : &B[col];
-
-        for (int i = 0; i < k; i++)
-        { accum += A_start[i * A_step] * B_start[i * B_step]; }
-
-        M_row[col] = alpha * (M_row[col] + accum);
-      }
-    }*/
-
-
+    __syncthreads();
   }
-  __syncthreads();
 
 }
 

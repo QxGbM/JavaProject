@@ -135,9 +135,9 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
           else if (a == 0)
           { cosine = 0; sine = signbit(b) * -2 + 1; r = fabs(b); p = 1; }
           else if (fabs(b) > fabs(a))
-          { T t = - a / b; sine = rsqrt(1 + t * t); cosine = sine * t; r = - b / sine; p = 2 / cosine; }
+          { T t = - a / b; sine = rhypot(1, t); cosine = sine * t; r = - b / sine; p = 2 / cosine; } // rhypot(1, t) = 1 / sqrt(1 + t * t);
           else
-          { T t = - b / a; cosine = rsqrt(1 + t * t); sine = cosine * t; r = a / cosine; p = sine / 2; }
+          { T t = - b / a; cosine = rhypot(1, t); sine = cosine * t; r = a / cosine; p = sine / 2; }
 
           M[row * ld_m + col] = r;
           M[row2 * ld_m + col] = p;
