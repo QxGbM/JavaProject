@@ -9,7 +9,7 @@ __global__ void kernel_dynamic (const int ** __restrict__ insts, void ** __restr
 {
   __shared__ int shm [shm_size]; 
 
-  const int * pc = insts [block_rank()], shm_size_acutal = shm_size * 4 / sizeof(T), t_id = thread_rank();
+  const int * pc = insts [block_rank()], t_id = thread_rank();
 
 load_inst:
   int next_pc = 0;
@@ -94,9 +94,10 @@ exe:
     const int offset_m = shm[7], offset_a = shm[8], offset_b = shm[9], offset_c = shm[10], m = shm[11], n = shm[12], k = shm[13], l = shm[14];
     const int ld_m = shm[15], ld_a = shm[16], ld_b = shm[17], ld_c = shm[18];
     const bool a_T = (bool) shm[19], b_T = (bool) shm[20], c_T = (bool) shm[21];
+    const int control = shm[22], t_size1 = shm[23];
     __syncthreads();
-    //blockDenseGemm_3x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, (T *) shm, shm_size_acutal);
-    blockDenseGemm_3x <T, vecT, vec_size, 64, 48> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, 1, n * k, (T *) shm);
+    blockDenseGemm_3x <T, vecT, vec_size, 64, 48> 
+      (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, control, t_size1, (T *) shm);
     next_pc = gemm_3x_l; goto write;
   }
 
@@ -107,8 +108,11 @@ exe:
     const int m = shm[13], n = shm[14], k = shm[15], l = shm[16], o = shm[17];
     const int ld_m = shm[18], ld_a = shm[19], ld_b = shm[20], ld_c = shm[21], ld_d = shm[22];
     const bool a_T = (bool) shm[23], b_T = (bool) shm[24], c_T = (bool) shm[25], d_T = (bool) shm[26];
+    const int control = shm[27], t_size1 = shm[28], t_size2 = shm[29];
     __syncthreads();
-    blockDenseGemm_4x_shm <T> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], &D[offset_d], m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, (T *) shm, shm_size_acutal);
+    blockDenseGemm_4x <T, vecT, vec_size, 64, 48> 
+      (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], &D[offset_d], m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, control, t_size1, t_size2, (T *) shm);
+
     next_pc = gemm_4x_l; goto write;
   }
 
@@ -226,6 +230,8 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   cudaSetDevice(0);
   if (sizeof(T) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
   { printf("Shared memory bank size configured to be 8-bytes.\n"); }
+
+  cudaDeviceSetLimit(cudaLimitMallocHeapSize, 4096llu * 1024llu * 1024llu);
 
   cudaDeviceProp deviceprop;
   cudaGetDeviceProperties(&deviceprop, 0);

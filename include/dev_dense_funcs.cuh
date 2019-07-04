@@ -527,16 +527,17 @@ __device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, 
   t1 = * t1_addr;
   __syncthreads();
 
-  if (control) /* A x (B x C) */
-  {
-    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, B, C, k, n, l, n, ld_b, ld_c, b_T, c_T, shm);
-    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, A, t1, m, n, k, ld_m, ld_a, n, a_T, false, shm);
-  }
-  else /* (A x B) x C */
+  if (control) // (A x B) x C
   {
     blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, A, B, m, l, k, l, ld_a, ld_b, a_T, b_T, shm);
     blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, t1, C, m, n, l, ld_m, l, ld_c, false, c_T, shm);
   }
+  else // A x (B x C)
+  {
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, B, C, k, n, l, n, ld_b, ld_c, b_T, c_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, A, t1, m, n, k, ld_m, ld_a, n, a_T, false, shm);
+  }
+
 
   if (t_id == 0)
   { delete[] t1; }
@@ -564,25 +565,40 @@ __device__ void blockDenseGemm_4x (const T alpha, const T beta, T * __restrict__
 
   switch (control) 
   {
-  case 0: /* ((A x B) x C) x D */
+  case 0: // ((A x B) x C) x D, t1 m * l, t2 m * o
   {
-
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, A, B, m, l, k, l, ld_a, ld_b, a_T, b_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t2, t1, C, m, o, l, o, l, ld_c, false, c_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, t2, D, m, n, o, ld_m, o, ld_d, false, d_T, shm);
+    break;
   }
-  case 1: /* (A x (B x C)) x D */
+  case 1: // (A x (B x C)) x D, t1 k * o, t2 m * o
   {
-
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, B, C, k, o, l, o, ld_b, ld_c, b_T, c_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t2, A, t1, m, o, k, o, ld_a, o, a_T, false, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, t2, D, m, n, o, ld_m, o, ld_d, false, d_T, shm);
+    break;
   }
-  case 2: /* A x ((B x C) x D) */
+  case 2: // A x ((B x C) x D), t1 k * o, t2 k * n
   {
-
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, B, C, k, o, l, o, ld_b, ld_c, b_T, c_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t2, t1, D, k, n, o, n, o, ld_d, false, d_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, A, t2, m, n, k, ld_m, ld_a, n, a_T, false, shm);
+    break;
   }
-  case 3: /* A x (B x (C x D)) */
+  case 3: // A x (B x (C x D)), t1 l * n, t2 k * n
   {
-
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, C, D, l, n, o, n, ld_c, ld_d, c_T, d_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t2, B, t1, k, n, l, n, ld_b, n, b_T, false, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, A, t2, m, n, k, ld_m, ld_a, n, a_T, false, shm);
+    break;
   }
-  case 4: /* (A x B) x (C x D) */
+  case 4: // (A x B) x (C x D), t1 m * l, t2 l * n
   {
-
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t1, A, B, m, l, k, l, ld_a, ld_b, a_T, b_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., t2, C, D, l, n, o, n, ld_c, ld_d, c_T, d_T, shm);
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, t1, t2, m, n, l, ld_m, l, n, false, false, shm);
+    break;
   }
   default:
   { break; }

@@ -467,6 +467,9 @@ public:
 
       if (gemm_write)
       {
+        int t_size1;
+        int control = getControl_GEMM_3x(&t_size1, m, n, k, l);
+
         inst[0] = (int) gemm_3x;
         inst[1] = M;
         inst[2] = A;
@@ -487,6 +490,9 @@ public:
         inst[17] = a_T;
         inst[18] = b_T;
         inst[19] = c_T;
+        inst[20] = control;
+        inst[21] = t_size1;
+
         return gemm_3x_l - 2;
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
@@ -522,6 +528,9 @@ public:
 
       if (gemm_write)
       {
+        int t_size1, t_size2;
+        int control = getControl_GEMM_4x (&t_size1, &t_size2, m, n, k, l, o);
+
         inst[0] = (int) gemm_4x;
         inst[1] = M;
         inst[2] = A;
@@ -547,6 +556,10 @@ public:
         inst[22] = b_T;
         inst[23] = c_T;
         inst[24] = d_T;
+        inst[25] = control;
+        inst[26] = t_size1;
+        inst[27] = t_size2;
+
         return gemm_4x_l - 2;
       }
       else
@@ -881,23 +894,23 @@ public:
     const bool b_abc_a = f_abc_d <= f_a_bcd, b_abc_ab = f_abc_d <= f_ab_cd;
     
     int control;
-    if (b_abc_a && b_abc_ab) /* (A x B x C) x D */
+    if (b_abc_a && b_abc_ab) // (A x B x C) x D
     {
       * t_size2 = size_2;
-      if (b_ab_bc) /* ((A x B) x C) x D */
+      if (b_ab_bc) // ((A x B) x C) x D
       { control = 0; * t_size1 = size_1; }
-      else /* (A x (B x C)) x D */
+      else // (A x (B x C)) x D
       { control = 1; * t_size1 = size_5; }
     }
-    else if (b_abc_ab) /* A x (B x C x D) */
+    else if (b_abc_ab) // A x (B x C x D)
     {
       * t_size2 = size_3;
-      if (b_bc_cd) /* A x ((B x C) x D) */
+      if (b_bc_cd) // A x ((B x C) x D)
       { control = 2; * t_size1 = size_5; }
-      else /* A x (B x (C x D)) */
+      else // A x (B x (C x D))
       { control = 3; * t_size1 = size_4; }
     }
-    else /* (A x B) x (C x D) */
+    else // (A x B) x (C x D)
     { control = 4; * t_size1 = size_1; * t_size2 = size_4; }
 
     return control; 

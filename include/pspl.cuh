@@ -8,6 +8,7 @@
 
 #endif
 
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
@@ -46,7 +47,7 @@ enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_no
 
 enum opcode_t { execute, signal_wait, finish };
 
-enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 22, gemm_4x_l = 27, accum_l = 19, accum_dense_l = -1, pivot_l = -1 };
+enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 24, gemm_4x_l = 30, accum_l = 19, accum_dense_l = -1, pivot_l = -1 };
 
 __constant__ double dev_rnd_seed [_RND_SEED_LENGTH];
 
