@@ -115,45 +115,44 @@ __device__ bool blockSingleSideJacobiSVD (T * __restrict__ UxS, T * __restrict__
 template <class T> 
 __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int ny, const int ld_m)
 {
-  const int l_id = lane_rank(), w_id = warp_rank(), tb_w_size = num_warps(), n = nx + ny - 2;
+  const int l_id = lane_rank(), w_id = warp_rank(), n_wp = num_warps(), n = nx + ny - 2;
 
   for (int iter = 0; iter < n; iter++)
   {
-    for (int col = w_id; col < nx; col += tb_w_size)
+    for (int col = w_id; col < nx; col += n_wp)
     {
       const int row = ny - 2 + 2 * col - iter;
       if (row < ny - 1 && row >= col)
-      { 
-        T cosine, sine; const int row2 = row + 1;
+      {
+        const int row2 = row + 1;
+        T cosine, sine, * M_row = &M[row * ld_m], * M_row2 = &M[row2 * ld_m]; 
 
         if (l_id == 0)
         {
-          T a = M[row * ld_m + col], b = M[row2 * ld_m + col], r, p;
+          T a = M_row[col], b = M_row2[col], r, p;
 
           if (b == 0)
-          { cosine = signbit(a) * -2 + 1; sine = 0; r = fabs(a); p = 0; }
+          { cosine = copysign(1., a); sine = 0.; r = fabs(a); p = 0.; }
           else if (a == 0)
-          { cosine = 0; sine = signbit(b) * -2 + 1; r = fabs(b); p = 1; }
+          { cosine = 0.; sine = copysign(1., b); r = fabs(b); p = 1.; }
           else if (fabs(b) > fabs(a))
-          { T t = - a / b; sine = rhypot(1, t); cosine = sine * t; r = - b / sine; p = 2 / cosine; } // rhypot(1, t) = 1 / sqrt(1 + t * t);
+          { T t = - a / b; sine = rhypot(1., t); cosine = sine * t; r = - b / sine; p = 2. / cosine; } // rhypot(1, t) = 1 / sqrt(1 + t * t);
           else
-          { T t = - b / a; cosine = rhypot(1, t); sine = cosine * t; r = a / cosine; p = sine / 2; }
+          { T t = - b / a; cosine = rhypot(1., t); sine = cosine * t; r = a / cosine; p = sine / 2.; }
 
-          M[row * ld_m + col] = r;
-          M[row2 * ld_m + col] = p;
+          M_row[col] = r;
+          M_row2[col] = p;
         }
-        __syncwarp();
 
         cosine = __shfl_sync(0xffffffff, cosine, 0, warpSize);
         sine = __shfl_sync(0xffffffff, sine, 0, warpSize);
 
         for (int i = col + l_id + 1; i < nx; i += warpSize)
         {
-          const T a = M[row * ld_m + i], b = M[row2 * ld_m + i];
-          M[row * ld_m + i] = cosine * a - sine * b;
-          M[row2 * ld_m + i] = sine * a + cosine * b;
+          const T a = M_row[i], b = M_row2[i];
+          M_row[i] = fma (cosine, a, fma (- sine, b, 0.)); // cosine * a - sine * b;
+          M_row2[i] = fma (sine, a, fma (cosine, b, 0.)); // sine * a + cosine * b;
         }
-        __syncwarp();
       }
     }
     __syncthreads();
@@ -163,47 +162,47 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
 template <class T>
 __device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ R, const int nx, const int ny, const int p, const int ld_q, const int ld_r)
 {
-  const int l_id = lane_rank(), w_id = warp_rank(), tb_w_size = num_warps(), n = nx + ny - 2;
+  const int l_id = lane_rank(), w_id = warp_rank(), n_wp = num_warps(), n = nx + ny - 2;
 
-  for (int row = w_id; row < ny; row += tb_w_size) for (int col = l_id; col < p; col += warpSize)
-  { Q[row * ld_q + col] = (row == col) ? 1. : 0.; }
+  for (int row = w_id; row < ny; row += n_wp) for (int col = l_id; col < p; col += warpSize)
+  { Q[row * ld_q + col] = (T) (row == col); }
   __syncthreads();
 
   for (int iter = 0; iter < n; iter++)
   {
-    for (int col = w_id; col < nx; col += tb_w_size)
+    for (int col = w_id; col < nx; col += n_wp)
     {
       const int row = 2 * col + 1 - nx + iter;
       if (row < ny - 1 && row >= col)
       {
-        T cosine, sine; const int row2 = row + 1;
+        const int row2 = row + 1;
+        T cosine, sine, * Q_row = &Q[row * ld_q], * Q_row2 = &Q[row2 * ld_q];
 
         if (l_id == 0)
         {
           T p = R[row2 * ld_r + col];
 
           if (p == 0)
-          { cosine = 1; sine = 0; }
+          { cosine = 1.; sine = 0.; }
           else if (p == 1)
-          { cosine = 0; sine = 1; }
+          { cosine = 0.; sine = 1.; }
           else if (fabs(p) > 2)
-          { cosine = 2 / p; sine = sqrt(1 - cosine * cosine); }
+          { cosine = 2. / p; sine = sqrt (fma (cosine, - cosine, 1.)); }
           else
-          { sine = 2 * p; cosine = sqrt(1 - sine * sine); }
+          { sine = 2. * p; cosine = sqrt (fma (sine, - sine, 1.)); }
 
         }
-        __syncwarp();
 
         cosine = __shfl_sync(0xffffffff, cosine, 0, warpSize);
         sine = __shfl_sync(0xffffffff, sine, 0, warpSize);
 
         for (int i = col + l_id; i < p; i += warpSize)
         {
-          const T a = Q[row * ld_q + i], b = Q[row2 * ld_q + i];
-          Q[row * ld_q + i] = cosine * a + sine * b;
-          Q[row2 * ld_q + i] = - sine * a + cosine * b;
+          const T a = Q_row[i], b = Q_row2[i];
+          Q_row[i] = fma (cosine, a, fma (sine, b, 0.)); // cosine * a + sine * b;
+          Q_row2[i] = fma (- sine, a, fma (cosine, b, 0.)); // - sine * a + cosine * b;
         }
-        __syncwarp();
+
       }
     }
     __syncthreads();
@@ -224,7 +223,7 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   U = *U_ptr; V = *V_ptr; Q = *Q_ptr;
   __syncthreads();
 
-  blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0, U, U1, VT1, dev_rnd_seed, ny, k1, k1, nx, k1, ld_u1, ld_vt1, k1, false, true, false, 0, k1 * k1, shm);
+  blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, U1, VT1, dev_rnd_seed, ny, k1, k1, nx, k1, ld_u1, ld_vt1, k1, false, true, false, 0, k1 * k1, shm);
   blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., U, U2, VT2, dev_rnd_seed, ny, k1, k2, nx, k1, ld_u2, ld_vt2, k1, false, true, false, 0, k2 * k1, shm);
 
   blockGivensRotation <T> (U, k1, ny, k1);
