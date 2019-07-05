@@ -106,7 +106,6 @@ __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, c
 
       if (l_id == 0)
       { M_row[i] = left = M_row[i] / M_top[i]; }
-      __syncwarp();
 
       left = __shfl_sync (0xffffffff, - left, 0, warpSize);
 
@@ -167,7 +166,7 @@ __device__ __forceinline__ void DenseTrsmL (T * __restrict__ B, const T * __rest
   }
 }
 
-template <class T>
+template <class T, class vecT, int vec_size>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void DenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
@@ -175,14 +174,14 @@ __device__ __forceinline__ void DenseTrsmR (T * __restrict__ B, const T * __rest
 
   for (int i = 0; i < min_n; i ++)
   {
+    const T * U_top = &U[i * ld_u];
+
     for (int row = w_id; row < ny_b; row += n_wp)
     {
       T left, * B_row = &B[row * ld_b];
-      const T * U_top = &U[i * ld_u];
 
       if (l_id == 0)
       { left = B_row[i] / U_top[i]; B_row[i] = left; }
-      __syncwarp();
 
       left = __shfl_sync (0xffffffff, left, 0, warpSize);
 
@@ -224,49 +223,39 @@ __device__ __forceinline__ void DenseTrsmR_transposeB (T * __restrict__ B, const
 
 
 template <class T, class vecT, int vec_size>
-/* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
-__device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B,
-  const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
+/* General Matrix multiplication. M (m by n) = A (m by k) * B (k by n) + old_M. */
+__device__ __forceinline__ void DenseGemm (T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, const int m, const int n, const int k, 
+  const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
-  T mult = beta / alpha;
 
-  if (beta == 0.)
-  {
-    for (int row = w_id; row < m; row += n_wp)
-    {
-      T * M_row = &M[row * ld_m];
-      for (int col = l_id; col < n; col += warpSize)
-      { M_row[col] = 0.; }
-    }
-    __syncthreads();
-  }
-  else if (mult != 1.)
-  { 
-    for (int row = w_id; row < m; row += n_wp)
-    {
-      T * M_row = &M[row * ld_m];
-      for (int col = l_id; col < n; col += warpSize)
-      { M_row[col] *= mult; }
-    }
-    __syncthreads();
-  }
+  int A_step, B_step, A_iter, B_iter;
 
-  const int A_step = a_T ? 1 : ld_a, B_step = b_T ? ld_b : 1;
+  if (a_T) { A_step = 1; A_iter = ld_a; } else { A_step = ld_a; A_iter = 1; }
+  if (b_T) { B_step = ld_b; B_iter = 1; } else { B_step = 1; B_iter = ld_b; }
 
   const int iter_m = m / vec_size, iter_n = n / vec_size;
-  const int last_m = m - iter_m * vec_size, last_n = n - iter_n * vec_size;
-    
+  const int last_m_start = iter_m * vec_size, last_n_start = iter_n * vec_size;
+  const int last_m = m - last_m_start, last_n = n - last_n_start;
+
+  const bool b_last_m = last_m - w_id > 0, b_last_n = last_n > 0;
+
   T thread_a[vec_size], thread_b[vec_size], thread_m[vec_size][vec_size];
 
   for (int i = 0; i < k; i++)
   {
-    const T * A_k = a_T ? &A[i * ld_a] : &A[i];
-    const T * B_k = b_T ? &B[i] : &B[i * ld_b];
+    const T * A_k = &A[i * A_iter], * B_k = &B[i * B_iter];
 
     for (int i1 = w_id; i1 < iter_m; i1 += n_wp)
     {
       const int row_start = i1 * vec_size;
+
+      #pragma unroll
+      for (int i3 = 0; i3 < vec_size; i3++)
+      {
+        const int row = row_start + i3;
+        thread_a[i3] = A_k[row * A_step];
+      }
 
       for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
       {
@@ -276,19 +265,14 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
         for (int i3 = 0; i3 < vec_size; i3++)
         {
           const int row = row_start + i3;
-          thread_a[i3] = A_k[row * A_step];
           reinterpret_cast <vecT *> (thread_m[i3])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
         }
 
         #pragma unroll
-        for (int i3 = 0; i3 < vec_size; i3++)
+        for (int i4 = 0; i4 < vec_size; i4++)
         {
-          #pragma unroll
-          for (int i4 = 0; i4 < vec_size; i4++)
-          {
-            const int col = col_start + i4;
-            thread_b[i4] = B_k[col * B_step];
-          }
+          const int col = col_start + i4;
+          thread_b[i4] = B_k[col * B_step];
         }
 
         #pragma unroll
@@ -308,59 +292,57 @@ __device__ __forceinline__ void DenseGemm (const T alpha, const T beta, T * __re
 
       }
 
-      if (l_id == 0 && last_n > 0)
+      if (b_last_n)
       {
         #pragma unroll
         for (int i3 = 0; i3 < vec_size; i3++)
         {
-          const int row = i1 * vec_size + i3;
-          for (int col = iter_n * vec_size; col < n; col++)
-          { M[row * ld_m + col] += thread_a[i3] * B_k[col * B_step]; }
+          const int row = row_start + i3;
+          T * M_row = &M[row * ld_m + last_n_start];
+
+          for (int col = l_id; col < last_n; col += warpSize)
+          { M_row[col] = fma (thread_a[i3], B_k[col * B_step], M_row[col]); }
         }
       }
+
     }
 
-    if (last_m - w_id > 0)
+    if (b_last_m)
     {
-      const int row = w_id; const T left = A_k[row * A_step];
+      const int row = w_id + last_m_start; const T left = A_k[row * A_step];
+      T * M_row = &M[row * ld_m];
 
       for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
       {
-        reinterpret_cast <vecT *> (thread_m[0])[0] = reinterpret_cast <vecT *> (&M[row * ld_m])[i2];
+        const int col_start = i2 * vec_size;
+        reinterpret_cast <vecT *> (thread_a)[0] = reinterpret_cast <vecT *> (M_row)[i2];
 
         #pragma unroll
         for (int i4 = 0; i4 < vec_size; i4++)
         {
-          const int col = i2 * vec_size + i4;
+          const int col = col_start + i4;
           thread_b[i4] = B_k[col * B_step]; 
         }
 
         #pragma unroll
         for (int i4 = 0; i4 < vec_size; i4++)
-        { thread_m[0][i4] = thread_b[i4] * left; }
+        { thread_a[i4] = fma(left, thread_b[i4], thread_a[i4]); }
 
-        reinterpret_cast <vecT *> (&M[row * ld_m])[i2] = reinterpret_cast <vecT *> (thread_m[0])[0];
+        reinterpret_cast <vecT *> (M_row)[i2] = reinterpret_cast <vecT *> (thread_a)[0];
       }
 
-      if (l_id == 0 && last_n > 0)
+      if (b_last_n)
       {
-        for (int col = iter_n * vec_size; col < n; col++)
-        { M[row * ld_m + col] += left * B_k[col * B_step]; }
+        T * M_row_n = &M_row[last_n_start];
+
+        #pragma unroll
+        for (int i3 = 0; i3 < vec_size; i3++)
+        {
+          for (int col = l_id; col < last_n; col += warpSize)
+          { M_row_n[col] = fma (left, B_k[col * B_step], M_row_n[col]); }
+        }
       }
     }
-  }
-
-  __syncthreads();
-
-  if (alpha != 1.)
-  {
-    for (int row = w_id; row < m; row += n_wp)
-    {
-      T* M_row = &M[row * ld_m];
-      for (int col = l_id; col < n; col += warpSize)
-      { M_row[col] *= alpha; }
-    }
-    __syncthreads();
   }
 
 }
@@ -372,21 +354,68 @@ __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T *
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
 
+  const int iter_n = n / vec_size;
+  const int last_n_start = iter_n * vec_size;
+  const int last_n = n - last_n_start;
+
+  const bool b_last_n = last_n > 0;
+
+  T thread_a[vec_size], mult = beta / alpha;
+
   if (beta == 0.)
-  for (int row = w_id; row < m; row += n_wp)
   {
-    T * M_row = &M[row * ld_m];
-    for (int col = l_id; col < n; col += warpSize)
-    { M_row[col] = 0.; }
+    #pragma unroll
+    for (int i = 0; i < vec_size; i++)
+    { thread_a[i] = 0.; }
+    
+    vecT zero_vec = reinterpret_cast <vecT *> (thread_a)[0];
+
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m];
+
+      for (int col = l_id; col < iter_n; col += warpSize)
+      { reinterpret_cast <vecT *> (M_row)[col] = zero_vec; }
+    }
+
+    if (b_last_n)
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m + last_n_start];
+
+      for (int col = l_id; col < last_n; col += warpSize)
+      { M_row[col] = 0.; }
+    }
+    __syncthreads();
   }
-  else if (beta != 1.)
-  for (int row = w_id; row < m; row += n_wp)
-  {
-    T * M_row = &M[row * ld_m];
-    for (int col = l_id; col < n; col += warpSize)
-    { M_row[col] *= beta; }
+  else if (mult != 1.)
+  { 
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m];
+
+      for (int col = l_id; col < iter_n; col += warpSize)
+      {
+        reinterpret_cast <vecT *> (thread_a)[0] = reinterpret_cast <vecT *> (M_row)[col];
+
+        #pragma unroll
+        for (int i = 0; i < vec_size; i++)
+        { thread_a[i] *= mult; }
+
+        reinterpret_cast <vecT *> (M_row)[col] = reinterpret_cast <vecT *> (thread_a)[0];
+      }
+    }
+
+    if (b_last_n)
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m + last_n_start];
+
+      for (int col = l_id; col < last_n; col += warpSize)
+      { M_row[col] *= mult; }
+    }
+    __syncthreads();
   }
-  __syncthreads();
 
   T * shm_2 = &shm[block_dim_m * block_dim_k];
   
@@ -410,13 +439,42 @@ __device__ __forceinline__ void blockDenseGemm (const T alpha, const T beta, T *
         const int ld_1 = matrixCopy_keepT <T, vecT, vec_size> (&A[A_offset], shm, k_block, m_block, ld_a, a_T);
         __syncthreads();
 
-        DenseGemm <T, vecT, vec_size> (alpha, 1., &M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
-
+        DenseGemm <T, vecT, vec_size> (&M[l * ld_m + i], shm, shm_2, m_block, n_block, k_block, ld_m, ld_1, ld_2, a_T, b_T);
+        __syncthreads();
       }
 
     }
 
   }
+
+  if (alpha != 1.)
+  {
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m];
+
+      for (int col = l_id; col < iter_n; col += warpSize)
+      {
+        reinterpret_cast <vecT *> (thread_a)[0] = reinterpret_cast <vecT *> (M_row)[col];
+
+        #pragma unroll
+        for (int i = 0; i < vec_size; i++)
+        { thread_a[i] *= alpha; }
+
+        reinterpret_cast <vecT *> (M_row)[col] = reinterpret_cast <vecT *> (thread_a)[0];
+      }
+    }
+
+    if (b_last_n)
+    for (int row = w_id; row < m; row += n_wp)
+    {
+      T * M_row = &M[row * ld_m + last_n_start];
+
+      for (int col = l_id; col < last_n; col += warpSize)
+      { M_row[col] *= alpha; }
+    }
+  }
+  __syncthreads();
 
 }
 
@@ -455,7 +513,7 @@ __device__ __forceinline__ void blockDenseGetrf (T * __restrict__ M, const int n
     { DenseTrsmL <T, vecT, vec_size> (M_top, shm, remain_nx, diag_ny, diag_nx, ld, diag_nx); }
 
     if (solve_col)
-    { DenseTrsmR <T> (M_left, shm, diag_nx, remain_ny, diag_ny, ld, diag_nx); }
+    { DenseTrsmR <T, vecT, vec_size> (M_left, shm, diag_nx, remain_ny, diag_ny, ld, diag_nx); }
 
     __syncthreads();
 
@@ -499,7 +557,7 @@ template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * __restrict__ shm)
 {
-  DenseTrsmR <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u);
+  DenseTrsmR <T, vecT, vec_size> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u);
 }
 
 template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>

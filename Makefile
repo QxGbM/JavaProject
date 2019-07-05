@@ -15,7 +15,7 @@ ARCH += -gencode arch=compute_70,code=sm_70
 ARCH += -gencode arch=compute_75,code=sm_75
 ARCH += -gencode arch=compute_75,code=compute_75
 
-NVCCFLAGS = -maxrregcount=64 --machine 64 -rdc=true -O3 
+NVCCFLAGS = -maxrregcount=128 --machine 64 -rdc=true -O3 
 NVCCFLAGS += -I$(INCLUDE_DIR) 
 NVCCFLAGS += $(ARCH) 
 NVCCFLAGS += -Xcompiler "-fopenmp"

@@ -38,7 +38,7 @@ exe:
     T * M = (T *) ptrs[shm[3]]; 
     const int offset = shm[4], nx = shm[5], ny = shm[6], ld = shm[7];
     __syncthreads();
-    blockDenseGetrf <T, vecT, vec_size, 64, 48> (&M[offset], nx, ny, ld, (T *) shm);
+    blockDenseGetrf <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&M[offset], nx, ny, ld, (T *) shm);
     next_pc = getrf_l; goto write;  
   }
 
@@ -51,7 +51,7 @@ exe:
     if (b_T)
     { }
     else
-    { blockDenseTrsmL <T, vecT, vec_size, 64, 48> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm); }
+    { blockDenseTrsmL <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm); }
     next_pc = trsml_l; goto write;
   }
 
@@ -62,9 +62,9 @@ exe:
     const bool b_T = (bool) shm[12];
     __syncthreads();
     if (b_T)
-    { blockDenseTrsmR_transposeB <T, vecT, vec_size, 64, 48> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
+    { blockDenseTrsmR_transposeB <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
     else
-    { blockDenseTrsmR <T, vecT, vec_size, 64, 48> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
+    { blockDenseTrsmR <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
     next_pc = trsmr_l; goto write;
   }
 
@@ -74,7 +74,7 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm <T, vecT, vec_size, 64, 48> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
+    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = gemm_l; goto write;
   }
 
@@ -84,7 +84,7 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm <T, vecT, vec_size, 64, 48> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
+    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = gemm_plus_l; goto write;
   }
 
@@ -96,7 +96,7 @@ exe:
     const bool a_T = (bool) shm[19], b_T = (bool) shm[20], c_T = (bool) shm[21];
     const int control = shm[22], t_size1 = shm[23];
     __syncthreads();
-    blockDenseGemm_3x <T, vecT, vec_size, 64, 48> 
+    blockDenseGemm_3x <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K>
       (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, control, t_size1, (T *) shm);
     next_pc = gemm_3x_l; goto write;
   }
@@ -110,7 +110,7 @@ exe:
     const bool a_T = (bool) shm[23], b_T = (bool) shm[24], c_T = (bool) shm[25], d_T = (bool) shm[26];
     const int control = shm[27], t_size1 = shm[28], t_size2 = shm[29];
     __syncthreads();
-    blockDenseGemm_4x <T, vecT, vec_size, 64, 48> 
+    blockDenseGemm_4x <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K>
       (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], &D[offset_d], m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, control, t_size1, t_size2, (T *) shm);
 
     next_pc = gemm_4x_l; goto write;
@@ -122,7 +122,7 @@ exe:
     const int offset_u1 = shm[7], offset_vt1 = shm[8], offset_u2 = shm[9], offset_vt2 = shm[10];
     const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
     __syncthreads();
-    blockLowRankAccum <T, vecT, vec_size, 64, 48> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm);
+    blockLowRankAccum <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm);
     next_pc = accum_l; goto write;
   }
 
@@ -166,6 +166,23 @@ __host__ void print_dev_mat (T * dev_mat, const int nx, const int ny)
      printf("\n");
    }
    delete[] data;
+}
+
+template <class T>
+__host__ cudaError_t rndInitialize (unsigned int rnd_seed_in)
+{
+  srand(rnd_seed_in);
+
+  T * rnd_seed = new T[_RND_SEED_LENGTH];
+
+#pragma omp parallel for
+  for (int i = 0; i < _RND_SEED_LENGTH; i++) 
+  { rnd_seed[i] = (T) rand() / RAND_MAX; }
+
+  cudaError_t error = cudaMemcpyToSymbol (dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(T), 0, cudaMemcpyHostToDevice);
+  delete[] rnd_seed;
+
+  return error;
 }
 
 template <class T>

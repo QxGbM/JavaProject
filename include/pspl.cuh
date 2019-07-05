@@ -33,6 +33,9 @@
 #define _DEFAULT_COMM_LENGTH 1024
 #define _DEFAULT_COMPRESSOR_LENGTH 1024
 
+#define _DEFAULT_BLOCK_M 64
+#define _DEFAULT_BLOCK_K 16
+
 #define _RND_SEED_LENGTH 8192
 
 enum mark_t { start, end };

@@ -6,7 +6,7 @@
 __global__ void partial_pivot_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[6144];
-  blockDenseGetrf <double, double2, 2, 64, 48> (matrix, nx, ny, ld, shm);
+  blockDenseGetrf <double, double2, 2, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (matrix, nx, ny, ld, shm);
   //DenseGetrf <double, double2, 2> (matrix, nx, ny, ld);
 }
 
@@ -14,17 +14,8 @@ template <class T, class vecT, int vec_size> __host__ int test0()
 {
   cudaSetDevice(0);
   cudaDeviceReset();
-  unsigned int rnd_seed_in = 200;
 
-  T * rnd_seed = new T [_RND_SEED_LENGTH];
-  srand(rnd_seed_in);
-
-#pragma omp parallel for
-  for (int i = 0; i < _RND_SEED_LENGTH; i++) 
-  { rnd_seed[i] = (T) rand() / RAND_MAX; }
-
-  cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(T), 0, cudaMemcpyHostToDevice);
-  delete[] rnd_seed;
+  rndInitialize <T> (200);
 
   FILE * stream = fopen("bin/test.struct", "r");
   dev_hierarchical<T> * a = dev_hierarchical<T>::readStructureFromFile(stream);
@@ -34,8 +25,8 @@ template <class T, class vecT, int vec_size> __host__ int test0()
   a -> loadBinary_ReverseEndian(stream);
   fclose(stream);
 
-  const int blocks = 32, threads = 1024;
-  cudaError_t error = hierarchical_GETRF <T, vecT, 2, 12288> (a, blocks, threads);
+  const int blocks = 1, threads = 512;
+  cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads);
 
 #ifdef ref
   if (error == cudaSuccess)
@@ -48,7 +39,7 @@ template <class T, class vecT, int vec_size> __host__ int test0()
 
     timer my_timer = timer();
     my_timer.newEvent("ref", start);
-    partial_pivot_kernel <<<1, 1024, 0, 0 >>> (c -> getElements(), c -> getNx(), c -> getNy(), c -> getLd(), nullptr);
+    partial_pivot_kernel <<<1, threads, 0, 0 >>> (c -> getElements(), c -> getNx(), c -> getNy(), c -> getLd(), nullptr);
     my_timer.newEvent("ref", end);
 
     my_timer.dumpAllEvents_Sync();

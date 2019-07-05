@@ -953,12 +953,19 @@ public:
 
   __host__ static long long int getFlops_GEMM_4x (const long long int m, const long long int n, const long long int k, const long long int l, const long long int o)
   {
-    if ((m <= k && m <= l) || (o <= k && o <= l))
-    { return getFlops_GEMM_3x (m, o, k, l) + getFlops_GEMM (m, n, o); }
-    else if ((n <= l && n <= o) || (k <= o && k <= l))
-    { return getFlops_GEMM_3x (k, n, l, o) + getFlops_GEMM (m, n, k); }
-    else
-    { return getFlops_GEMM (m, l, k) + getFlops_GEMM (k, o, n) + getFlops_GEMM (m, l, n); }
+    long long int size_1 = m * l, size_2 = m * o, size_3 = n * k, size_4 = n * l, size_5 = k * o;
+
+    long long int f_ab = size_1 * k, f_bc = size_5 * l, f_cd = size_4 * o;
+    bool b_ab_bc = f_ab <= f_bc, b_bc_cd = f_bc <= f_cd;
+
+    long long int f_abc_d = b_ab_bc ? size_2 * (l + n) + f_ab : size_2 * (k + n) + f_bc;
+    long long int f_a_bcd = b_bc_cd ? size_3 * (o + m) + f_bc : size_3 * (l + m) + f_cd;
+    long long int f_ab_cd = f_ab + f_cd + size_1 * n;
+
+    long long int f_abcd = f_abc_d <= f_a_bcd ? f_abc_d : f_a_bcd;
+    f_abcd = f_abcd <= f_ab_cd ? f_abcd : f_ab_cd;
+
+    return f_abcd * 2;
   }
 
   __host__ static long long int getFlops_QR (const long long int nx, const long long int ny)

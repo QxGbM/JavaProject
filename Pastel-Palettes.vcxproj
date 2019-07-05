@@ -88,7 +88,7 @@
       <CodeGeneration>compute_60,sm_60;compute_61,sm_61;compute_70,sm_70;compute_75,sm_75;</CodeGeneration>
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
       <Optimization>O3</Optimization>
-      <MaxRegCount>64</MaxRegCount>
+      <MaxRegCount>128</MaxRegCount>
       <AdditionalCompilerOptions>
       </AdditionalCompilerOptions>
       <AdditionalOptions>-Xcompiler "-openmp" %(AdditionalOptions)</AdditionalOptions>
