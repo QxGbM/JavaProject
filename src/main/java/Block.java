@@ -30,29 +30,24 @@ public interface Block {
 
   abstract public void print (int w, int d);
 
-  public static Block readStructureFromFile (BufferedReader reader) throws IOException
-  {
+  public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();
     String[] args = str.split("\\s+");
     int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
 
-    if (str.startsWith("D"))
-    {
+    if (str.startsWith("D")) {
       Dense d = new Dense(m, n);
       return d;
     }
-    else if (str.startsWith("LR"))
-    {
+    else if (str.startsWith("LR")) {
       int r = Integer.parseInt(args[3]);
       LowRank lr = new LowRank(m, n, r);
       return lr;
     }
-    else if (str.startsWith("H"))
-    {
+    else if (str.startsWith("H")) {
       Hierarchical h = new Hierarchical(m, n);
 
-      for (int i = 0; i < m; i++)
-      {
+      for (int i = 0; i < m; i++) {
         for (int j = 0; j < n; j++)
         { h.setElement(i, j, readStructureFromFile(reader)); }
       }
