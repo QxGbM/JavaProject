@@ -5,6 +5,7 @@
 #define __syncthreads()
 #define asm
 #define volatile()
+#define clock64() 0
 
 #endif
 
@@ -82,6 +83,13 @@ __device__ __forceinline__ int lane_rank()
 
 __device__ __forceinline__ int num_warps()
 { return (block_dim() + warpSize - 1) / warpSize; }
+
+__device__ __forceinline__ void wait (clock_t lapse)
+{
+  clock_t start = clock64();
+  while (lapse > abs(clock64() - start));
+  return;
+}
 
 template <class T> class dev_dense;
 template <class T> class dev_low_rank;

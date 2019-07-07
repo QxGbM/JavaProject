@@ -232,8 +232,8 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., V, VT1, U1, Q, nx, k1, k1, ny, k1, ld_vt1, ld_u1, k1, false, true, false, 0, k1 * k1, shm);
   blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., V, VT2, U2, Q, nx, k1, k2, ny, k1, ld_vt2, ld_u2, k1, false, true, false, 0, k2 * k1, shm);
 
-  matrixCopy <T, vecT, vec_size> (V, VT1, k1, nx, k1, ld_vt1, false);
-  matrixCopy <T, vecT, vec_size> (Q, U1, k1, ny, k1, ld_u1, false);
+  matrixCopy <T, vecT, vec_size> (V, VT1, k1, nx, k1, ld_vt1);
+  matrixCopy <T, vecT, vec_size> (Q, U1, k1, ny, k1, ld_u1);
   __syncthreads();
   
   if (t_id == 0)

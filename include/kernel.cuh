@@ -74,7 +74,8 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
+    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> 
+      (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = gemm_l; goto write;
   }
 
@@ -84,7 +85,8 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
+    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> 
+      (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = gemm_plus_l; goto write;
   }
 
@@ -122,7 +124,8 @@ exe:
     const int offset_u1 = shm[7], offset_vt1 = shm[8], offset_u2 = shm[9], offset_vt2 = shm[10];
     const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
     __syncthreads();
-    blockLowRankAccum <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm);
+    blockLowRankAccum <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> 
+      (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, (T *) shm);
     next_pc = accum_l; goto write;
   }
 
@@ -131,7 +134,7 @@ exe:
 
 wait:
   if (t_id == 0)
-  { shm[0] = comm_space[shm[1]]; }
+  { wait(0); shm[0] = comm_space[shm[1]]; }
   __syncthreads();
   if (shm[0])
   { next_pc = 2; }
