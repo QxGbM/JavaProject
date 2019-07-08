@@ -63,6 +63,7 @@ __device__ __forceinline__ int matrixCopy_keepT (const T * __restrict__ from, T 
   }
 
   return ld_to;
+
 }
 
 
@@ -93,7 +94,7 @@ __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, c
 
       if (last > 0)
       for (int col = x_start + l_id; col < align; col += warpSize)
-      { M_row[col] = fma(M_top[col], left, M_row[col]); }
+      { M_row[col] = fma (M_top[col], left, M_row[col]); }
 
       for (int col = l_id; col < iter; col += warpSize)
       {
@@ -102,7 +103,7 @@ __device__ __forceinline__ void DenseGetrf (T * M, const int nx, const int ny, c
 
         #pragma unroll
         for (int i1 = 0; i1 < vec_size; i1++)
-        { vec1[i1] = fma(vec0[i1], left, vec1[i1]); }
+        { vec1[i1] = fma (vec0[i1], left, vec1[i1]); }
 
         reinterpret_cast <vecT *> (M_row_align)[col] = reinterpret_cast <vecT *> (vec1)[0];
       }
@@ -135,17 +136,18 @@ __device__ __forceinline__ void DenseTrsmL (T * __restrict__ B, const T * __rest
 
         #pragma unroll
         for (int i1 = 0; i1 < vec_size; i1++)
-        { vec1[i1] = fma(vec0[i1], left, vec1[i1]); }
+        { vec1[i1] = fma (vec0[i1], left, vec1[i1]); }
 
         reinterpret_cast <vecT *> (B_row)[col] = reinterpret_cast <vecT *> (vec1)[0];
       }
 
       if (last > 0)
       for (int col = serial_start + l_id; col < nx_b; col += warpSize)
-      { B_row[col] = fma(B_top[col], left, B_row[col]); }
+      { B_row[col] = fma (B_top[col], left, B_row[col]); }
     }
     __syncthreads();
   }
+
 }
 
 template <class T, class vecT, int vec_size>
@@ -154,31 +156,53 @@ __device__ __forceinline__ void DenseTrsmR (T * __restrict__ B, const T * __rest
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
 
+  T left, vec0[vec_size], vec1[vec_size];
+
   for (int i = 0; i < min_n; i ++)
   {
-    const T * U_top = &U[i * ld_u];
+    const int i_start = i + 1, x = nx_b - i_start;
+    const int iter = x / vec_size, last = x - iter * vec_size, last_start = i_start + last;
+
+    const T * U_top = &U[i * ld_u], * U_top_vec = &U_top[last_start];
 
     for (int row = w_id; row < ny_b; row += n_wp)
     {
-      T left, * B_row = &B[row * ld_b];
+      T * B_row = &B[row * ld_b], * B_row_vec = &B_row[last_start];
 
       if (l_id == 0)
-      { left = B_row[i] / U_top[i]; B_row[i] = left; }
+      { B_row[i] = left = B_row[i] / U_top[i]; }
 
-      left = __shfl_sync (0xffffffff, left, 0, warpSize);
+      left = __shfl_sync (0xffffffff, - left, 0, warpSize);
 
-      for (int col = l_id + i + 1; col < nx_b; col += warpSize)
-      { B_row[col] -= left * U_top[col]; }
+      if (last > 0)
+      for (int col = l_id + i_start; col < last_start; col += warpSize)
+      { B_row[col] = fma (left, U_top[col], B_row[col]); }
+
+      for (int col = l_id; col < iter; col += warpSize)
+      {
+        reinterpret_cast <vecT *> (vec0)[0] = reinterpret_cast <const vecT *> (U_top_vec)[col];
+        reinterpret_cast <vecT *> (vec1)[0] = reinterpret_cast <vecT *> (B_row_vec)[col];
+
+        #pragma unroll
+        for (int i1 = 0; i1 < vec_size; i1++)
+        { vec1[i1] = fma (vec0[i1], left, vec1[i1]); }
+
+        reinterpret_cast <vecT *> (B_row_vec)[col] = reinterpret_cast <vecT *> (vec1)[0];
+      }
     }
     __syncthreads();
   }
+
 }
 
-template <class T>
+template <class T, class vecT, int vec_size>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void DenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
+
+  const int iter = ny_b / vec_size, serial_start = iter * vec_size, last = ny_b - serial_start;
+  T vec0[vec_size], vec1[vec_size];
 
   for (int i = 0; i < min_n; i ++)
   {
@@ -187,22 +211,49 @@ __device__ __forceinline__ void DenseTrsmR_transposeB (T * __restrict__ B, const
 
     if (w_id == 0)
     {
-      for (int col = l_id; col < ny_b; col += warpSize)
-      { B_top[col] /= U_top[i]; }
+      T diag = 1. / U_top[i];
+
+      for (int col = l_id; col < iter; col += warpSize)
+      { 
+        reinterpret_cast <vecT *> (vec1)[0] = reinterpret_cast <vecT *> (B_top)[col];
+
+        #pragma unroll
+        for (int i1 = 0; i1 < vec_size; i1++)
+        { vec1[i1] *= diag; }
+
+        reinterpret_cast <vecT *> (B_top)[col] = reinterpret_cast <vecT *> (vec1)[0];
+      }
+
+      if (last > 0)
+      for (int col = l_id + serial_start; col < ny_b; col += warpSize)
+      { B_top[col] *= diag; }
     }
     __syncthreads();
 
     for (int row = w_id + i + 1; row < nx_b; row += n_wp)
     {
-      T left = U_top[row], * B_row = &B[row * ld_b];
+      T left = - U_top[row], * B_row = &B[row * ld_b];
 
-      for (int col = l_id; col < ny_b; col += warpSize)
-      { B_row[col] -= left * B_top[col]; }
+      for (int col = l_id; col < iter; col += warpSize)
+      { 
+        reinterpret_cast <vecT *> (vec0)[0] = reinterpret_cast <vecT *> (B_top)[col];
+        reinterpret_cast <vecT *> (vec1)[0] = reinterpret_cast <vecT *> (B_row)[col];
+
+        #pragma unroll
+        for (int i1 = 0; i1 < vec_size; i1++)
+        { vec1[i1] = fma (left, vec0[i1], vec1[i1]); }
+
+        reinterpret_cast <vecT *> (B_row)[col] = reinterpret_cast <vecT *> (vec1)[0];
+      }
+
+      if (last > 0)
+      for (int col = l_id + serial_start; col < ny_b; col += warpSize)
+      { B_row[col] = fma (left, B_top[col], B_row[col]); }
     }
     __syncthreads();
   }
-}
 
+}
 
 template <class T, class vecT, int vec_size>
 /* General Matrix multiplication. M (m by n) = A (m by k) * B (k by n) + old_M. */
@@ -586,43 +637,155 @@ template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmL (T * __restrict__ B, const T * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, T * __restrict__ shm)
 {
-  const int min_n = nx_l > ny_b ? ny_b : nx_l;
+  const int l_step = block_dim_m * ld_l + block_dim_m, b_step = block_dim_m * ld_b; int remain_nx = nx_l, remain_ny = ny_b;
+  const T * L_diag = L, * L_left = &L[l_step - block_dim_m];
+  T * B_top = B, * B_next = &B[b_step];
 
-  for (int i = 0; i < min_n; i += block_dim_m)
+  while (remain_nx > block_dim_m && remain_ny > block_dim_m)
   {
-    int diag_ny, remain_ny;
+    remain_nx -= block_dim_m;
+    remain_ny -= block_dim_m;
 
-    if (ny_b - i >= block_dim_m)
-    { diag_ny = block_dim_m; remain_ny = ny_b - i - block_dim_m; }
-    else
-    { diag_ny = ny_b - i; remain_ny = 0; }
-
-    const T * L_diag = &L[i * ld_l + i], * L_left = &L_diag[diag_ny * ld_l];
-    T * B_top = &B[i * ld_b], * B_next = &B_top[diag_ny * ld_b];
-
-    matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, diag_ny, diag_ny, ld_l, false);
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, block_dim_m, block_dim_m, ld_l, false);
     __syncthreads();
 
-    DenseTrsmL <T, vecT, vec_size> (B_top, shm, nx_b, diag_ny, diag_ny, ld_b, diag_ny);
+    DenseTrsmL <T, vecT, vec_size> (B_top, shm, nx_b, block_dim_m, block_dim_m, ld_b, ld_0);
 
-    if (remain_ny > 0)
-    { blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, L_left, B_top, remain_ny, nx_b, block_dim_m, ld_b, ld_l, ld_b, false, false, shm); }
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, L_left, B_top, remain_ny, nx_b, block_dim_m, ld_b, ld_l, ld_b, false, false, shm);
 
+    L_diag = &L_diag[l_step];
+    L_left = &L_left[l_step];
+    B_top = B_next;
+    B_next = &B_next[b_step];
   }
+
+  if (remain_nx <= block_dim_m && remain_ny <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, remain_nx, remain_ny, ld_l, false);
+    __syncthreads();
+
+    DenseTrsmL <T, vecT, vec_size> (B_top, shm, nx_b, remain_ny, remain_nx, ld_b, ld_0);
+  }
+  else if (remain_nx <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, remain_nx, block_dim_m, ld_l, false);
+    __syncthreads();
+
+    DenseTrsmL <T, vecT, vec_size> (B_top, shm, nx_b, block_dim_m, remain_nx, ld_b, ld_0);
+
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, L_left, B_top, remain_ny - block_dim_m, nx_b, remain_nx, ld_b, ld_l, ld_b, false, false, shm);
+  }
+  else if (remain_ny <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (L_diag, shm, block_dim_m, remain_ny, ld_l, false);
+    __syncthreads();
+
+    DenseTrsmL <T, vecT, vec_size> (B_top, shm, nx_b, remain_ny, block_dim_m, ld_b, ld_0);
+  }
+
 }
 
 template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmR (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * __restrict__ shm)
 {
-  DenseTrsmR <T, vecT, vec_size> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u);
+  const int u_step = block_dim_m * ld_u + block_dim_m, b_step = block_dim_m; int remain_nx = nx_b, remain_ny = ny_u;
+  const T * U_diag = U, * U_top = &U[block_dim_m];
+  T * B_left = B, * B_next = &B[b_step];
+
+  while (remain_nx > block_dim_m && remain_ny > block_dim_m)
+  {
+    remain_nx -= block_dim_m;
+    remain_ny -= block_dim_m;
+
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, block_dim_m, block_dim_m, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR <T, vecT, vec_size> (B_left, shm, block_dim_m, ny_b, block_dim_m, ld_b, ld_0);
+
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, B_left, U_top, ny_b, remain_nx, block_dim_m, ld_b, ld_b, ld_u, false, false, shm);
+
+    U_diag = &U_diag[u_step];
+    U_top = &U_top[u_step];
+    B_left = B_next;
+    B_next = &B_next[b_step];
+  }
+
+  if (remain_nx <= block_dim_m && remain_ny <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, remain_nx, remain_ny, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR <T, vecT, vec_size> (B_left, shm, remain_nx, ny_b, remain_ny, ld_b, ld_0);
+  }
+  else if (remain_nx <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, remain_nx, block_dim_m, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR <T, vecT, vec_size> (B_left, shm, remain_nx, ny_b, block_dim_m, ld_b, ld_0);
+  }
+  else if (remain_ny <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, block_dim_m, remain_ny, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR <T, vecT, vec_size> (B_left, shm, block_dim_m, ny_b, remain_ny, ld_b, ld_0);
+
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, B_left, U_top, ny_b, remain_nx - block_dim_m, remain_ny, ld_b, ld_b, ld_u, false, false, shm);
+  }
+
 }
 
 template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
 __device__ __forceinline__ void blockDenseTrsmR_transposeB (T * __restrict__ B, const T * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, T * __restrict__ shm)
 {
-  DenseTrsmR_transposeB <T> (B, U, nx_b, ny_b, ny_u, ld_b, ld_u);
+  const int u_step = block_dim_m * ld_u + block_dim_m, b_step = block_dim_m * ld_b; int remain_nx = nx_b, remain_ny = ny_u;
+  const T * U_diag = U, * U_top = &U[block_dim_m];
+  T * B_left = B, * B_next = &B[b_step];
+
+  while (remain_nx > block_dim_m && remain_ny > block_dim_m)
+  {
+    remain_nx -= block_dim_m;
+    remain_ny -= block_dim_m;
+
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, block_dim_m, block_dim_m, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR_transposeB <T, vecT, vec_size> (B_left, shm, block_dim_m, ny_b, block_dim_m, ld_b, ld_0);
+
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, U_top, B_left, remain_nx, ny_b, block_dim_m, ld_b, ld_u, ld_b, true, false, shm);
+
+    U_diag = &U_diag[u_step];
+    U_top = &U_top[u_step];
+    B_left = B_next;
+    B_next = &B_next[b_step];
+  }
+
+  if (remain_nx <= block_dim_m && remain_ny <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, remain_nx, remain_ny, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR_transposeB <T, vecT, vec_size> (B_left, shm, remain_nx, ny_b, remain_ny, ld_b, ld_0);
+  }
+  else if (remain_nx <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, remain_nx, block_dim_m, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR_transposeB <T, vecT, vec_size> (B_left, shm, remain_nx, ny_b, block_dim_m, ld_b, ld_0);
+  }
+  else if (remain_ny <= block_dim_m)
+  {
+    const int ld_0 = matrixCopy_keepT <T, vecT, vec_size> (U_diag, shm, block_dim_m, remain_ny, ld_u, false);
+    __syncthreads();
+
+    DenseTrsmR_transposeB <T, vecT, vec_size> (B_left, shm, block_dim_m, ny_b, remain_ny, ld_b, ld_0);
+
+    blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (-1., 1., B_next, U_top, B_left, remain_nx - block_dim_m, ny_b, remain_ny, ld_b, ld_u, ld_b, true, false, shm);
+  }
 
 }
 
@@ -790,6 +953,7 @@ __device__ void blockDenseGemm_4x (const T alpha, const T beta, T * __restrict__
   if (t_id == 0)
   { delete[] t1; delete[] t2; }
   __syncthreads();
+
 }
 
 template <class T> 
