@@ -292,7 +292,6 @@ private:
       addInstToWorker(inst, flops, worker_id);
 
       updateDepsCounts(dag, inst);
-      print();
     }
 
     delete[] sync_with;
