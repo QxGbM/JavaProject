@@ -59,13 +59,15 @@ class ready_queue
 {
 private:
   int inst_number;
+  int num_deps;
   long long int anticipated_flops;
   ready_queue * next;
 
 public:
-  __host__ ready_queue (const int inst_in, const long long int flops_in, ready_queue * next_q = nullptr)
+  __host__ ready_queue (const int inst_in, const int n_deps_in, const long long int flops_in, ready_queue * next_q = nullptr)
   {
     inst_number = inst_in;
+    num_deps = n_deps_in;
     anticipated_flops = flops_in;
     next = next_q;
   }
@@ -73,21 +75,20 @@ public:
   __host__ ~ready_queue ()
   { delete next; }
 
-  __host__ ready_queue * hookup (const int inst_in, const long long int flops_in)
-  {
-    if (this == nullptr)
-    { return new ready_queue (inst_in, flops_in); }
-    else if (this -> anticipated_flops < flops_in)
-    { return new ready_queue (inst_in, flops_in, this); }
-    else
-    {
-      ready_queue * ptr = next, * last = this;
-      while (ptr != nullptr && ptr -> anticipated_flops >= flops_in) 
-      { last = ptr; ptr = ptr -> next; }
+  __host__ int getNumDeps () const
+  { return num_deps; }
 
-      last -> next = new ready_queue (inst_in, flops_in, ptr);
-      return this;
-    }
+  __host__ void hookup (const int inst_in, const int n_deps_in, const long long int flops_in)
+  {
+    ready_queue * ptr = next, * last = this;
+
+    while (ptr != nullptr && ptr -> num_deps > n_deps_in) 
+    { last = ptr; ptr = ptr -> next; }
+
+    while (ptr != nullptr && ptr -> anticipated_flops >= flops_in && ptr -> num_deps == n_deps_in)
+    { last = ptr; ptr = ptr -> next; }
+
+    last -> next = new ready_queue (inst_in, n_deps_in, flops_in, ptr);
   }
 
   __host__ ready_queue * deleteFirst (int * inst_out, long long int * flops_out)
@@ -135,7 +136,17 @@ private:
     for (int i = 0; i < length; i++)
     {
       if (inward_deps_counter[i] == 0)
-      { working_queue = working_queue -> hookup(i, dag -> getFlops(i)); }
+      {
+        const int num_deps = dag -> getDepCount_From(i);
+        const long long int flops = dag -> getFlops(i);
+
+        if (working_queue == nullptr)
+        { working_queue = new ready_queue (i, num_deps, flops); }
+        else if (working_queue -> getNumDeps() < num_deps)
+        { working_queue = new ready_queue (i, num_deps, flops, working_queue); }
+        else
+        { working_queue -> hookup(i, num_deps, flops); }
+      }
     }
   }
 
@@ -237,9 +248,19 @@ private:
     {
       if (dep_list -> getDep() > no_dep)
       {
-        const int inst_to = dep_list -> getInst();
-        if (--inward_deps_counter[inst_to] == 0)
-        { working_queue = working_queue -> hookup(inst_to, dag -> getFlops(inst_to)); }
+        const int i = dep_list -> getInst();
+        if (--inward_deps_counter[i] == 0)
+        {
+          const int num_deps = dag -> getDepCount_From(i);
+          const long long int flops = dag -> getFlops(i);
+
+          if (working_queue == nullptr)
+          { working_queue = new ready_queue (i, num_deps, flops); }
+          else if (working_queue -> getNumDeps() < num_deps)
+          { working_queue = new ready_queue (i, num_deps, flops, working_queue); }
+          else
+          { working_queue -> hookup(i, num_deps, flops); }
+        }
       }
     }
   }
@@ -271,6 +292,7 @@ private:
       addInstToWorker(inst, flops, worker_id);
 
       updateDepsCounts(dag, inst);
+      print();
     }
 
     delete[] sync_with;

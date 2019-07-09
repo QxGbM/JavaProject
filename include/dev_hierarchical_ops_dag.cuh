@@ -148,6 +148,14 @@ public:
     { return nullptr; }
   }
 
+  __host__ int getDepCount_From (const int from) const
+  {
+    if (from >= 0 && from < length)
+    { return deps_graph_from[from] -> length(); }
+    else
+    { return 0; }
+  }
+
   __host__ int * getDepCountList_To () const
   {
     int * deps = new int [length];
