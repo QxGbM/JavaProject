@@ -7,38 +7,37 @@ class dependency_linked_list
 {
 private:
 
-  int to;
+  int inst;
   dependency_t dependency;
   dependency_linked_list * next;
 
 public:
 
-  __host__ dependency_linked_list (const int to_in, const dependency_t dependency_in)
+  __host__ dependency_linked_list (const int inst_in, const dependency_t dependency_in, dependency_linked_list * next_in = nullptr)
   {
-    to = to_in;
+    inst = inst_in;
     dependency = dependency_in;
-    next = nullptr;
+    next = next_in;
   }
 
   __host__ ~dependency_linked_list ()
   { delete next; }
 
-  __host__ void insertDependency (const int to_in, const dependency_t dependency_in)
-  {
-    for (dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    {
-      if (ptr -> next == nullptr) 
-      { ptr -> next = new dependency_linked_list(to_in, dependency_in); return; }
-    }
-    return;
-  }
+  __host__ int getInst () const
+  { return inst; }
 
-  __host__ dependency_t lookupDependency (const int to_in) const
+  __host__ dependency_t getDep () const
+  { return dependency; }
+
+  __host__ dependency_linked_list * getNext () const
+  { return next; }
+
+  __host__ dependency_t lookupDependency (const int inst_in) const
   {
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
-      if (ptr -> to == to_in) { return ptr -> dependency; }
-      else if (ptr -> to > to_in) { return no_dep; }
+      if (ptr -> inst == inst_in) { return ptr -> dependency; }
+      else if (ptr -> inst < inst_in) { return no_dep; }
     }
     return no_dep;
   }
@@ -52,9 +51,10 @@ public:
 
   __host__ void print () const
   {
-    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { printf("%d ", ptr -> to); }
+    for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { printf("%d ", ptr -> inst); }
     printf("\n");
   }
+
 };
 
 class h_ops_dag 
@@ -64,7 +64,8 @@ private:
   int length;
   long long int * flops;
   h_ops_tree * ops_list;
-  dependency_linked_list ** deps_graph;
+  dependency_linked_list ** deps_graph_from;
+  dependency_linked_list ** deps_graph_to;
 
 public:
 
@@ -74,7 +75,8 @@ public:
     length = ops_list -> length();
 
     flops = new long long int[length];
-    deps_graph = new dependency_linked_list * [length];
+    deps_graph_from = new dependency_linked_list * [length];
+    deps_graph_to = new dependency_linked_list * [length];
 
 #pragma omp parallel for
     for (int i = 0; i < length; i++)
@@ -85,44 +87,76 @@ public:
       {
         dependency_t dep = ops_list -> getChild(j) -> checkDependencyFrom(from); 
         if (dep > no_dep)
-        { if (list == nullptr) list = new dependency_linked_list(j, dep); else list -> insertDependency(j, dep); }
+        { list = new dependency_linked_list(j, dep, list); }
       }
       flops[i] = from -> getFlops();
-      deps_graph[i] = list;
+      deps_graph_from[i] = list;
     }
+
+#pragma omp parallel for
+    for (int i = 0; i < length; i++)
+    {
+      dependency_linked_list * list = nullptr;
+      for (int j = 0; j < i; j++)
+      {
+        dependency_t dep = deps_graph_from[j] -> lookupDependency(i);
+        if (dep > no_dep)
+        { list = new dependency_linked_list(j, dep, list); }
+      }
+      deps_graph_to[i] = list;
+    }
+
   }
 
   __host__ ~h_ops_dag ()
   {
     for (int i = 0; i < length; i++)
-    { delete deps_graph[i]; }
-    delete[] deps_graph;
+    { delete deps_graph_from[i]; delete deps_graph_to[i]; }
+
+    delete[] deps_graph_from;
+    delete[] deps_graph_to;
     delete ops_list;
   }
 
-  __host__ inline int getLength () const
+  __host__ int getLength () const
   { return length; }
 
-  __host__ inline h_ops * getOp (const int index) const
+  __host__ h_ops * getOp (const int index) const
   { return ops_list -> getChild(index); }
 
   __host__ dependency_t getDep (const int from, const int to) const
   {
-    if (deps_graph[from] == nullptr) 
+    if (deps_graph_from[from] == nullptr) 
     { return no_dep; }
     else
-    { return deps_graph[from] -> lookupDependency(to); }
+    { return deps_graph_from[from] -> lookupDependency(to); }
   }
 
-  __host__ int getDepCount_from (const int from) const
-  { return (deps_graph[from] == nullptr) ? 0 : deps_graph[from] -> length(); }
-
-  __host__ int getDepCount_to (const int to) const
+  __host__ dependency_linked_list * getDepList_From (const int from) const
   {
-    int sum = 0;
-    for (int i = 0; i < to; i++)
-    { if (getDep(i, to) > no_dep) { sum++; } }
-    return sum;
+    if (from >= 0 && from < length)
+    { return deps_graph_from[from]; }
+    else
+    { return nullptr; }
+  }
+
+  __host__ dependency_linked_list * getDepList_To (const int to) const
+  {
+    if (to >= 0 && to < length)
+    { return deps_graph_to[to]; }
+    else
+    { return nullptr; }
+  }
+
+  __host__ int * getDepCountList_To () const
+  {
+    int * deps = new int [length];
+
+#pragma omp parallel for
+    for (int i = 0; i < length; i++)
+    { deps[i] = deps_graph_to[i] -> length(); }
+
+    return deps;
   }
 
   __host__ long long int getFlops (const int index = -1) const
