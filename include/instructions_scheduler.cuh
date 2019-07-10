@@ -61,45 +61,141 @@ private:
   int inst_number;
   int num_deps;
   long long int anticipated_flops;
+
+  long long int max_sync;
+  int * sync_with;
   ready_queue * next;
 
 public:
-  __host__ ready_queue (const int inst_in, const int n_deps_in, const long long int flops_in, ready_queue * next_q = nullptr)
+  __host__ ready_queue (const int inst_in, const int workers, const h_ops_dag * dag, const long long int * flops_after_inst, const int * inst_executed_by, ready_queue * next_q = nullptr)
   {
     inst_number = inst_in;
-    num_deps = n_deps_in;
-    anticipated_flops = flops_in;
+    num_deps = dag -> getDepCount_From(inst_in);
+    anticipated_flops = dag -> getFlops(inst_in);
     next = next_q;
+
+    const dependency_linked_list * list = dag -> getDepList_To(inst_in);
+
+    long long int * flops_container = new long long int[workers];
+    sync_with = new int[workers];
+    max_sync = 0;
+    
+    memset(flops_container, 0, workers * sizeof(long long int));
+    memset(sync_with, 0xffffffff, workers * sizeof(int));
+
+    while (list != nullptr)
+    {
+      const dependency_t dep = list -> getDep();
+      if (dep > no_dep)
+      {
+        const int inst_from = list -> getInst(), exe_worker = inst_executed_by[inst_from];
+        const long long int flops = flops_after_inst[inst_from];
+        if (flops_container[exe_worker] < flops)
+        { flops_container[exe_worker] = flops; sync_with[exe_worker] = inst_from; }
+        if (max_sync < flops)
+        { max_sync = flops; }
+      }
+      list = list -> getNext();
+    }
+
+    delete[] flops_container;
   }
 
   __host__ ~ready_queue ()
-  { delete next; }
+  {
+    delete[] sync_with;
+    delete next; 
+  }
+
+  __host__ int getInst() const
+  { return inst_number; }
 
   __host__ int getNumDeps () const
   { return num_deps; }
 
-  __host__ void hookup (const int inst_in, const int n_deps_in, const long long int flops_in)
+  __host__ long long int getFlops () const
+  { return anticipated_flops; }
+
+  __host__ long long int getMaxSync() const
+  { return max_sync; }
+
+  __host__ int * getSyncWith() const
+  { return sync_with; }
+
+  __host__ ready_queue * getLast()
   {
-    ready_queue * ptr = next, * last = this;
-
-    while (ptr != nullptr && ptr -> num_deps > n_deps_in) 
-    { last = ptr; ptr = ptr -> next; }
-
-    while (ptr != nullptr && ptr -> anticipated_flops >= flops_in && ptr -> num_deps == n_deps_in)
-    { last = ptr; ptr = ptr -> next; }
-
-    last -> next = new ready_queue (inst_in, n_deps_in, flops_in, ptr);
+    for (ready_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
+    { 
+      if (ptr -> next == nullptr) 
+      { return ptr; } 
+    }
+    return nullptr;
   }
 
-  __host__ ready_queue * deleteFirst (int * inst_out, long long int * flops_out)
+  __host__ ready_queue * setNext (ready_queue * next_q)
   {
-    if (this == nullptr)
-    { * inst_out = -1; * flops_out = 0; return nullptr; }
+    ready_queue * ptr = next;
+    next = next_q;
+    return ptr;
+  }
+
+  __host__ bool hookup (ready_queue * queue)
+  {
+    ready_queue * q_ptr = queue, * ptr = next, * last = this;
+
+    while (q_ptr != nullptr)
+    {
+      long long int q_start = q_ptr -> max_sync;
+
+      while (ptr != nullptr && ptr -> max_sync <= q_start) 
+      { last = ptr; ptr = ptr -> next; }
+
+      ready_queue * t_ptr = q_ptr;
+      q_ptr = q_ptr -> next;
+      t_ptr -> next = ptr;
+      last -> next = t_ptr;
+      last = t_ptr;
+    }
+
+    return ptr == nullptr;
+  }
+
+  __host__ ready_queue * deleteCriticalNode (ready_queue ** deleted_ptr_out, const long long int flops_synced)
+  {
+    if (flops_synced < max_sync)
+    {
+      ready_queue * ptr = next;
+      next = nullptr;
+      * deleted_ptr_out = this;
+      return ptr;
+    }
     else
-    { 
-      * inst_out = inst_number; * flops_out = anticipated_flops;
-      ready_queue * ptr = next; next = nullptr;
-      delete this; return ptr;
+    {
+      int max_n = num_deps;
+      ready_queue * ptr = next, * last = this, * target = this, * target_prev = nullptr;
+
+      while (ptr != nullptr && ptr -> max_sync <= flops_synced) 
+      {
+        if (ptr -> num_deps > max_n)
+        { target_prev = last; target = ptr; max_n = ptr -> num_deps; }
+        last = ptr; ptr = ptr -> next;
+      }
+
+      if (target_prev == nullptr)
+      {
+        ptr = next;
+        next = nullptr;
+        * deleted_ptr_out = this;
+        return ptr;
+      }
+      else
+      {
+        target_prev -> next = target -> next;
+        target -> next = nullptr;
+        * deleted_ptr_out = target;
+        return this;
+      }
+
     }
   }
 
@@ -108,7 +204,7 @@ public:
     int length = 0;
     printf("Ready Queue: \n");
     for (const ready_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
-    { printf("i%d ", ptr -> inst_number); length ++; }
+    { printf("i%d: flops %lld start %lld. \n", ptr -> inst_number, ptr -> anticipated_flops, ptr -> max_sync); length ++; }
     printf("\nLength: %d. \n", length);
   }
 
@@ -121,6 +217,8 @@ private:
   int workers;
 
   ready_queue * working_queue;
+  ready_queue * working_queue_tail;
+
   instructions_queue ** result_queues;
   instructions_queue ** result_queue_tails;
 
@@ -131,23 +229,29 @@ private:
   int * inst_executed_by;
   long long int * last_sync_flops;
 
+  __host__ long long int getSmallestLoad()
+  { 
+    long long int min_flops = flops_worker[0];
+    for (int i = 1; i < workers; i++)
+    {
+      if (flops_worker[i] < min_flops)
+      { min_flops = flops_worker[i]; }
+    }
+    return min_flops;
+  }
+
   __host__ void loadWorkingQueue (const h_ops_dag * dag)
   {
     for (int i = 0; i < length; i++)
     {
       if (inward_deps_counter[i] == 0)
       {
-        const int num_deps = dag -> getDepCount_From(i);
-        const long long int flops = dag -> getFlops(i);
-
-        if (working_queue == nullptr)
-        { working_queue = new ready_queue (i, num_deps, flops); }
-        else if (working_queue -> getNumDeps() < num_deps)
-        { working_queue = new ready_queue (i, num_deps, flops, working_queue); }
-        else
-        { working_queue -> hookup(i, num_deps, flops); }
+        working_queue = new ready_queue(i, workers, dag, flops_after_inst, inst_executed_by, working_queue);
+        if (working_queue_tail == nullptr)
+        { working_queue_tail = working_queue; }
       }
     }
+
   }
 
   __host__ long long int findLatestSyncs (const h_ops_dag * dag, int * sync_with, const int inst)
@@ -244,6 +348,8 @@ private:
 
   __host__ void updateDepsCounts (const h_ops_dag * dag, const int inst_finished)
   {
+    ready_queue * queue = nullptr, * last = nullptr;
+
     for (const dependency_linked_list * dep_list = dag -> getDepList_From(inst_finished); dep_list != nullptr; dep_list = dep_list -> getNext())
     {
       if (dep_list -> getDep() > no_dep)
@@ -251,32 +357,51 @@ private:
         const int i = dep_list -> getInst();
         if (--inward_deps_counter[i] == 0)
         {
-          const int num_deps = dag -> getDepCount_From(i);
-          const long long int flops = dag -> getFlops(i);
+          ready_queue * entry = new ready_queue (i, workers, dag, flops_after_inst, inst_executed_by);
 
-          if (working_queue == nullptr)
-          { working_queue = new ready_queue (i, num_deps, flops); }
-          else if (working_queue -> getNumDeps() < num_deps)
-          { working_queue = new ready_queue (i, num_deps, flops, working_queue); }
+          if (queue == nullptr)
+          { queue = entry; last = queue; }
+          else if (entry -> getMaxSync() <= queue -> getMaxSync())
+          { entry -> setNext(queue); queue = entry; }
           else
-          { working_queue -> hookup(i, num_deps, flops); }
+          { 
+            bool update_last = queue -> hookup(entry);
+            if (update_last)
+            { last = entry; }
+          }
+
         }
       }
     }
+
+    if (working_queue == nullptr)
+    { 
+      working_queue = queue; 
+      working_queue_tail = last;
+    }
+    else if (queue != nullptr)
+    { 
+      bool update_last = working_queue -> hookup(queue);
+      if (update_last)
+      { working_queue_tail = last; }
+    }
+
   }
 
   __host__ void schedule (const h_ops_dag * dag)
   {
-    int comm_wait_counts = 0, * sync_with = new int[workers];
+    int comm_wait_counts = 0;
 
     loadWorkingQueue(dag);
 
     for (int scheduled_insts = 0; scheduled_insts < length; scheduled_insts ++)
     {
-      int inst; long long int flops;
-      working_queue = working_queue -> deleteFirst(&inst, &flops);
+      ready_queue * ptr;
+      working_queue = working_queue -> deleteCriticalNode(&ptr, getSmallestLoad());
 
-      const long long int max_sync = findLatestSyncs(dag, sync_with, inst);
+      int inst = ptr -> getInst(), * sync_with = ptr -> getSyncWith();
+      long long int flops = ptr -> getFlops(), max_sync = ptr -> getMaxSync();
+
       const int worker_id = findWorkerWithMinimalWaiting(max_sync);
 
       eliminateExtraSync(sync_with, worker_id);
@@ -288,13 +413,12 @@ private:
         if (sync_i >= 0)
         { addWaitToWorker(sync_i, worker_id); comm_wait_counts ++; }
       }
+      delete ptr;
 
       addInstToWorker(inst, flops, worker_id);
 
       updateDepsCounts(dag, inst);
     }
-
-    delete[] sync_with;
 
     long long flops_max_worker = 0, flops_total = dag -> getFlops();
 
@@ -312,7 +436,7 @@ private:
     printf("-- Scheduler Summary --\n"
       "Total # of Instructions: %d. \n"
       "Percent Heaviest Loaded Worker to Total Ratio: %f%%. \n"
-      "Degree of Flops Parallelism: %f%%. \n"
+      "Utilization Percent: %f%%. \n"
       "Avg. # of Communications per Instruction: %f. \n\n", 
       length, heaviest_worker_to_total, flops_prll, comm_per_inst);
 
@@ -325,6 +449,7 @@ public:
     length = dag -> getLength();
     workers = num_workers_limit;
     working_queue = nullptr;
+    working_queue_tail = nullptr;
 
     result_queues = new instructions_queue * [workers];
     result_queue_tails = new instructions_queue * [workers];

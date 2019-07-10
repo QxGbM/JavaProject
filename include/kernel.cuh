@@ -251,7 +251,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   if (sizeof(T) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
   { printf("Shared memory bank size configured to be 8-bytes.\n"); }
 
-  cudaDeviceSetLimit(cudaLimitMallocHeapSize, 4096llu * 1024llu * 1024llu);
+  cudaDeviceSetLimit(cudaLimitMallocHeapSize, _MAX_HEAP_SIZE);
 
   cudaDeviceProp deviceprop;
   cudaGetDeviceProperties(&deviceprop, 0);

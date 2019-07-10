@@ -25,7 +25,7 @@ template <class T, class vecT, int vec_size> __host__ int test0()
   a -> loadBinary_ReverseEndian(stream);
   fclose(stream);
 
-  const int blocks = 32, threads = 512;
+  const int blocks = 28, threads = 512;
   cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads);
 
 #ifdef ref

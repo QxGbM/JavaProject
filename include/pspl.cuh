@@ -25,6 +25,7 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
+#define _MAX_HEAP_SIZE 4096llu * 1024llu * 1024llu
 #define _MAX_INST_LENGTH 32
 
 #define _DEFAULT_PTRS_LENGTH 1024
