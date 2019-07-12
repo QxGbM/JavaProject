@@ -22,10 +22,10 @@ template <class T, class vecT, int vec_size> __host__ int test0()
   fclose(stream);
 
   stream = fopen("bin/test.bin", "rb");
-  a -> loadBinary_ReverseEndian(stream);
+  a -> loadBinary(stream);
   fclose(stream);
 
-  const int blocks = 28, threads = 512;
+  const int blocks = 68, threads = 512;
   cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads);
 
 #ifdef ref
@@ -34,7 +34,7 @@ template <class T, class vecT, int vec_size> __host__ int test0()
     dev_dense <T> * b = a->convertToDense(), * c = new dev_dense <T>(b->getNx(), b->getNy());
 
     stream = fopen("bin/ref.bin", "rb");
-    c->loadBinary_ReverseEndian(stream);
+    c->loadBinary(stream);
     fclose(stream);
 
     timer my_timer = timer();
@@ -105,7 +105,7 @@ void test2()
   fclose(stream);
 
   stream = fopen("bin/test.bin", "rb");
-  h->loadBinary_ReverseEndian(stream);
+  h->loadBinary(stream);
   fclose(stream);
   //h->print();
 

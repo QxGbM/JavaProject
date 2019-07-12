@@ -828,7 +828,7 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
   {
     cudaError_t error = cudaSuccess;
     for (int i = 0; i < nx * ny; i++)
@@ -836,7 +836,7 @@ public:
       if (error != cudaSuccess)
       { return error; }
       else
-      { elements[i].loadBinary_ReverseEndian (stream); }
+      { elements[i].loadBinary (stream, reverse_bytes); }
     }
     return error;
   }

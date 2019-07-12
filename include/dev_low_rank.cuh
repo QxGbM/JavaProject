@@ -683,10 +683,10 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
   {
-    cudaError_t error = UxS -> loadBinary_ReverseEndian(stream);
-    return error == cudaSuccess ? VT -> loadBinary_ReverseEndian(stream) : error;
+    cudaError_t error = UxS -> loadBinary(stream, reverse_bytes);
+    return error == cudaSuccess ? VT -> loadBinary(stream, reverse_bytes) : error;
   }
 
   __host__ static dev_low_rank <T> * readStructureFromFile (FILE * stream)

@@ -5,7 +5,8 @@
       "name": "CodeLens (Launch) - PsplHMatrixPack",
       "request": "launch",
       "mainClass": "PsplHMatrixPack",
-      "projectName": "Pastel-Palettes"
+      "projectName": "Pastel-Palettes",
+      "vmArgs": ["-Xmx4g"]
     }
   ]
 }

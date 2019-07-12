@@ -459,39 +459,85 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
   {
-    int real_l = (int) sizeof(T);
-    unsigned char * buf = new unsigned char[nx * ny * real_l];
+    const int buf_size = 8192 * 1024, real_l = (int) sizeof(T);
+    const int lines = (buf_size / ld) > ny ? ny : buf_size / ld;
+    const int iters = ny / lines, last_lines = ny - iters * lines;
 
-    if (stream != nullptr && fread(buf, sizeof(T), nx * ny, stream) > 0)
+    unsigned char * buf = new unsigned char [buf_size * real_l];
+
+    for (int i0 = 0; i0 < iters; i0++)
     {
-#pragma omp parallel if (omp_in_parallel == 0)
-      for (int i = 0; i < ny * nx; i++)
+      T * elements_row = &elements[i0 * lines * ld];
+
+      if (fread(buf, sizeof(T), nx * lines, stream) > 0)
       {
-        int buf_start = i * real_l;
-        for (int bit = 0; bit < real_l / 2; bit++)
+
+        if (reverse_bytes)
+        #pragma omp parallel for
+        for (int i = 0; i < nx * lines; i++)
         {
-          int i1 = buf_start + bit, i2 = buf_start + real_l - bit - 1;
-          unsigned char c = buf[i1]; buf[i1] = buf[i2]; buf[i2] = c;
+          int buf_start = i * real_l, i1 = buf_start, i2 = buf_start + real_l - 1;
+          for (int bit = 0; bit < real_l / 2; bit++)
+          {
+            unsigned char c = buf[i1]; buf[i1] = buf[i2]; buf[i2] = c;
+            i1 ++; i2 --;
+          }
         }
+
+        if (ld > nx)
+        {
+          for (int i = lines - 1; i >= 0; i--)
+          { memmove(&buf[i * ld], &buf[i * nx], nx * real_l); }
+
+          for (int i = 0; i < lines; i++)
+          { memset(&buf[i * nx], 0, (ld - nx) * real_l); }
+        }
+
+        cudaMemcpy (elements_row, buf, lines * ld * real_l, cudaMemcpyDefault);
       }
 
-      cudaError_t error = cudaMemcpy (elements, buf, nx * ny * real_l, cudaMemcpyDefault);
-      delete[] buf;
-
-      if (error != cudaSuccess)
-      { fprintf(stderr, "Memcpy: %s\n", cudaGetErrorString(error)); }
-
-      return error;
     }
-    else
+
+    if (last_lines > 0)
     {
-      printf("Error Reading from File.\n");
-      delete[] buf;
-      return cudaErrorMissingConfiguration;
+      T * elements_row = &elements[iters * lines * ld];
+
+      if (fread(buf, sizeof(T), nx * last_lines, stream) > 0)
+      {
+
+        if (reverse_bytes)
+        #pragma omp parallel for
+        for (int i = 0; i < nx * last_lines; i++)
+        {
+          int buf_start = i * real_l, i1 = buf_start, i2 = buf_start + real_l - 1;
+          for (int bit = 0; bit < real_l / 2; bit++)
+          {
+            unsigned char c = buf[i1]; buf[i1] = buf[i2]; buf[i2] = c;
+            i1 ++; i2 --;
+          }
+        }
+
+        if (ld > nx)
+        {
+          for (int i = last_lines - 1; i >= 0; i--)
+          { memmove(&buf[i * ld], &buf[i * nx], nx * real_l); }
+
+          for (int i = 0; i < last_lines; i++)
+          { memset(&buf[i * nx], 0, (ld - nx) * real_l); }
+        }
+
+        cudaMemcpy (elements_row, buf, last_lines * ld * real_l, cudaMemcpyDefault);
+      }
     }
 
+    cudaError_t error = cudaGetLastError();
+    if (error != cudaSuccess)
+    { fprintf(stderr, "Memcpy: %s\n", cudaGetErrorString(error)); }
+
+    delete[] buf;
+    return error;
   }
 
   __host__ static dev_dense <T> * readStructureFromFile (FILE * stream)

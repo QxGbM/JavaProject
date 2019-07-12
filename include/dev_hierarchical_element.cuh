@@ -557,18 +557,18 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary_ReverseEndian (FILE * stream)
+  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
   {
     dev_dense<T> *d = getElementDense();
     dev_low_rank<T> *lr = getElementLowRank();
     dev_hierarchical <T> *h = getElementHierarchical();
 
     if (d != nullptr)
-    { return d -> loadBinary_ReverseEndian(stream); }
+    { return d -> loadBinary(stream, reverse_bytes); }
     if (lr != nullptr)
-    { return lr -> loadBinary_ReverseEndian(stream); }
+    { return lr -> loadBinary(stream, reverse_bytes); }
     if (h != nullptr)
-    { return h -> loadBinary_ReverseEndian(stream); }
+    { return h -> loadBinary(stream, reverse_bytes); }
 
     return cudaErrorMissingConfiguration;
   }
