@@ -93,6 +93,7 @@
       </AdditionalCompilerOptions>
       <AdditionalOptions>-Xcompiler "-openmp" %(AdditionalOptions)</AdditionalOptions>
       <Warning>W3</Warning>
+      <Runtime>MD</Runtime>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef _DEV_TEMP_CUH
 #define _DEV_TEMP_CUH
 

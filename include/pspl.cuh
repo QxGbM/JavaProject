@@ -22,6 +22,7 @@
 
 #include <omp.h>
 
+#pragma once
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 

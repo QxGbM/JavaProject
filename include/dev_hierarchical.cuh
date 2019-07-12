@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef _DEV_HIERARCHICAL_CUH
 #define _DEV_HIERARCHICAL_CUH
 

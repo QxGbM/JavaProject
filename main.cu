@@ -55,75 +55,10 @@ template <class T, class vecT, int vec_size> __host__ int test0()
 }
 
 
-__global__ void qr_kernel (double* Q, double* R, const int nx, const int ny, const int ld_q, const int ld_r)
-{
-  blockGivensRotation <double> (R, nx, ny, ld_r);
-  blockGivensRecoverQ <double> (Q, R, nx, ny, nx, ld_q, ld_r);
-
-}
-
-__global__ void ExampleKernel(int* d_data)
-{
-
-}
-
-int test1()
-{
-  cudaSetDevice(0);
-  cudaDeviceReset();
-
-
-  srand(200);
-  double * rnd_seed = new double[_RND_SEED_LENGTH];
-#pragma omp parallel for
-  for (int i = 0; i < _RND_SEED_LENGTH; i++) { rnd_seed[i] = (double) rand() / RAND_MAX; }
-
-  cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
-
-  int* data;
-  cudaMallocManaged(&data, 512 * sizeof(int));
-  for (int i = 0; i < 512; i++)
-  { data[i] = i; }
-
-  timer myTimer = timer();
-
-  myTimer.newEvent("qr", start);
-  ExampleKernel <<<1, 128 >>> (data);
-  myTimer.newEvent("qr", end);
-
-  myTimer.dumpAllEvents_Sync();
-
-
-  return 0;
-}
-
-
-void test2()
-{
-  FILE * stream = fopen("bin/test.struct", "r");
-  dev_hierarchical<double> * h = dev_hierarchical<double>::readStructureFromFile(stream);
-  fclose(stream);
-
-  stream = fopen("bin/test.bin", "rb");
-  h->loadBinary(stream);
-  fclose(stream);
-  //h->print();
-
-  dev_dense<double> * d = h->convertToDense(), * ref_mat = new dev_dense<double> (d->getNx(), d->getNy());
-  //ref_mat->loadTestMatrix();
-
-  printf("Rel. L2 Error: %e\n\n", d->L2Error(ref_mat));
-
-  delete h;
-  delete d;
-}
-
 
 int main(int argc, char **argv)
 {
   test0 <double, double2, 2> ();
-  //test1();
-  //test2();
 
   return 0;
 }

@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef _KERNEL_CUH
 #define _KERNEL_CUH
 

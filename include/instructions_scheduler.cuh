@@ -1,3 +1,5 @@
+
+#pragma once
 #ifndef _INSTRUCTIONS_SCHEDULER_CUH
 #define _INSTRUCTIONS_SCHEDULER_CUH
 

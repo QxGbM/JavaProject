@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef _DEV_DENSE_CUH
 #define _DEV_DENSE_CUH
 

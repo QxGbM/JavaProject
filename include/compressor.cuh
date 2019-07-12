@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef _COMPRESSOR_CUH
 #define _COMPRESSOR_CUH
 

@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef _CUDA_TIMER_CUH
 #define _CUDA_TIMER_CUH
 

@@ -34,11 +34,19 @@ Device side GEMM has really unstable scaling. Consider changing to tiled version
 
 GETRF and TRSMs assumed dimensions smaller than some shared memory size, can fail on some large inputs.
 
+Update: done (2019 / 7 / 12)
+
 ## 6. Using flops to schedule DAG
 
 Flops for each GPU instruction can differ significantly if the hierarchy is deep.
 
 The current scheduling heuristic works well if each instruction has similar flops, but not good with hierarchy.
+
+Update: done (2019 / 7 / 12)
+
+## 7. Seperate files for faster compilation
+
+As Described.
 
 ## More
 

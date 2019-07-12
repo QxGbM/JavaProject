@@ -1,3 +1,5 @@
+
+#pragma once
 #ifndef _INSTRUCTIONS_MANAGER_CUH
 #define _INSTRUCTIONS_MANAGER_CUH
 

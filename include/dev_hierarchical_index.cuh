@@ -1,3 +1,5 @@
+
+#pragma once
 #ifndef _DEV_HIERARCHICAL_INDEX_CUH
 #define _DEV_HIERARCHICAL_INDEX_CUH
 

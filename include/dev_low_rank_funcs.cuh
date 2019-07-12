@@ -1,3 +1,5 @@
+
+#pragma once
 #ifndef _DEV_LOW_RANK_FUNCS_CUH
 #define _DEV_LOW_RANK_FUNCS_CUH
 
