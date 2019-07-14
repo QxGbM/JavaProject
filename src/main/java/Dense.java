@@ -44,7 +44,7 @@ public class Dense extends Matrix implements Block
   @Override
   public LowRank toLowRank() {
     int m = getRowDimension(), n = getColumnDimension();
-    int step = n > 64 ? 16 : (n < 4 ? 1 : n / 4), r = 0;
+    int step = n > PsplHMatrixPack.rank * 4 ? PsplHMatrixPack.rank : (n < 4 ? 1 : n / 4), r = 0;
 
     boolean approx;
     Matrix Q, Y;

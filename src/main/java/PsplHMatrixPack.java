@@ -5,6 +5,8 @@ public class PsplHMatrixPack {
 
   static final double epi = 1.e-10;
 
+  static int rank = 16;
+
   @FunctionalInterface
   public interface dataFunction
   { public double body (int i, int j, int y_start, int x_start); }
@@ -29,6 +31,8 @@ public class PsplHMatrixPack {
       { dim = Integer.parseInt(args[i].substring(5)); }
       else if (args[i].startsWith("-admis="))
       { admis = Integer.parseInt(args[i].substring(7)); }
+      else if (args[i].startsWith("-rank="))
+      { rank = Integer.parseInt(args[i].substring(6)); }
       else if (args[i].startsWith("-h="))
       { write_h = true; h_name = args[i].substring(3); }
       else if (args[i].startsWith("-d="))
@@ -46,6 +50,7 @@ public class PsplHMatrixPack {
     System.out.println("nblocks: " + Integer.toString(nblocks));
     System.out.println("dim: " + Integer.toString(dim));
     System.out.println("admis: " + Integer.toString(admis));
+    System.out.println("rank: " + Integer.toString(rank));
 
     boolean integrity = level >= 0 && nblocks >= 1 && dim >= 0 && admis >= 0;
 
