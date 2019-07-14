@@ -6,6 +6,7 @@
       "request": "launch",
       "mainClass": "PsplHMatrixPack",
       "projectName": "Pastel-Palettes",
+      "args": "-level=2 -dim=1024 -admis=0 -nblocks=2",
       "vmArgs": ["-Xmx4g"]
     }
   ]
