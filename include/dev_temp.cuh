@@ -11,7 +11,6 @@ private:
   int size;
   int length;
 
-  int * ids;
   int * sizes;
 
 public:
@@ -20,16 +19,13 @@ public:
     size = size_in > 0 ? size_in : 1;
     length = 0;
 
-    ids = new int [size];
     sizes = new int [size];
 
-    memset (ids, 0, size * sizeof(int));
     memset (sizes, 0, size * sizeof(int));
   }
 
   __host__ ~dev_temp ()
   {
-    delete[] ids;
     delete[] sizes;
   }
 
@@ -37,25 +33,17 @@ public:
   {
     if (size_in > 0 && size != size_in)
     {
-      int * ids_new = new int [size_in], * sizes_new = new int [size_in], n = size_in > size ? size : size_in;
+      int * sizes_new = new int [size_in], n = size_in > size ? size : size_in;
       void ** ptrs_new = new void * [size_in];
 
       for (int i = 0; i < n; i++)
-      {
-        ids_new[i] = ids[i];
-        sizes_new[i] = sizes[i];
-      }
+      { sizes_new[i] = sizes[i]; }
 
       for (int i = n; i < size_in; i++)
-      {
-        ids_new[i] = 0;
-        sizes_new[i] = 0;
-      }
+      { sizes_new[i] = 0; }
 
-      delete[] ids;
       delete[] sizes;
 
-      ids = ids_new;
       sizes = sizes_new;
 
       size = size_in;
@@ -65,28 +53,22 @@ public:
 
   __host__ int requestTemp (const int tmp_size)
   {
-    int insert_pos = length;
-
-    for (int i = 0; i < length; i++)
-    {
-      const int block_id = ids[i];
-
-      if (sizes[block_id] >= tmp_size)
-      { insert_pos = i; break; }
-    }
-
     if (length == size)
     { resize(size * 2); }
+
     const int block_id = length;
     sizes[block_id] = tmp_size;
 
-    for (int i = length; i > insert_pos; i--)
-    { ids[i] = ids[i - 1]; }
-
-    ids[insert_pos] = block_id;
     length = length + 1;
     return block_id;
 
+  }
+
+  __host__ int requestTemp_2x (const int tmp_size1, const int tmp_size2)
+  {
+    int block_id = requestTemp(tmp_size1);
+    requestTemp(tmp_size2);
+    return block_id;
   }
 
   __host__ inline int getLength () const
@@ -117,10 +99,7 @@ public:
   {
     printf("Temp Manager: Size %d. \n", size);
     for (int i = 0; i < length; i++)
-    {
-      const int block_id = ids[i];
-      printf("Block %d: size %d. \n", block_id, sizes[block_id]);
-    }
+    { printf("Block %d: size %d. \n", i, sizes[i]); }
     printf("\n");
   }
 

@@ -408,8 +408,17 @@ public:
 
   __host__ int getDataPointers (void ** data_ptrs_in, void ** tmp_ptrs) const
   {
+    int tmp_c = tmp_id;
+
     for (int i = 0; i < n_ptrs; i++)
-    { void * ptr = data_ptrs[i]; data_ptrs_in[i] = (ptr == nullptr ? tmp_ptrs[tmp_id] : ptr); }
+    { 
+      void * ptr = data_ptrs[i];
+      if (ptr == nullptr && tmp_c >= 0)
+      { data_ptrs_in[i] = tmp_ptrs[tmp_c]; tmp_c++; }
+      else
+      { data_ptrs_in[i] = ptr; }
+    }
+
     return n_ptrs;
   }
 

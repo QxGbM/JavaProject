@@ -282,7 +282,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
   clock_end = omp_get_wtime();
   clock_lapse = clock_end - clock_start;
-  printf("Tree Generated in %f ms.\n\n", 1000. * clock_lapse); //tree->print();
+  printf("Tree Generated in %f ms.\n\n", 1000. * clock_lapse); tree->print();
   delete root;
 
   T ** tmp_ptrs = tmp_mngr.allocate <T> ();

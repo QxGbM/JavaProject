@@ -977,9 +977,9 @@ public:
 
   __host__ static long long int getFlops_LrAccum (const long long int nx, const long long int ny, const long long int rank1, const long long int rank2)
   {
-    long long int accum = getFlops_GEMM_3x(ny, rank1, rank1, nx) + getFlops_GEMM_3x(ny, rank2, rank2, nx);
+    long long int accum = getFlops_GEMM(ny, rank1, rank1) + getFlops_GEMM(ny, rank2, rank1);//getFlops_GEMM_3x(ny, rank1, rank1, nx) + getFlops_GEMM_3x(ny, rank2, rank2, nx);
     accum += getFlops_QR(rank1, ny);
-    accum += getFlops_GEMM_3x(nx, rank1, rank1, ny) + getFlops_GEMM_3x(nx, rank2, rank2, ny);
+    accum += getFlops_GEMM_3x(nx, rank1, rank1, ny) + getFlops_GEMM_3x(nx, rank2, rank1, ny);
     return accum;
   }
 
