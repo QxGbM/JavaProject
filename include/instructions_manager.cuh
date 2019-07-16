@@ -128,8 +128,8 @@ private:
 
         const int t = op -> writeOpParametersTo (&inst[2], mapping);
 
-        loc += t + 2;
-        inst = &inst[t + 2];
+        loc += t;
+        inst = &inst[t];
       }
       else
       {

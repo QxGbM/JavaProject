@@ -172,7 +172,7 @@ public:
       { 
         printf("Error: GETRF on incompatible block.\n");
         inst[0] = (int) nop;
-        return nop_l - 2;  
+        return nop_l;  
       }
 
       inst[0] = (int) getrf;
@@ -181,7 +181,7 @@ public:
       inst[3] = nx; 
       inst[4] = ny; 
       inst[5] = ld;
-      return getrf_l - 2;
+      return getrf_l;
     }
     case trsml:
     {
@@ -217,7 +217,7 @@ public:
       { 
         printf("Error: TRSML on incompatible block.\n");
         inst[0] = (int) nop;
-        return nop_l - 2;
+        return nop_l;
       }
 
       inst[0] = (int) trsml;
@@ -231,7 +231,7 @@ public:
       inst[8] = ld_b;
       inst[9] = ld_l;
       inst[10] = b_T;
-      return trsml_l - 2;
+      return trsml_l;
     }
     case trsmr:
     {
@@ -267,7 +267,7 @@ public:
       { 
         printf("Error: TRSMR on incompatible block.\n");
         inst[0] = (int) nop;
-        return nop_l - 2;
+        return nop_l;
       }
 
       inst[0] = (int) trsmr;
@@ -281,7 +281,7 @@ public:
       inst[8] = ld_b;
       inst[9] = ld_u;
       inst[10] = b_T;
-      return trsmr_l - 2;
+      return trsmr_l;
     }
     case gemm:
     {
@@ -365,7 +365,7 @@ public:
         inst[12] = ld_b;
         inst[13] = a_T;
         inst[14] = b_T;
-        return gemm_l - 2;
+        return gemm_l;
       }
       else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
       {
@@ -494,7 +494,7 @@ public:
         inst[20] = control;
         inst[21] = t_size1;
 
-        return gemm_3x_l - 2;
+        return gemm_3x_l;
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
       {
@@ -561,13 +561,13 @@ public:
         inst[26] = t_size1;
         inst[27] = t_size2;
 
-        return gemm_4x_l - 2;
+        return gemm_4x_l;
       }
       else
       {
         printf("Error: GEMM on incompatible block.\n"); print();
         inst[0] = (int) nop;
-        return nop_l - 2;
+        return nop_l;
       }
 
     }
@@ -606,7 +606,7 @@ public:
         inst[12] = ld_b;
         inst[13] = a_T;
         inst[14] = b_T;
-        return gemm_plus_l - 2;
+        return gemm_plus_l;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
       {
@@ -647,25 +647,26 @@ public:
         inst[15] = ld_u2;
         inst[16] = ld_vt2;
 
-        return accum_l - 2;
+        return accum_l;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
       {
         // TODO
         printf("Error: Accum dense awaiting implementation.\n");
-        return 0;
+        inst[0] = (int) nop;
+        return nop_l;
       }
       else
       {
         printf("Error: ACCUM on incompatible block.\n");
         inst[0] = (int) nop;
-        return nop_l - 2;
+        return nop_l;
       }
     }
     default:
     { 
       inst[0] = (int) nop;
-      return nop_l - 2;
+      return nop_l;
     }
     }
 

@@ -730,94 +730,25 @@ public:
     if (ny != A -> ny || nx != B -> nx || A -> nx != B -> ny)
     { printf("Partition error in H-H.H GEMM.\n"); return nullptr; }
 
-    /*int tmp_counts = 0, * ranks = new int [nx * ny];
-
-#pragma omp parallel for if (omp_in_parallel() == 0) reduction(+:tmp_counts)
-    for (int i = 0; i < ny * nx; i++)
-    {
-      int rank = 0, n_lrs = 0;
-      const int row = i / nx, col = i - row * nx;
-
-      for (int k = 0; k < A -> nx; k++)
-      {
-        const int rank_a = (A -> elements)[row * (A -> nx) + k].getRank();
-        const int rank_b = (B -> elements)[k * (B -> nx) + col].getRank();
-
-        if (rank_a > rank)
-        { rank = rank_a; }
-        if (rank_b > rank)
-        { rank = rank_b; }
-
-        if (rank_a > 0 || rank_b > 0)
-        { n_lrs ++; }
-      }
-
-      if (rank > 0 && n_lrs > 1)
-      { tmp_counts ++; ranks[i] = rank; }
-      else
-      { ranks[i] = 0; }
-    }*/
-
     h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
     op -> resizeChildren(ny * nx * A -> nx);
-    //tmp_counts = 0;
 
 #pragma omp parallel for if (omp_in_parallel() == 0)
     for (int i = 0; i < ny * nx; i++)
     {
       const int row = i / nx, col = i - row * nx;
       const h_index index_m = h_index (this, self, row, col);
-      //const bool use_lr_tmp = ranks[i] > 0;
-
-      //h_index * index_m_tmp;
-
-      /*if (use_lr_tmp)
-      {
-        int tmp_size1 = ranks[i] * index_m.getNy(), tmp_size2 = ranks[i] * index_m.getNx(), block_id;
-        #pragma omp critical
-        { block_id = tmp_mngr -> requestTemp_2x(tmp_size1, tmp_size2); }
-        index_m_tmp = new h_index (&index_m);
-        index_m_tmp -> setTemp_Low_Rank(block_id, ranks[i]);
-      }
-      else
-      { index_m_tmp = nullptr; }*/
 
       for (int k = 0; k < A -> nx; k++)
       {
         const h_index index_ak = h_index (A, index_a, row, k), index_bk = h_index (B, index_b, k, col);
 
-        /*bool accum_lr = index_ak.isLowRank_Full() || index_bk.isLowRank_Full();
-
-        if (use_lr_tmp && accum_lr)
-        {
-          h_ops_tree * op_k = dev_low_rank <T> :: generateOps_GEMM (index_m_tmp, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk, tmp_mngr);
-          op -> setChild(op_k, i * A -> nx + k);
-          delete op_k;
-        }
-        else
-        {*/
-          h_ops_tree * op_k = elements[i].generateOps_GEMM (&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk, tmp_mngr);
-          op -> setChild(op_k, i * A -> nx + k);
-          delete op_k;
-        //}
-
+        h_ops_tree * op_k = elements[i].generateOps_GEMM (&index_m, &(A -> elements)[row * (A -> nx) + k], &index_ak, &(B -> elements)[k * (B -> nx) + col], &index_bk, tmp_mngr);
+        op -> setChild(op_k, i * A -> nx + k);
+        delete op_k;
       }
-
-      /*if (index_m_tmp != nullptr)
-      {
-        h_ops_tree * op_accm = elements[i].generateOps_ACCM (&index_m, index_m_tmp);
-        op -> setChild(op_accm, nx * ny * A -> nx + tmp_counts);
-
-        #pragma omp atomic
-        tmp_counts ++;
-
-        delete index_m_tmp;
-        delete op_accm;
-      }*/
-      
     }
 
-    //delete[] ranks;
     return op;
   }
 
