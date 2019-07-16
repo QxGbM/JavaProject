@@ -188,7 +188,7 @@ public:
       index_tmp.setTemp_Low_Rank (block_id, rank_a);
       index_tmp.setU_data (index_a);
 
-      op_ = new h_ops_tree(accum, self, &index_tmp);
+      op_ = new h_ops_tree (accum, self, &index_tmp);
       op -> setChild(op_, 1);
       delete op_;
 
@@ -696,7 +696,7 @@ public:
     element_t type;
     void * lr = dev_h_element <T> :: readStructureFromFile(stream, &type);
 
-    if (type == hierarchical)
+    if (type == low_rank)
     { return (dev_low_rank <T> *) lr; }
     else
     {

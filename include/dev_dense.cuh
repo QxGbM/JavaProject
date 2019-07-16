@@ -49,7 +49,7 @@ public:
         cudaMallocManaged(&shadow_u, ny * shadow_rank_in * sizeof(T), cudaMemAttachGlobal) == cudaSuccess &&
         cudaMallocManaged(&shadow_vt, nx * shadow_rank_in * sizeof(T), cudaMemAttachGlobal) == cudaSuccess)
       { 
-        shadow_rank = shadow_rank_in; 
+        shadow_rank = shadow_rank_in;
         cudaMemset(shadow_u, 0, ny * shadow_rank_in * sizeof(T));
         cudaMemset(shadow_vt, 0, nx * shadow_rank_in * sizeof(T));
       }
@@ -64,7 +64,7 @@ public:
       pivoted = false;
       pivot = nullptr;
 
-      shadow_rank = 0; 
+      shadow_rank = 0;
       shadow_u = nullptr; 
       shadow_vt = nullptr;
     }
@@ -160,9 +160,58 @@ public:
     return cudaSuccess;
   }
 
+  __host__ cudaError_t resizeShadow (const int shadow_rank_in)
+  {
+    if (shadow_rank_in > 0 && shadow_rank_in != shadow_rank)
+    {
+      if (shadow_rank > 0)
+      {
+        cudaFree (shadow_u);
+        cudaFree (shadow_vt);
+      }
+
+      if (shadow_rank_in > 0 && 
+        cudaMallocManaged(&shadow_u, ny * shadow_rank_in * sizeof(T), cudaMemAttachGlobal) == cudaSuccess &&
+        cudaMallocManaged(&shadow_vt, nx * shadow_rank_in * sizeof(T), cudaMemAttachGlobal) == cudaSuccess)
+      { 
+        shadow_rank = shadow_rank_in;
+        cudaMemset(shadow_u, 0, ny * shadow_rank_in * sizeof(T));
+        cudaMemset(shadow_vt, 0, nx * shadow_rank_in * sizeof(T));
+      }
+      else
+      { shadow_rank = 0; shadow_u = nullptr; shadow_vt = nullptr; }
+    }
+    else if (shadow_rank_in <= 0 && shadow_rank > 0)
+    {
+      shadow_rank = 0;
+      cudaFree (shadow_u);
+      cudaFree (shadow_vt);
+      shadow_u = nullptr;
+      shadow_vt = nullptr;
+    }
+
+    return cudaGetLastError();
+  }
+
   __host__ static h_ops_tree * generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
-  { 
-    return new h_ops_tree (getrf, self); 
+  {
+    h_ops_tree * op = new h_ops_tree (getrf, self);
+
+    if (self -> getRank() > 0)
+    { 
+      op -> resizeChildren(2);
+      h_index index_s = h_index (self); index_s.setShadow (self);
+      h_ops_tree * op_accm = new h_ops_tree (accum, self, &index_s);
+      op -> setChild(op_accm, 0);
+
+      h_ops_tree * op_act = new h_ops_tree (getrf, self);
+      op -> setChild(op_act, 1);
+
+      delete op_accm;
+      delete op_act;
+    }
+
+    return op;
   }
 
   __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_dense <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
@@ -178,6 +227,7 @@ public:
 
   __host__ static h_ops_tree * generateOps_TRSML (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
+    printf("Not implemented.\n");
     return nullptr;
   }
 
@@ -210,6 +260,7 @@ public:
 
   __host__ static h_ops_tree * generateOps_TRSMR (const h_index * self, const dev_hierarchical <T> * B, const h_index * index_b, dev_temp * tmp_mngr)
   {
+    printf("Not implemented.\n");
     return nullptr;
   }
 
@@ -578,7 +629,7 @@ public:
     element_t type;
     void * d = dev_h_element <T> :: readStructureFromFile(stream, &type);
 
-    if (type == hierarchical)
+    if (type == dense)
     { return (dev_dense <T> *) d; }
     else
     {

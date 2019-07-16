@@ -574,7 +574,7 @@ public:
     return cudaErrorMissingConfiguration;
   }
 
-  __host__ static void * readStructureFromFile (FILE * stream, element_t * type)
+  __host__ static void * readStructureFromFile (FILE * stream, element_t * type, int shadow_rank = _DEFAULT_SHADOW_RANK)
   {
     char * buf = new char[32];
     if (stream != nullptr && fgets(buf, 32, stream) > 0)
@@ -592,7 +592,7 @@ public:
         for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
         {
           element_t type;
-          void * element = readStructureFromFile (stream, &type);
+          void * element = readStructureFromFile (stream, &type, shadow_rank);
           h -> setElement(element, type, j, i);
         }
 
@@ -604,7 +604,9 @@ public:
         * type = dense; 
         sscanf(buf, "D %d %d\n", &ny, &nx);
         delete[] buf;
-        return new dev_dense <T> (nx, ny);
+        dev_dense <T> * d = new dev_dense <T> (nx, ny);
+        d -> resizeShadow (shadow_rank);
+        return d;
       }
       else if (buf[0] == 'L' && buf[1] == 'R')
       { 

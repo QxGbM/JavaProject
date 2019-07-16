@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 3, nblocks = 2, dim = 2048, admis = 1;
+    int level = 2, nblocks = 2, dim = 2048, admis = 1;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;

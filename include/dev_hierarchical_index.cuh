@@ -507,11 +507,11 @@ public:
     case shadow:
     {
       if (isU())
-      { printf(" S-U #%d (%d) (%d x %d b %d)] ", tmp_id, offset_y, ny, rank, ld_y); }
+      { printf(" S-U (%d) (%d x %d b %d)] ", offset_y, ny, rank, ld_y); }
       else if (isVT())
-      { printf(" S-VT #%d (%d) (%d x %d b %d)] ", tmp_id, offset_x, nx, rank, ld_x); }
+      { printf(" S-VT (%d) (%d x %d b %d)] ", offset_x, nx, rank, ld_x); }
       else
-      { printf(" S @%d #%d (%d %d) (%d x %d b %d, %d)] ", rank, tmp_id, offset_y, offset_x, ny, nx, ld_y, ld_x); }
+      { printf(" S @%d (%d %d) (%d x %d b %d, %d)] ", rank, offset_y, offset_x, ny, nx, ld_y, ld_x); }
       break; 
     }
 
