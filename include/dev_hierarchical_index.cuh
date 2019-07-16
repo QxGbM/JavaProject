@@ -107,13 +107,13 @@ public:
     ny = element -> getNy();
 
     offset_x = offset_y = 0;
-    tmp_id = -1;
 
     if (type == hierarchical)
     {
       ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
+      tmp_id = -1;
     }
     else if (type == low_rank)
     {
@@ -123,20 +123,24 @@ public:
       ld_y = lr -> getVT() -> getLd();
       rank = lr -> getRank();
       data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
+      tmp_id = -1;
     }
     else if (type == dense)
     {
       n_ptrs = 1;
       dev_dense <T> * d = element -> getElementDense();
       ld_x = d -> getLd();
-      ld_y = rank = 0;
+      ld_y = 0;
+      rank = d -> getShadowRank();
       data_ptrs = new void *[1] { d -> getElements() };
+      tmp_id = d -> getShadowID();
     }
     else
     {
       ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
+      tmp_id = -1;
     }
 
     root_ptr = index -> root_ptr;
@@ -363,6 +367,24 @@ public:
     data_ptrs[1] = nullptr;
   }
 
+  __host__ void setShadow (const h_index * parent)
+  {
+    type = shadow;
+    ld_x = parent -> rank;
+    ld_y = parent -> rank;
+    rank = parent -> rank;
+    tmp_id = parent -> tmp_id;
+    root_ptr = nullptr;
+
+    if (data_ptrs != nullptr) 
+    { delete[] data_ptrs; data_ptrs = nullptr; }
+
+    n_ptrs = 2;
+    data_ptrs = new void * [2];
+    data_ptrs[0] = nullptr;
+    data_ptrs[1] = nullptr;
+  }
+
   __host__ void setU_data (void * u_in, const int offset_y_in, const int ld_y_in)
   {
     if (isLowRank())
@@ -437,6 +459,9 @@ public:
   __host__ inline bool isVT () const
   { return isLowRank() && offset_y == -1; }
 
+  __host__ inline bool hasShadow () const
+  { return type == dense && tmp_id >= 0 && rank > 0; }
+
   __host__ void print() const
   {
     printf("[%d ", index_lvls);
@@ -475,6 +500,17 @@ public:
       { printf(" T-LR-VT #%d (%d) (%d x %d b %d)] ", tmp_id, offset_x, nx, rank, ld_x); }
       else
       { printf(" T-LR @%d #%d (%d %d) (%d x %d b %d, %d)] ", rank, tmp_id, offset_y, offset_x, ny, nx, ld_y, ld_x); }
+      break; 
+    }
+
+    case shadow:
+    {
+      if (isU())
+      { printf(" S-U #%d (%d) (%d x %d b %d)] ", tmp_id, offset_y, ny, rank, ld_y); }
+      else if (isVT())
+      { printf(" S-VT #%d (%d) (%d x %d b %d)] ", tmp_id, offset_x, nx, rank, ld_x); }
+      else
+      { printf(" S @%d #%d (%d %d) (%d x %d b %d, %d)] ", rank, tmp_id, offset_y, offset_x, ny, nx, ld_y, ld_x); }
       break; 
     }
 

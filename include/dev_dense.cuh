@@ -19,13 +19,20 @@ private:
   bool pivoted;
   int * pivot;
 
+  int shadow_id;
+  int shadow_rank;
+
 public:
 
-  __host__ dev_dense (const int nx_in = 0, const int ny_in = 0, const int ld_in = 0, const int device_id_in = 0, const bool alloc_pivot = false)
+  __host__ dev_dense (const int nx_in = 0, const int ny_in = 0, const int ld_in = 0, 
+    const int shadow_id_in = -1, const int shadow_rank_in = 0, const int device_id_in = 0, const bool alloc_pivot = false)
   {
     nx = nx_in;
     ny = ny_in;
     ld = (nx > ld_in) ? nx : ld_in;
+
+    shadow_id = shadow_id_in;
+    shadow_rank = shadow_rank_in;
 
     if (device_id_in >= 0 && cudaSetDevice(device_id_in) == cudaSuccess)
     { 
@@ -70,6 +77,12 @@ public:
 
   __host__ inline int * getPivot (const int offset = 0) const 
   { return pivoted ? &pivot[offset / ld] : nullptr; }
+
+  __host__ inline int getShadowID () const
+  { return shadow_id; }
+
+  __host__ inline int getShadowRank () const
+  { return shadow_rank; }
 
   __host__ cudaError_t resize (const int ld_in, const int ny_in)
   {
