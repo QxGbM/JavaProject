@@ -113,7 +113,6 @@ public:
       ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
-      tmp_id = -1;
     }
     else if (type == low_rank)
     {
@@ -123,26 +122,24 @@ public:
       ld_y = lr -> getVT() -> getLd();
       rank = lr -> getRank();
       data_ptrs = new void *[2] { lr -> getUxS() -> getElements(), lr -> getVT() -> getElements() };
-      tmp_id = -1;
     }
     else if (type == dense)
     {
-      n_ptrs = 1;
+      n_ptrs = 3;
       dev_dense <T> * d = element -> getElementDense();
       ld_x = d -> getLd();
       ld_y = 0;
       rank = d -> getShadowRank();
-      data_ptrs = new void *[1] { d -> getElements() };
-      tmp_id = d -> getShadowID();
+      data_ptrs = new void *[3] { d -> getElements(), d -> getShadow_U(), d -> getShadow_VT() };
     }
     else
     {
       ld_x = ld_y = rank = 0;
       n_ptrs = 0;
       data_ptrs = nullptr;
-      tmp_id = -1;
     }
 
+    tmp_id = -1;
     root_ptr = index -> root_ptr;
 
   }
@@ -186,9 +183,11 @@ public:
     ld_x = d -> getLd();
     ld_y = 0;
     offset_x = offset_y = rank = 0;
-    n_ptrs = 1;
+    n_ptrs = 3;
     data_ptrs = new void * [1];
     data_ptrs[0] = d -> getElements();
+    data_ptrs[1] = d -> getShadow_U();
+    data_ptrs[2] = d -> getShadow_VT();
     tmp_id = -1;
     root_ptr = d;
   }
@@ -344,9 +343,11 @@ public:
     if (data_ptrs != nullptr) 
     { delete[] data_ptrs; data_ptrs = nullptr; }
 
-    n_ptrs = 1;
-    data_ptrs = new void * [1];
+    n_ptrs = 3;
+    data_ptrs = new void * [3];
     data_ptrs[0] = nullptr;
+    data_ptrs[1] = nullptr;
+    data_ptrs[2] = nullptr;
   }
 
   __host__ void setTemp_Low_Rank (const int block_id, const int rank_in)
@@ -369,20 +370,23 @@ public:
 
   __host__ void setShadow (const h_index * parent)
   {
-    type = shadow;
-    ld_x = parent -> rank;
-    ld_y = parent -> rank;
-    rank = parent -> rank;
-    tmp_id = parent -> tmp_id;
-    root_ptr = nullptr;
+    if (parent -> isDense())
+    {
+      type = shadow;
+      ld_x = parent -> rank;
+      ld_y = parent -> rank;
+      rank = parent -> rank;
+      tmp_id = parent -> tmp_id;
+      root_ptr = nullptr;
 
-    if (data_ptrs != nullptr) 
-    { delete[] data_ptrs; data_ptrs = nullptr; }
+      if (data_ptrs != nullptr) 
+      { delete[] data_ptrs; data_ptrs = nullptr; }
 
-    n_ptrs = 2;
-    data_ptrs = new void * [2];
-    data_ptrs[0] = nullptr;
-    data_ptrs[1] = nullptr;
+      n_ptrs = 2;
+      data_ptrs = new void * [2];
+      data_ptrs[0] = parent -> data_ptrs[1];
+      data_ptrs[1] = parent -> data_ptrs[2];
+    }
   }
 
   __host__ void setU_data (void * u_in, const int offset_y_in, const int ld_y_in)
@@ -430,9 +434,9 @@ public:
 
   __host__ int getDataPointers (void ** data_ptrs_in, void ** tmp_ptrs) const
   {
-    int tmp_c = tmp_id;
+    int tmp_c = tmp_id, start = 0, iters = isDense() ? 1 : n_ptrs;
 
-    for (int i = 0; i < n_ptrs; i++)
+    for (int i = start; i < iters; i++)
     { 
       void * ptr = data_ptrs[i];
       if (ptr == nullptr && tmp_c >= 0)
@@ -441,14 +445,14 @@ public:
       { data_ptrs_in[i] = ptr; }
     }
 
-    return n_ptrs;
+    return iters;
   }
 
   __host__ inline bool isDense () const
   { return (type == dense || type == temp_dense); }
 
   __host__ inline bool isLowRank () const
-  { return (type == low_rank || type == temp_low_rank); }
+  { return (type == low_rank || type == temp_low_rank || type == shadow); }
 
   __host__ inline bool isLowRank_Full () const
   { return isLowRank() && offset_x >= 0 && offset_y >= 0; }
@@ -458,9 +462,6 @@ public:
 
   __host__ inline bool isVT () const
   { return isLowRank() && offset_y == -1; }
-
-  __host__ inline bool hasShadow () const
-  { return type == dense && tmp_id >= 0 && rank > 0; }
 
   __host__ void print() const
   {

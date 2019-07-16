@@ -104,7 +104,7 @@ private:
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
 
-    int loc = 0, *inst = &(insts[worker_id][loc]), n_ptrs = 8, * mapping = new int [n_ptrs]; 
+    int loc = 0, * inst = &(insts[worker_id][loc]), n_ptrs = 16, * mapping = new int [n_ptrs]; 
     void ** ptrs = new void * [n_ptrs];
 
     for (const instructions_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())

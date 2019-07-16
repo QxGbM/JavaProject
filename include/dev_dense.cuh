@@ -19,20 +19,17 @@ private:
   bool pivoted;
   int * pivot;
 
-  int shadow_id;
   int shadow_rank;
+  T * shadow_u;
+  T * shadow_vt;
 
 public:
 
-  __host__ dev_dense (const int nx_in = 0, const int ny_in = 0, const int ld_in = 0, 
-    const int shadow_id_in = -1, const int shadow_rank_in = 0, const int device_id_in = 0, const bool alloc_pivot = false)
+  __host__ dev_dense (const int nx_in = 0, const int ny_in = 0, const int ld_in = 0, const int shadow_rank_in = 0, const int device_id_in = 0, const bool alloc_pivot = false)
   {
     nx = nx_in;
     ny = ny_in;
     ld = (nx > ld_in) ? nx : ld_in;
-
-    shadow_id = shadow_id_in;
-    shadow_rank = shadow_rank_in;
 
     if (device_id_in >= 0 && cudaSetDevice(device_id_in) == cudaSuccess)
     { 
@@ -47,20 +44,39 @@ public:
       { cudaMemset(pivot, 0, ny * sizeof(int)); pivoted = true; }
       else
       { pivot = nullptr; pivoted = false; }
+
+      if (shadow_rank_in > 0 && 
+        cudaMallocManaged(&shadow_u, ny * shadow_rank_in * sizeof(T), cudaMemAttachGlobal) == cudaSuccess &&
+        cudaMallocManaged(&shadow_vt, nx * shadow_rank_in * sizeof(T), cudaMemAttachGlobal) == cudaSuccess)
+      { 
+        shadow_rank = shadow_rank_in; 
+        cudaMemset(shadow_u, 0, ny * shadow_rank_in * sizeof(T));
+        cudaMemset(shadow_vt, 0, nx * shadow_rank_in * sizeof(T));
+      }
+      else
+      { shadow_rank = 0; shadow_u = nullptr; shadow_vt = nullptr; }
     }
     else
     { 
       device_id = -1;
+
       elements = nullptr;
       pivoted = false;
       pivot = nullptr;
+
+      shadow_rank = 0; 
+      shadow_u = nullptr; 
+      shadow_vt = nullptr;
     }
   }
 
   __host__ ~dev_dense ()
   {
-    cudaFree(elements);
-    if (pivoted) { cudaFree(pivot); }
+    cudaFree (elements);
+    if (pivoted) 
+    { cudaFree (pivot); }
+    if (shadow_rank > 0) 
+    { cudaFree (shadow_u); cudaFree (shadow_vt); }
   }
 
   __host__ inline int getNx () const 
@@ -78,11 +94,14 @@ public:
   __host__ inline int * getPivot (const int offset = 0) const 
   { return pivoted ? &pivot[offset / ld] : nullptr; }
 
-  __host__ inline int getShadowID () const
-  { return shadow_id; }
-
   __host__ inline int getShadowRank () const
   { return shadow_rank; }
+
+  __host__ inline T * getShadow_U (const int offset = 0) const
+  { return &shadow_u[offset]; }
+
+  __host__ inline T * getShadow_VT (const int offset = 0) const
+  { return &shadow_vt[offset]; }
 
   __host__ cudaError_t resize (const int ld_in, const int ny_in)
   {
