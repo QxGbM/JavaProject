@@ -685,7 +685,7 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
+  __host__ cudaError_t loadBinary (FILE * stream, const bool reverse_bytes = true)
   {
     cudaError_t error = UxS -> loadBinary(stream, reverse_bytes);
     return error == cudaSuccess ? VT -> loadBinary(stream, reverse_bytes) : error;
@@ -710,6 +710,26 @@ public:
       return nullptr; 
     }
 
+  }
+
+  __host__ static dev_low_rank <T> * readFromFile (const char * file_name, const bool reverse_bytes = true)
+  {
+    char str[32], bin[32];
+    strcpy(str, file_name); strcat(str, ".struct");
+    strcpy(bin, file_name); strcat(bin, ".bin");
+
+    FILE * stream = fopen(str, "r");
+    dev_low_rank <T> * a = dev_low_rank <T> :: readStructureFromFile (stream);
+    fclose(stream);
+
+    if (a != nullptr)
+    {
+      stream = fopen(bin, "rb");
+      a -> loadBinary(stream, reverse_bytes);
+      fclose(stream);
+    }
+
+    return a;
   }
 
 

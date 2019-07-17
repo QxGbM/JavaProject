@@ -832,7 +832,7 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
+  __host__ cudaError_t loadBinary (FILE * stream, const bool reverse_bytes = true)
   {
     cudaError_t error = cudaSuccess;
     for (int i = 0; i < nx * ny; i++)
@@ -845,10 +845,10 @@ public:
     return error;
   }
 
-  __host__ static dev_hierarchical <T> * readStructureFromFile (FILE * stream)
+  __host__ static dev_hierarchical <T> * readStructureFromFile (FILE * stream, const int shadow_rank = _DEFAULT_SHADOW_RANK)
   {
     element_t type;
-    void * h = dev_h_element <T> :: readStructureFromFile(stream, &type);
+    void * h = dev_h_element <T> :: readStructureFromFile(stream, &type, shadow_rank);
 
     if (type == hierarchical)
     { return (dev_hierarchical <T> *) h; }
@@ -864,6 +864,26 @@ public:
       return nullptr; 
     }
 
+  }
+
+  __host__ static dev_hierarchical <T> * readFromFile (const char * file_name, const int shadow_rank = _DEFAULT_SHADOW_RANK, const bool reverse_bytes = true)
+  {
+    char str[32], bin[32];
+    strcpy(str, file_name); strcat(str, ".struct");
+    strcpy(bin, file_name); strcat(bin, ".bin");
+
+    FILE * stream = fopen(str, "r");
+    dev_hierarchical <T> * a = dev_hierarchical <T> :: readStructureFromFile (stream, shadow_rank);
+    fclose(stream);
+
+    if (a != nullptr)
+    {
+      stream = fopen(bin, "rb");
+      a -> loadBinary(stream, reverse_bytes);
+      fclose(stream);
+    }
+
+    return a;
   }
 
   __host__ void print(const h_index * index_in) const

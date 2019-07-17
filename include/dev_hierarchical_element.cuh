@@ -558,7 +558,7 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
+  __host__ cudaError_t loadBinary (FILE * stream, const bool reverse_bytes = true)
   {
     dev_dense<T> *d = getElementDense();
     dev_low_rank<T> *lr = getElementLowRank();
@@ -574,7 +574,7 @@ public:
     return cudaErrorMissingConfiguration;
   }
 
-  __host__ static void * readStructureFromFile (FILE * stream, element_t * type, int shadow_rank = _DEFAULT_SHADOW_RANK)
+  __host__ static void * readStructureFromFile (FILE * stream, element_t * type, const int shadow_rank = _DEFAULT_SHADOW_RANK)
   {
     char * buf = new char[32];
     if (stream != nullptr && fgets(buf, 32, stream) > 0)
@@ -633,7 +633,7 @@ public:
   }
 
 
-  __host__ void print (const h_index *index) const
+  __host__ void print (const h_index * index) const
   {
 
     const dev_dense <T> *d = getElementDense();

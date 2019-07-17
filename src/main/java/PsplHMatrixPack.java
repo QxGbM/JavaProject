@@ -5,7 +5,7 @@ public class PsplHMatrixPack {
 
   static final double epi = 1.e-10;
 
-  static int rank = 16;
+  static int rank = 64;
 
   @FunctionalInterface
   public interface dataFunction
@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 4, dim = 4096, admis = 1;
+    int level = 1, nblocks = 2, dim = 4096, admis = 1;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;

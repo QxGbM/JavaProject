@@ -617,7 +617,7 @@ public:
     return nullptr;
   }
 
-  __host__ cudaError_t loadBinary (FILE * stream, bool reverse_bytes = true)
+  __host__ cudaError_t loadBinary (FILE * stream, const bool reverse_bytes = true)
   {
     const int buf_size = 8192 * 1024, real_l = (int) sizeof(T);
     const int lines = (buf_size / ld) > ny ? ny : buf_size / ld;
@@ -698,10 +698,10 @@ public:
     return error;
   }
 
-  __host__ static dev_dense <T> * readStructureFromFile (FILE * stream)
+  __host__ static dev_dense <T> * readStructureFromFile (FILE * stream, const int shadow_rank = _DEFAULT_SHADOW_RANK)
   {
     element_t type;
-    void * d = dev_h_element <T> :: readStructureFromFile(stream, &type);
+    void * d = dev_h_element <T> :: readStructureFromFile(stream, &type, shadow_rank);
 
     if (type == dense)
     { return (dev_dense <T> *) d; }
@@ -717,6 +717,26 @@ public:
       return nullptr; 
     }
 
+  }
+
+  __host__ static dev_dense <T> * readFromFile (const char * file_name, const int shadow_rank = _DEFAULT_SHADOW_RANK, const bool reverse_bytes = true)
+  {
+    char str[32], bin[32];
+    strcpy(str, file_name); strcat(str, ".struct");
+    strcpy(bin, file_name); strcat(bin, ".bin");
+
+    FILE * stream = fopen(str, "r");
+    dev_dense <T> * a = dev_dense <T> :: readStructureFromFile (stream, shadow_rank);
+    fclose(stream);
+
+    if (a != nullptr)
+    {
+      stream = fopen(bin, "rb");
+      a -> loadBinary(stream, reverse_bytes);
+      fclose(stream);
+    }
+
+    return a;
   }
    
   __host__ void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const
