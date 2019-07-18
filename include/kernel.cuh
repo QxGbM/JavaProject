@@ -289,13 +289,14 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   int ** dev_insts, * comm_space, iters = kernel_size <= 0 ? 1 : (tree -> length() + kernel_size - 1) / kernel_size;
   void ** dev_ptrs;
-  long long int exeFLOPS;
+  long long int exeFLOPS = 0, tmp;
   char event_name[32];
 
   for (int i = 0; i < iters && error == cudaSuccess; i++)
   {
-    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &clock_lapse, &exeFLOPS, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
     printf("Host %f ms.\n\n", 1000. * clock_lapse);
+    exeFLOPS += tmp;
 
     sprintf(event_name, "Kernel %d", i);
 
@@ -309,7 +310,6 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   cudaFree(tmp_ptrs[0]);
   delete[] tmp_ptrs;
 
-  long long int tmp;
   const long long int estFLOPS = h_ops::getFlops_GETRF(&tmp, nx, ny);
   const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
