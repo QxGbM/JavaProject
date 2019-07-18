@@ -246,7 +246,7 @@ __host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, i
 }
 
 template <class T, class vecT, int vec_size, int shm_size>
-__host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num_blocks, const int num_threads)
+__host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num_blocks, const int num_threads, const int kernel_size = 0)
 {
   cudaSetDevice(0);
   if (sizeof(T) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
@@ -287,16 +287,22 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   T ** tmp_ptrs = tmp_mngr.allocate <T> ();
 
-  int ** dev_insts, * comm_space;
+  int ** dev_insts, * comm_space, iters = kernel_size <= 0 ? 1 : (tree -> length() + kernel_size - 1) / kernel_size;
   void ** dev_ptrs;
   long long int exeFLOPS;
+  char event_name[32];
 
-  error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &clock_lapse, &exeFLOPS, tree, tmp_ptrs, workers);
-  printf("Host %f ms.\n\n", 1000. * clock_lapse);
+  for (int i = 0; i < iters && error == cudaSuccess; i++)
+  {
+    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &clock_lapse, &exeFLOPS, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    printf("Host %f ms.\n\n", 1000. * clock_lapse);
 
-  myTimer.newEvent("Kernel", start, main_stream);
-  error = launchKernelWithArgs <T, vecT, vec_size, shm_size> (dev_insts, dev_ptrs, comm_space, workers, num_threads, main_stream);
-  myTimer.newEvent("Kernel", end, main_stream);
+    sprintf(event_name, "Kernel %d", i);
+
+    myTimer.newEvent(event_name, start, main_stream);
+    error = launchKernelWithArgs <T, vecT, vec_size, shm_size> (dev_insts, dev_ptrs, comm_space, workers, num_threads, main_stream);
+    myTimer.newEvent(event_name, end, main_stream);
+  }
 
   const double exeTime = myTimer.dumpAllEvents_Sync();
 

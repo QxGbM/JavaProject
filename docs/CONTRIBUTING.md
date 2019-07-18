@@ -22,6 +22,8 @@ Make dag flatten only some portions of the tree.
 
 Update: Necessary function is built, but not implemented yet (2019 / 6 / 25)
 
+Update: done (2019 / 7 / 19)
+
 ## 4. Java Compressor Rework
 
 As a alternative to GPU compression, possible visualization in the future.

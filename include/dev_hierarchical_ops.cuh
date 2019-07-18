@@ -1217,7 +1217,7 @@ public:
     if (length_ <= start_index)
     { delete[] lengths; return nullptr; }
     else
-    { length_ = (length_max > 0 && length_max <= length_) ? length_max : length_; }
+    { length_ = (length_max > 0 && length_max <= length_ - start_index) ? length_max : length_ - start_index; }
 
     if (list == nullptr)
     {

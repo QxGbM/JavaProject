@@ -7,7 +7,8 @@ __global__ void getrf_kernel(double *matrix, const int nx, const int ny, const i
   blockDenseGetrf <double, double2, 2, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (matrix, nx, ny, ld, shm);
 }
 
-template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[], const int blocks, const int threads, const bool ref, char ref_name[], const int shadow_rank = _DEFAULT_SHADOW_RANK)
+template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[], const int blocks, const int threads, const int kernel_size,
+  const bool ref, char ref_name[], const int shadow_rank = _DEFAULT_SHADOW_RANK)
 {
   cudaSetDevice(0);
   cudaDeviceReset();
@@ -16,7 +17,7 @@ template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[
 
   dev_hierarchical<T> * a = dev_hierarchical<T>::readFromFile(test_name, shadow_rank);
 
-  cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads);
+  cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads, kernel_size);
 
   if (ref && error == cudaSuccess)
   {
@@ -43,7 +44,7 @@ template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[
 
 int main(int argc, char * argv[])
 {
-  int blocks = 80, threads = 512, rank = _DEFAULT_SHADOW_RANK;
+  int blocks = 80, threads = 512, kernel_size = 0, rank = _DEFAULT_SHADOW_RANK;
   bool ref = false;
 
   char tmp[32], dir[32] = "bin/", ref_name[32], test_name[32] = "bin/test";
@@ -54,6 +55,8 @@ int main(int argc, char * argv[])
     { sscanf(argv[i], "-blocks=%d", &blocks); }
     else if (strncmp(argv[i], "-threads=", 9) == 0)
     { sscanf(argv[i], "-threads=%d", &threads); }
+    else if (strncmp(argv[i], "-kernel=", 8) == 0)
+    { sscanf(argv[i], "-kernel=%d", &kernel_size); }
     else if (strncmp(argv[i], "-rank=", 6) == 0)
     { sscanf(argv[i], "-rank=%d", &rank); }
     else if (strncmp(argv[i], "-dir=", 5) == 0)
@@ -68,7 +71,7 @@ int main(int argc, char * argv[])
     { printf("Unrecognized Arg: %s.\n", argv[i]); }
   }
 
-  test0 <double, double2, 2> (test_name, blocks, threads, ref, ref_name, rank);
+  test0 <double, double2, 2> (test_name, blocks, threads, kernel_size, ref, ref_name, rank);
 
   return 0;
 }
