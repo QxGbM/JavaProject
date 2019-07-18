@@ -276,10 +276,10 @@ __device__ __forceinline__ void DenseGemm (T * __restrict__ M, const T * __restr
 
   T thread_a[vec_size], thread_b[vec_size], thread_m[vec_size][vec_size];
 
+  const T * A_k = A, * B_k = B;
+
   for (int i = 0; i < k; i++)
   {
-    const T * A_k = &A[i * A_iter], * B_k = &B[i * B_iter];
-
     for (int i1 = w_id; i1 < iter_m; i1 += n_wp)
     {
       const int row_start = i1 * vec_size;
@@ -288,7 +288,7 @@ __device__ __forceinline__ void DenseGemm (T * __restrict__ M, const T * __restr
       for (int i3 = 0; i3 < vec_size; i3++)
       {
         const int row = row_start + i3;
-        thread_a[i3] = A_k[row * A_step];
+        thread_a[i3] = A_k[row * A_step]; 
       }
 
       for (int i2 = l_id; i2 < iter_n; i2 += warpSize)
@@ -377,6 +377,9 @@ __device__ __forceinline__ void DenseGemm (T * __restrict__ M, const T * __restr
         }
       }
     }
+
+    A_k = &A_k[A_iter];
+    B_k = &B_k[B_iter];
   }
 
 }
