@@ -1284,10 +1284,17 @@ public:
     { return h_ops::getFlops(trim); }
     else
     { 
-      long long int accum = 0;
-#pragma omp parallel for reduction (+:accum) if (omp_in_parallel == 0) 
+      long long int accum = 0, accum_trim = 0;
+
+#pragma omp parallel for reduction (+:accum, accum_trim) if (omp_in_parallel == 0) 
       for (int i = 0; i < l_children; i++) 
-      { accum += children[i].getFlops(&trim[i]); }
+      {
+        long long int tmp;
+        accum += children[i].getFlops(&tmp);
+        accum_trim += tmp;
+      }
+
+      * trim = accum_trim;
       return accum;
     }
   }

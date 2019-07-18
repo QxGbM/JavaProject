@@ -135,10 +135,10 @@ exe:
 
 wait:
   if (t_id == 0)
-  { wait(0); shm[0] = comm_space[shm[1]]; }
+  { wait(shm[2]); shm[0] = comm_space[shm[1]]; }
   __syncthreads();
   if (shm[0])
-  { next_pc = 2; }
+  { next_pc = 3; }
   goto sync;
 
 write:

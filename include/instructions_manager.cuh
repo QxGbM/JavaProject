@@ -99,7 +99,7 @@ private:
 
   }
 
-  __host__ int loadInsts (const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs)
+  __host__ int loadInsts (const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
   {
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
@@ -133,14 +133,17 @@ private:
       }
       else
       {
-        while (loc + 2 >= inst_lengths[worker_id])
+        while (loc + 3 >= inst_lengths[worker_id])
         { changeInstsSize(worker_id, inst_lengths[worker_id] * 2); inst = &(insts[worker_id][loc]); }
+
+        double wait = gpu_clock_multiplier * ptr -> getElapsedFlops();
 
         inst[0] = (int) signal_wait;
         inst[1] = signal_id;
+        inst[2] = 0x7fffffff & (int) wait;
       
-        loc += 2;
-        inst = &inst[2];
+        loc += 3;
+        inst = &inst[3];
       }
     }
 

@@ -29,7 +29,7 @@
 #define _MAX_HEAP_SIZE 4096llu * 1024llu * 1024llu
 #define _MAX_INST_LENGTH 32
 
-#define _MIN_INST_FLOPS 20000000
+#define _MIN_INST_FLOPS 10000000
 
 #define _DEFAULT_SHADOW_RANK 16
 
@@ -42,6 +42,7 @@
 #define _DEFAULT_BLOCK_K 16
 
 #define _RND_SEED_LENGTH 8192
+#define _CLOCK_MULTIPLIER 1.e-3
 
 enum mark_t { start, end };
 
