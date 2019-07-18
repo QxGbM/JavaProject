@@ -15,7 +15,7 @@ ARCH += -gencode arch=compute_70,code=sm_70
 ARCH += -gencode arch=compute_75,code=sm_75
 ARCH += -gencode arch=compute_75,code=compute_75
 
-NVCCFLAGS = -maxrregcount=128 --machine 64 -rdc=true -O3 
+NVCCFLAGS = -maxrregcount=64 --machine 64 -rdc=true -O3 
 NVCCFLAGS += -I$(INCLUDE_DIR) 
 NVCCFLAGS += $(ARCH) 
 NVCCFLAGS += -Xcompiler "-fopenmp"
@@ -46,14 +46,15 @@ data:
 	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=1 -dim=1024 -h=test_1k -d=ref_1k
 	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=2 -dim=2048 -h=test_2k -d=ref_2k
 	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=3 -dim=4096 -h=test_4k -d=ref_4k
-	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=4 -dim=8192 -h=test_8k -d=ref_8k
-	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=5 -dim=16384 -h=test_16k -d=ref_16k
-	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=6 -dim=32768 -h=test_32k -d=ref_32k
+	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=4 -dim=8192 -h=test_8k -skipd
+	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=5 -dim=16384 -h=test_16k -skipd
+	java -Xmx16g -jar Pastel-Palettes-1.0-SNAPSHOT.jar -level=6 -dim=32768 -h=test_32k -skipd
 
 tests:
 	$(BIN_DIR)main -test=test_1k -ref=ref_1k
 	$(BIN_DIR)main -test=test_2k -ref=ref_2k
 	$(BIN_DIR)main -test=test_4k -ref=ref_4k
+	$(BIN_DIR)main -test=test_8k -noref
 	$(BIN_DIR)main -test=test_16k -noref
 	$(BIN_DIR)main -test=test_32k -noref
 

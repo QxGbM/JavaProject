@@ -225,17 +225,24 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   U = *U_ptr; V = *V_ptr; Q = *Q_ptr;
   __syncthreads();
 
-  blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, U1, VT1, dev_rnd_seed, ny, k1, k1, nx, k1, ld_u1, ld_vt1, k1, false, true, false, 0, k1 * k1, shm);
-  blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., U, U2, VT2, dev_rnd_seed, ny, k1, k2, nx, k1, ld_u2, ld_vt2, k1, false, true, false, 0, k2 * k1, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, dev_rnd_seed, VT1, k1, k1, nx, k1, k1, ld_vt1, true, false, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, U1, Q, ny, k1, k1, k1, ld_u1, k1, false, true, shm);
+
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, dev_rnd_seed, VT2, k1, k2, nx, k2, k1, ld_vt2, true, false, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., U, U2, Q, ny, k1, k2, k1, ld_u2, k2, false, true, shm);
 
   blockGivensRotation <T> (U, k1, ny, k1);
   blockGivensRecoverQ <T> (Q, U, k1, ny, k1, k1, k1);
 
-  blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., V, VT1, U1, Q, nx, k1, k1, ny, k1, ld_vt1, ld_u1, k1, false, true, false, 0, k1 * k1, shm);
-  blockDenseGemm_3x <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., V, VT2, U2, Q, nx, k1, k2, ny, k1, ld_vt2, ld_u2, k1, false, true, false, 0, k2 * k1, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, Q, U1, k1, k1, ny, k1, k1, ld_u1, true, false, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., V, VT1, U, nx, k1, k1, k1, ld_vt1, k1, false, true, shm);
+
+  matrixCopy <T, vecT, vec_size> (Q, U1, k1, ny, k1, ld_u1);
+
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, Q, U2, k1, k2, ny, k2, k1, ld_u2, true, false, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., V, VT2, U, nx, k1, k2, k1, ld_vt2, k2, false, true, shm);
 
   matrixCopy <T, vecT, vec_size> (V, VT1, k1, nx, k1, ld_vt1);
-  matrixCopy <T, vecT, vec_size> (Q, U1, k1, ny, k1, ld_u1);
   __syncthreads();
   
   if (t_id == 0)
