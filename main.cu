@@ -15,13 +15,13 @@ template <class T, class vecT, int vec_size> __host__ int test0 (const bool ref,
 
   rndInitialize <T> (200);
 
-  dev_hierarchical<T> * a = dev_hierarchical<T>::readFromFile("bin/test");
+  dev_hierarchical<T> * a = dev_hierarchical<T>::readFromFile("bin/test", shadow_rank);
 
   cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads);
 
   if (ref && error == cudaSuccess)
   {
-    dev_dense <T> * b = a->convertToDense(), * c = dev_dense <T>::readFromFile("bin/ref");
+    dev_dense <T> * b = a->convertToDense(), * c = dev_dense <T>::readFromFile("bin/ref", 0);
 
     timer my_timer = timer();
     my_timer.newEvent("ref", start);

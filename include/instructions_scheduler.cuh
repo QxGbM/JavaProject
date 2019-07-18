@@ -115,8 +115,8 @@ public:
   __host__ int getNumDeps () const
   { return num_deps; }
 
-  __host__ long long int getFlops () const
-  { return anticipated_flops; }
+  __host__ long long int getFlops (const long long int min_flops = _MIN_INST_FLOPS) const
+  { return anticipated_flops > min_flops ? anticipated_flops : min_flops; }
 
   __host__ long long int getMaxSync() const
   { return max_sync; }
@@ -392,7 +392,7 @@ private:
 
   __host__ void schedule (const h_ops_dag * dag)
   {
-    int comm_wait_counts = 0;
+    int comm_wait_counts = 0; long long int flops_total = 0, trimming_flops = _MIN_INST_FLOPS;
 
     loadWorkingQueue(dag);
 
@@ -402,7 +402,7 @@ private:
       working_queue = working_queue -> deleteCriticalNode(&ptr, getSmallestLoad());
 
       int inst = ptr -> getInst(), * sync_with = ptr -> getSyncWith();
-      long long int flops = ptr -> getFlops(), max_sync = ptr -> getMaxSync();
+      long long int flops = ptr -> getFlops(trimming_flops), max_sync = ptr -> getMaxSync();
 
       const int worker_id = findWorkerWithMinimalWaiting(max_sync);
 
@@ -420,9 +420,11 @@ private:
       addInstToWorker(inst, flops, worker_id);
 
       updateDepsCounts(dag, inst);
+
+      flops_total += flops;
     }
 
-    long long flops_max_worker = 0, flops_total = dag -> getFlops();
+    long long flops_max_worker = 0;
 
     for (int i = 0; i < workers; i++)
     {
@@ -439,6 +441,8 @@ private:
       "Total # of Instructions: %d. \n"
       "Percent Heaviest Loaded Worker to Total Ratio: %f%%. \n"
       "Utilization Percent: %f%%. \n"
+      "- Low FLOPS Instructions are trimmed.\n"
+      "- Utilization may appear higher than actual.\n"
       "Avg. # of Communications per Instruction: %f. \n\n", 
       length, heaviest_worker_to_total, flops_prll, comm_per_inst);
 
