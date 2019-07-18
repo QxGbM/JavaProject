@@ -29,7 +29,7 @@
 #define _MAX_HEAP_SIZE 4096llu * 1024llu * 1024llu
 #define _MAX_INST_LENGTH 32
 
-#define _MIN_INST_FLOPS 50000000
+#define _MIN_INST_FLOPS 20000000
 
 #define _DEFAULT_SHADOW_RANK 16
 
