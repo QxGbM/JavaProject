@@ -65,6 +65,7 @@ private:
 
   int length;
   long long int * flops;
+  long long int * flops_trim;
   h_ops_tree * ops_list;
   dependency_linked_list ** deps_graph_from;
   dependency_linked_list ** deps_graph_to;
@@ -76,7 +77,9 @@ public:
     ops_list = ops -> flatten(start_index, length_max);
     length = ops_list -> length();
 
-    flops = new long long int[length];
+    flops = new long long int [length];
+    flops_trim = new long long int [length];
+
     deps_graph_from = new dependency_linked_list * [length];
     deps_graph_to = new dependency_linked_list * [length];
 
@@ -91,7 +94,7 @@ public:
         if (dep > no_dep)
         { list = new dependency_linked_list(j, dep, list); }
       }
-      flops[i] = from -> getFlops();
+      flops[i] = from -> getFlops(&flops_trim[i]);
       deps_graph_from[i] = list;
     }
 
@@ -179,6 +182,20 @@ public:
 #pragma omp parallel for reduction(+:accum)
       for (int i = 0; i < length; i++)
       { accum += flops[i]; }
+      return accum;
+    }
+  }
+
+  __host__ long long int getFlops_Trim (const int index = -1) const
+  { 
+    if (index >= 0 && index < length) 
+    { return flops_trim[index]; }
+    else
+    {
+      long long int accum = 0;
+#pragma omp parallel for reduction(+:accum)
+      for (int i = 0; i < length; i++)
+      { accum += flops_trim[i]; }
       return accum;
     }
   }

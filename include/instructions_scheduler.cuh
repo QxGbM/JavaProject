@@ -73,7 +73,7 @@ public:
   {
     inst_number = inst_in;
     num_deps = dag -> getDepCount_From(inst_in);
-    anticipated_flops = dag -> getFlops(inst_in);
+    anticipated_flops = dag -> getFlops_Trim(inst_in);
     next = next_q;
 
     const dependency_linked_list * list = dag -> getDepList_To(inst_in);

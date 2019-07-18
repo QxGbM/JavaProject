@@ -673,7 +673,7 @@ public:
 
   }
 
-  __host__ long long int getFlops ()
+  __host__ long long int getFlops (long long int * trim)
   {
     if (flops > 0)
     { return flops; }
@@ -689,7 +689,7 @@ public:
         {
           nx = read_and_write[0].getNx();
           ny = read_and_write[0].getNy();
-          flops = getFlops_GETRF(nx, ny);
+          flops = getFlops_GETRF(trim, nx, ny);
         }
         else
         { flops = 0; }
@@ -704,14 +704,14 @@ public:
           nx_b = read_and_write[0].getRank();
           ny_b = read_and_write[0].getNy(read_only[0].getNy());
           nx_l = read_only[0].getNx();
-          flops = getFlops_TRSML(nx_b, ny_b, nx_l);
+          flops = getFlops_TRSML(trim, nx_b, ny_b, nx_l);
         }
         else if (read_and_write[0].isDense() && read_only[0].isDense())
         {
           nx_b = read_and_write[0].getNx();
           ny_b = read_and_write[0].getNy(read_only[0].getNy());
           nx_l = read_only[0].getNx();
-          flops = getFlops_TRSML(nx_b, ny_b, nx_l);
+          flops = getFlops_TRSML(trim, nx_b, ny_b, nx_l);
         }
         else
         { flops = 0; }
@@ -726,14 +726,14 @@ public:
           nx_b = read_and_write[0].getNx(read_only[0].getNx());
           ny_b = read_and_write[0].getRank();
           ny_u = read_only[0].getNy();
-          flops = getFlops_TRSMR(nx_b, ny_b, ny_u);
+          flops = getFlops_TRSMR(trim, nx_b, ny_b, ny_u);
         }
         else if (read_and_write[0].isDense() && read_only[0].isDense())
         {
           nx_b = read_and_write[0].getNx(read_only[0].getNx());
           ny_b = read_and_write[0].getNy();
           ny_u = read_only[0].getNy();
-          flops = getFlops_TRSMR(nx_b, ny_b, ny_u);
+          flops = getFlops_TRSMR(trim, nx_b, ny_b, ny_u);
         }
         else
         { flops = 0; }
@@ -772,7 +772,7 @@ public:
         long long int l = 0;
 
         if (gemm_write)
-        { flops = getFlops_GEMM(m, n, k); break; }
+        { flops = getFlops_GEMM(trim, m, n, k); break; }
         else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
         {
           gemm_write = true;
@@ -813,7 +813,7 @@ public:
         long long int o = 0;
 
         if (gemm_write)
-        { flops = getFlops_GEMM_3x(m, n, k, l); break; }
+        { flops = getFlops_GEMM_3x(trim, m, n, k, l); break; }
         else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
         {
           gemm_write = true;
@@ -826,7 +826,7 @@ public:
         }
 
         if (gemm_write)
-        { flops = getFlops_GEMM_4x(m, n, k, l, o); }
+        { flops = getFlops_GEMM_4x(trim, m, n, k, l, o); }
         else
         { flops = 0; }
         break;
@@ -842,7 +842,7 @@ public:
           n = read_and_write[0].getNx(read_only[0].getNx());
           k = read_only[0].getRank();
 
-          flops = getFlops_GEMM(m, n, k);
+          flops = getFlops_GEMM(trim, m, n, k);
         }
         else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
         {
@@ -853,7 +853,7 @@ public:
           rank1 = read_and_write[0].getRank();
           rank2 = read_only[0].getRank();
 
-          flops = getFlops_LrAccum(nx, ny, rank1, rank2);
+          flops = getFlops_LrAccum(trim, nx, ny, rank1, rank2);
         }
         else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
         {
@@ -918,69 +918,120 @@ public:
     return control; 
   }
 
-  __host__ static long long int getFlops_GETRF (const long long int nx, const long long int ny)
+  __host__ static long long int getFlops_GETRF (long long int * trim, const long long int nx, const long long int ny, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int accum = 0; const long long int n = nx > ny ? ny : nx;
+    long long int accum = 0, accum_trim = 0;
+    long long int n = nx > ny ? ny : nx, nx_trim = nx < trim_dim ? trim_dim : nx, ny_trim = ny < trim_dim ? trim_dim : ny;
+
     for (long long int i = 0; i < n; i++)
-    { accum += (ny - i - 1) * (2 * (nx - i - 1) + 1); }
+    { 
+      accum += (ny - i - 1) * (2 * (nx - i - 1) + 1);
+      accum_trim += (ny_trim - i - 1) * (2 * (nx_trim - i - 1) + 1);
+    }
+
+    * trim = accum_trim;
     return accum;
   }
 
-  __host__ static long long int getFlops_TRSML (const long long int nx_b, const long long int ny_b, const long long int nx_l)
+  __host__ static long long int getFlops_TRSML (long long int * trim, const long long int nx_b, const long long int ny_b, const long long int nx_l, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int accum = 0; const long long int n = nx_l > ny_b ? ny_b : nx_l;
+    long long int accum = 0, accum_trim = 0;
+    long long int n = nx_l > ny_b ? ny_b : nx_l;
+    long long int nx_b_trim = nx_b < trim_dim ? trim_dim : nx_b, ny_b_trim = ny_b < trim_dim ? trim_dim : ny_b;
+
     accum = (2 * ny_b - n - 1) * n * nx_b;
+    accum_trim = (2 * ny_b_trim - n - 1) * n * nx_b_trim;
+
+    * trim = accum_trim;
     return accum;
   }
 
-  __host__ static long long int getFlops_TRSMR (const long long int nx_b, const long long int ny_b, const long long int ny_u)
+  __host__ static long long int getFlops_TRSMR (long long int * trim, const long long int nx_b, const long long int ny_b, const long long int ny_u, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int accum = 0; const long long int n = nx_b > ny_u ? ny_u : nx_b;
+    long long int accum = 0, accum_trim = 0;
+    long long int n = nx_b > ny_u ? ny_u : nx_b;
+    long long int nx_b_trim = nx_b < trim_dim ? trim_dim : nx_b, ny_b_trim = ny_b < trim_dim ? trim_dim : ny_b;
+
     accum = (2 * nx_b - n) * n * ny_b;
+    accum_trim = (2 * nx_b_trim - n) * n * ny_b_trim;
+
+    * trim = accum_trim;
     return accum;
   }
 
-  __host__ static long long int getFlops_GEMM (const long long int m, const long long int n, const long long int k)
+  __host__ static long long int getFlops_GEMM (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int accum = m * n * k * 2;
+    long long int m_trim = m < trim_dim ? trim_dim : m, n_trim = n < trim_dim ? trim_dim : n;
+    long long int k_trim = k < trim_dim ? trim_dim : k;
+    long long int accum = m * n * k * 2, accum_trim = m_trim * n_trim * k_trim * 2;
+
+    * trim = accum_trim;
     return accum;
   }
 
-  __host__ static long long int getFlops_GEMM_3x (const long long int m, const long long int n, const long long int k, const long long int l)
+  __host__ static long long int getFlops_GEMM_3x (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int l, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int f1 = k * n * (m + l);
-    long long int f2 = m * l * (k + n);
-    return (f1 <= f2 ? f1 : f2) * 2;
+    long long int f1 = k * n * (m + l), f2 = m * l * (k + n), accum = (f1 <= f2 ? f1 : f2) * 2;
+    long long int m_trim = m < trim_dim ? trim_dim : m, n_trim = n < trim_dim ? trim_dim : n;
+    long long int k_trim = k < trim_dim ? trim_dim : k, l_trim = l < trim_dim ? trim_dim : l;
+
+    f1 = k_trim * n_trim * (m_trim + l_trim); f2 = m_trim * l_trim * (k_trim + n_trim);
+    long long int accum_trim = (f1 <= f2 ? f1 : f2) * 2;
+
+    * trim = accum_trim;
+    return accum;
   }
 
-  __host__ static long long int getFlops_GEMM_4x (const long long int m, const long long int n, const long long int k, const long long int l, const long long int o)
+  __host__ static long long int getFlops_GEMM_4x (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int l, const long long int o, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
+    long long int m_trim = m < trim_dim ? trim_dim : m, n_trim = n < trim_dim ? trim_dim : n;
+    long long int k_trim = k < trim_dim ? trim_dim : k, l_trim = l < trim_dim ? trim_dim : l;
+    long long int o_trim = o < trim_dim ? trim_dim : o;
+
     long long int size_1 = m * l, size_2 = m * o, size_3 = n * k, size_4 = n * l, size_5 = k * o;
+    long long int size_1_trim = m_trim * l_trim, size_2_trim = m_trim * o_trim, size_3_trim = n_trim * k_trim, size_4_trim = n_trim * l_trim, size_5_trim = k_trim * o_trim;
 
     long long int f_ab = size_1 * k, f_bc = size_5 * l, f_cd = size_4 * o;
+    long long int f_ab_trim = size_1_trim * k_trim, f_bc_trim = size_5_trim * l_trim, f_cd_trim = size_4_trim * o_trim;
     bool b_ab_bc = f_ab <= f_bc, b_bc_cd = f_bc <= f_cd;
 
     long long int f_abc_d = b_ab_bc ? size_2 * (l + n) + f_ab : size_2 * (k + n) + f_bc;
     long long int f_a_bcd = b_bc_cd ? size_3 * (o + m) + f_bc : size_3 * (l + m) + f_cd;
     long long int f_ab_cd = f_ab + f_cd + size_1 * n;
 
+    long long int f_abc_d_trim = b_ab_bc ? size_2_trim * (l_trim + n_trim) + f_ab_trim : size_2_trim * (k_trim + n_trim) + f_bc_trim;
+    long long int f_a_bcd_trim = b_bc_cd ? size_3_trim * (o_trim + m_trim) + f_bc_trim : size_3_trim * (l_trim + m_trim) + f_cd_trim;
+    long long int f_ab_cd_trim = f_ab_trim + f_cd_trim + size_1_trim * n_trim;
+
     long long int f_abcd = f_abc_d <= f_a_bcd ? f_abc_d : f_a_bcd;
     f_abcd = f_abcd <= f_ab_cd ? f_abcd : f_ab_cd;
 
+    long long int f_abcd_trim = f_abc_d_trim <= f_a_bcd_trim ? f_abc_d_trim : f_a_bcd_trim;
+    f_abcd_trim = f_abcd_trim <= f_ab_cd_trim ? f_abcd_trim : f_ab_cd_trim;
+
+    * trim = f_abcd_trim * 2;
     return f_abcd * 2;
   }
 
-  __host__ static long long int getFlops_QR (const long long int nx, const long long int ny)
+  __host__ static long long int getFlops_QR (long long int * trim, const long long int nx, const long long int ny, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int accum = nx * nx * (3 * ny - nx) * 2;
+    long long int nx_trim = nx < trim_dim ? trim_dim : nx, ny_trim = ny < trim_dim ? trim_dim : ny;
+    long long int accum = nx * nx * (3 * ny - nx) * 2, accum_trim = nx_trim * nx_trim * (3 * ny_trim - nx_trim) * 2;
+
+    * trim = accum_trim;
     return accum;
   }
 
-  __host__ static long long int getFlops_LrAccum (const long long int nx, const long long int ny, const long long int rank1, const long long int rank2)
+  __host__ static long long int getFlops_LrAccum (long long int * trim, const long long int nx, const long long int ny, const long long int rank1, const long long int rank2, const long long int trim_dim = _DEFAULT_BLOCK_M)
   {
-    long long int accum = getFlops_GEMM_3x(ny, rank1, rank1, nx) + getFlops_GEMM_3x(ny, rank2, rank1, nx);
-    accum += getFlops_QR(rank1, ny);
-    accum += getFlops_GEMM_3x(nx, rank1, rank1, ny) + getFlops_GEMM_3x(nx, rank2, rank1, ny);
+    long long int accum = 0, accum_trim = 0, tmp;
+    accum += getFlops_GEMM_3x(&tmp, ny, rank1, rank1, nx); accum_trim += tmp;
+    accum += getFlops_GEMM_3x(&tmp, ny, rank2, rank1, nx); accum_trim += tmp;
+    accum += getFlops_QR(&tmp, rank1, ny); accum_trim += tmp;
+    accum += getFlops_GEMM_3x(&tmp, nx, rank1, rank1, ny); accum_trim += tmp;
+    accum += getFlops_GEMM_3x(&tmp, nx, rank2, rank1, ny); accum_trim += tmp;
+
+    * trim = accum_trim;
     return accum;
   }
 
@@ -1225,18 +1276,18 @@ public:
     return list;
   }
 
-  __host__ long long int getFlops()
+  __host__ long long int getFlops(long long int * trim)
   {
     if (this == nullptr)
     { return 0; }
     else if (l_children == 0)
-    { return h_ops::getFlops(); }
+    { return h_ops::getFlops(trim); }
     else
     { 
       long long int accum = 0;
 #pragma omp parallel for reduction (+:accum) if (omp_in_parallel == 0) 
       for (int i = 0; i < l_children; i++) 
-      { accum += children[i].getFlops(); }
+      { accum += children[i].getFlops(&trim[i]); }
       return accum;
     }
   }

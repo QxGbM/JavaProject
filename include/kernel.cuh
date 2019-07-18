@@ -303,7 +303,8 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   cudaFree(tmp_ptrs[0]);
   delete[] tmp_ptrs;
 
-  const long long estFLOPS = h_ops::getFlops_GETRF(nx, ny);
+  long long int tmp;
+  const long long int estFLOPS = h_ops::getFlops_GETRF(&tmp, nx, ny);
   const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
 
   printf("-- Kernel Running Summary --\n"
