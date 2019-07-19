@@ -66,6 +66,20 @@ public class LowRank implements Block {
   }
 
   @Override
+  public Hierarchical toHierarchical (int level, int m, int n)
+  {
+    Hierarchical h = toHierarchical(m, n);
+    if (level > 1) {
+      for (int i = 0; i < h.getNRowBlocks(); i++) {
+        for (int j = 0; j < h.getNColumnBlocks(); j++) {
+          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
+        }
+      }
+    }
+    return h;
+  }
+
+  @Override
   public boolean equals (Block b) {
     double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
     return norm < PsplHMatrixPack.epi;

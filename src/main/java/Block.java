@@ -16,6 +16,8 @@ public interface Block {
 
   abstract public Hierarchical toHierarchical (int m, int n);
 
+  abstract public Hierarchical toHierarchical (int level, int m, int n);
+
   abstract public boolean equals (Block b);
 
   abstract public double getCompressionRatio ();

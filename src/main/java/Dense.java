@@ -97,6 +97,20 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
+  public Hierarchical toHierarchical (int level, int m, int n)
+  {
+    Hierarchical h = toHierarchical(m, n);
+    if (level > 1) {
+      for (int i = 0; i < h.getNRowBlocks(); i++) {
+        for (int j = 0; j < h.getNColumnBlocks(); j++) {
+          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
+        }
+      }
+    }
+    return h;
+  }
+
+  @Override
   public boolean equals (Block b) {
     double norm = this.minus(b.toDense()).normF() / getColumnDimension() / getRowDimension();
     return norm <= PsplHMatrixPack.epi; 

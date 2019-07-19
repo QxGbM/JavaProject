@@ -66,6 +66,20 @@ public class Hierarchical implements Block {
   }
 
   @Override
+  public Hierarchical toHierarchical (int level, int m, int n)
+  {
+    Hierarchical h = toHierarchical(m, n);
+    if (level > 1) {
+      for (int i = 0; i < h.getNRowBlocks(); i++) {
+        for (int j = 0; j < h.getNColumnBlocks(); j++) {
+          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
+        }
+      }
+    }
+    return h;
+  }
+
+  @Override
   public boolean equals (Block b) {
     double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
     return norm < PsplHMatrixPack.epi;
@@ -137,6 +151,9 @@ public class Hierarchical implements Block {
     }
   }
 
+  public Block getElement (int m, int n)
+  { return e[m][n]; }
+
   public void setElement (int m, int n, Block b) {
     if (m < getNRowBlocks() && n < getNColumnBlocks())
     { e[m][n] = b; }
@@ -182,23 +199,34 @@ public class Hierarchical implements Block {
     return h;
   }
 
-  public static Hierarchical buildHMatrix (int level, int nblocks, int dim, int admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
+  public static Hierarchical buildHMatrix (int level, int nblocks, int nleaf, int nleaf_max, int admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
     Hierarchical h = new Hierarchical(nblocks, nblocks);
-    int blockSize = dim / nblocks, old_x_start = x_start;
+    int old_x_start = x_start, blockSize = nleaf * (int) Math.pow(nblocks, level);
 
     for (int i = 0; i < nblocks; i++) {
       x_start = old_x_start;
       for (int j = 0; j < nblocks; j++) {
         int loc = Math.abs(y_start - x_start);
-        boolean admisBlock = loc < admis + blockSize, admisLeaf = loc < (admis + 1) * blockSize;
+        boolean admisBlock = loc < admis + blockSize, admisLeaf = loc < (admis + 1) * nleaf;
 
-        if (level > 0 && admisBlock)
-        { h.e[i][j] = buildHMatrix (level - 1, nblocks, blockSize, admis, y_start, x_start, func); }
-        else if (level <= 0 && admisLeaf)
-        { h.e[i][j] = Dense.generateDense (blockSize, blockSize, y_start, x_start, func); }
+        if (level > 0 && admisBlock) { 
+          h.e[i][j] = buildHMatrix (level - 1, nblocks, nleaf, nleaf_max, admis, y_start, x_start, func); 
+        }
+        else if (level <= 0 && admisLeaf) { 
+          h.e[i][j] = Dense.generateDense (nleaf, nleaf, y_start, x_start, func); 
+        }
         else {
           Dense d = Dense.generateDense (blockSize, blockSize, y_start, x_start, func);
-          h.e[i][j] = d.toLowRank();
+          LowRank lr = d.toLowRank();
+
+          int e_level = 0, e_block = blockSize;
+          while (e_block > nleaf_max)
+          { e_level++; e_block /= nblocks; }
+
+          if (e_level > 0)
+          { h.e[i][j] = lr.toHierarchical(e_level, nblocks, nblocks); }
+          else
+          { h.e[i][j] = lr; }
         }
         x_start += blockSize;
       }

@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 2, nblocks = 2, dim = 2048, admis = 1;
+    int level = 3, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level), admis = 1;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;
@@ -27,8 +27,12 @@ public class PsplHMatrixPack {
       { level = Integer.parseInt(args[i].substring(7)); }
       else if (args[i].startsWith("-nblocks="))
       { nblocks = Integer.parseInt(args[i].substring(9)); }
+      else if (args[i].startsWith("-nleaf="))
+      { nleaf = Integer.parseInt(args[i].substring(7)); dim = nleaf * (int) Math.pow (nblocks, level); }
+      else if (args[i].startsWith("-nleaf_max="))
+      { nleaf_max = Integer.parseInt(args[i].substring(11)); }
       else if (args[i].startsWith("-dim="))
-      { dim = Integer.parseInt(args[i].substring(5)); }
+      { dim = Integer.parseInt(args[i].substring(5)); nleaf = dim / (int) Math.pow (nblocks, level); }
       else if (args[i].startsWith("-admis="))
       { admis = Integer.parseInt(args[i].substring(7)); }
       else if (args[i].startsWith("-rank="))
@@ -46,13 +50,17 @@ public class PsplHMatrixPack {
     }
 
     System.out.println("Running Summary: ");
-    System.out.println("Level: " + Integer.toString(level));
+    System.out.println("level: " + Integer.toString(level));
     System.out.println("nblocks: " + Integer.toString(nblocks));
+    System.out.println("nleaf: " + Integer.toString(nleaf));
+    System.out.println("nleaf_max: " + Integer.toString(nleaf_max));
     System.out.println("dim: " + Integer.toString(dim));
     System.out.println("admis: " + Integer.toString(admis));
     System.out.println("rank: " + Integer.toString(rank));
 
-    boolean integrity = level >= 0 && nblocks >= 1 && dim >= 0 && admis >= 0;
+    boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
+    if (nleaf_max <= nleaf)
+    { nleaf_max = dim; }
 
     if (integrity && (write_d || write_h))
     try {
@@ -60,7 +68,7 @@ public class PsplHMatrixPack {
 
       if (write_h)
       {
-        Hierarchical h = Hierarchical.buildHMatrix(level, nblocks, dim, admis, 0, 0, testFunc);
+        Hierarchical h = Hierarchical.buildHMatrix(level - 1, nblocks, nleaf, nleaf_max, admis, 0, 0, testFunc);
         double compress = h.getCompressionRatio();
         System.out.println("Storage Compression Ratio: " + Double.toString(compress));
 
