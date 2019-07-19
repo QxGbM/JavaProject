@@ -26,18 +26,14 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
-#define _MAX_HEAP_SIZE 4096llu * 1024llu * 1024llu
 #define _MAX_INST_LENGTH 32
-
 #define _MIN_INST_FLOPS 10000000
 
 #define _DEFAULT_SHADOW_RANK 16
-
 #define _DEFAULT_PTRS_LENGTH 1024
 #define _DEFAULT_INSTS_LENGTH 1024
 #define _DEFAULT_COMM_LENGTH 1024
 #define _DEFAULT_COMPRESSOR_LENGTH 1024
-
 #define _DEFAULT_BLOCK_M 64
 #define _DEFAULT_BLOCK_K 16
 
@@ -56,7 +52,7 @@ enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_no
 
 enum opcode_t { execute, signal_wait, finish };
 
-enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 24, gemm_4x_l = 30, accum_l = 19, accum_dense_l = -1, pivot_l = -1 };
+enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 23, gemm_4x_l = 29, accum_l = 21, accum_dense_l = -1, pivot_l = -1 };
 
 __constant__ double dev_rnd_seed [_RND_SEED_LENGTH];
 

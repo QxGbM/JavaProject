@@ -864,18 +864,10 @@ template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* General Matrix multiplication with 3 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by n) + beta * old_M. */
 __device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, 
   const T * __restrict__ C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
-  const bool a_T, const bool b_T, const bool c_T, const int control, const int t_size1, T * __restrict__ shm)
+  const bool a_T, const bool b_T, const bool c_T, const int control, T * __restrict__ shm, T * __restrict__ my_tmp)
 {
-  const int t_id = thread_rank();
 
-  T * t1, ** t1_addr = (T **) &shm[0];
-
-  if (t_id == 0)
-  { * t1_addr = new T[t_size1]; }
-  __syncthreads();
-
-  t1 = * t1_addr;
-  __syncthreads();
+  T * t1 = my_tmp;
 
   if (control) // (A x B) x C
   {
@@ -888,30 +880,16 @@ __device__ __forceinline__ void blockDenseGemm_3x (const T alpha, const T beta, 
     blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (alpha, beta, M, A, t1, m, n, k, ld_m, ld_a, n, a_T, false, shm);
   }
 
-
-  if (t_id == 0)
-  { delete[] t1; }
-  __syncthreads();
-
 }
 
 template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 /* General Matrix multiplication with 4 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by o) * D (o by n) + beta * old_M. */
 __device__ void blockDenseGemm_4x (const T alpha, const T beta, T * __restrict__ M, const T * __restrict__ A, const T * __restrict__ B, const T * __restrict__ C, 
   const T * __restrict__ D, const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
-  const int ld_d, const bool a_T, const bool b_T, const bool c_T, const bool d_T, const int control, const int t_size1, const int t_size2, T * __restrict__ shm)
+  const int ld_d, const bool a_T, const bool b_T, const bool c_T, const bool d_T, const int control, const int offset, T * __restrict__ shm, T * __restrict__ my_tmp)
 {
-  const int t_id = thread_rank();
 
-  T * t1, ** t1_addr = (T **) &shm[0], * t2, ** t2_addr = (T **) & shm[1];
-
-  if (t_id == 0)
-  { * t1_addr = new T[t_size1]; * t2_addr = new T[t_size2]; }
-  __syncthreads();
-
-  t1 = * t1_addr;
-  t2 = * t2_addr;
-  __syncthreads();
+  T * t1 = my_tmp, * t2 = &my_tmp[offset];
 
   switch (control) 
   {
@@ -953,10 +931,6 @@ __device__ void blockDenseGemm_4x (const T alpha, const T beta, T * __restrict__
   default:
   { break; }
   }
-
-  if (t_id == 0)
-  { delete[] t1; delete[] t2; }
-  __syncthreads();
 
 }
 

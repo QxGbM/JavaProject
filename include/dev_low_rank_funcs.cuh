@@ -213,17 +213,9 @@ __device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ 
 
 template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
 __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, 
-  const int k1, const int k2, const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, T * __restrict__ shm)
+  const int k1, const int k2, const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, const int offset1, const int offset2, T * __restrict__ shm, T * __restrict__ my_tmp)
 {
-  const int t_id = thread_rank();
-  T * U, ** U_ptr = (T **) &shm[0], * V, ** V_ptr = (T **) &shm[1], * Q, ** Q_ptr = (T **) &shm[2];
-
-  if (t_id == 0)
-  { * U_ptr = new T[ny * k1]; * V_ptr = new T[nx * k1]; * Q_ptr = new T[ny * k1]; }
-  __syncthreads();
-
-  U = *U_ptr; V = *V_ptr; Q = *Q_ptr;
-  __syncthreads();
+  T * U = my_tmp, * V = &my_tmp[offset1], * Q = &my_tmp[offset2];
 
   blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, dev_rnd_seed, VT1, k1, k1, nx, k1, k1, ld_vt1, true, false, shm);
   blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, U1, Q, ny, k1, k1, k1, ld_u1, k1, false, true, shm);
@@ -243,10 +235,6 @@ __device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, co
   blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., V, VT2, U, nx, k1, k2, k1, ld_vt2, k2, false, true, shm);
 
   matrixCopy <T, vecT, vec_size> (V, VT1, k1, nx, k1, ld_vt1);
-  __syncthreads();
-  
-  if (t_id == 0)
-  { delete[] U; delete[] V; delete[] Q; }
   __syncthreads();
 
 }

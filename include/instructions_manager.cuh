@@ -16,6 +16,8 @@ private:
   void ** ptrs;
   int ptrs_size;
 
+  int * tmp_sizes;
+
   int comm_length;
 
   __host__ void changeInstsSize (const int worker_id, const int size_in)
@@ -99,12 +101,12 @@ private:
 
   }
 
-  __host__ int loadInsts (const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
+  __host__ int loadInsts (int * tmp_size, const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
   {
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
 
-    int loc = 0, * inst = &(insts[worker_id][loc]), n_ptrs = 16, * mapping = new int [n_ptrs]; 
+    int loc = 0, size = 0, size_max = 0, * inst = &(insts[worker_id][loc]), n_ptrs = 16, * mapping = new int [n_ptrs]; 
     void ** ptrs = new void * [n_ptrs];
 
     for (const instructions_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
@@ -126,7 +128,9 @@ private:
 #pragma omp critical
         { loadPointers (ptrs, n_ptrs, mapping); }
 
-        const int t = op -> writeOpParametersTo (&inst[2], mapping);
+        const int t = op -> writeOpParametersTo (&inst[2], &size, mapping);
+        if (size > size_max)
+        { size_max = size; }
 
         loc += t;
         inst = &inst[t];
@@ -154,6 +158,7 @@ private:
 
     delete[] mapping;
     delete[] ptrs;
+    * tmp_size = size_max;
 
     return loc + 1;
   }
@@ -169,6 +174,8 @@ public:
     ptrs = new void * [_DEFAULT_PTRS_LENGTH];
     ptrs_size = _DEFAULT_PTRS_LENGTH;
 
+    tmp_sizes = new int[num_workers];
+
 #pragma omp parallel for
     for (int i = 0; i < num_workers; i++)
     { 
@@ -178,10 +185,11 @@ public:
     }
 
     memset(ptrs, 0, ptrs_size * sizeof(void *));
+    memset(tmp_sizes, 0, num_workers * sizeof(int));
 
 #pragma omp parallel for
     for (int i = 0; i < num_workers; i++)
-    { inst_lengths[i] = loadInsts(i, schedule -> getSchedule(i), dag, tmp_ptrs); }
+    { inst_lengths[i] = loadInsts(&tmp_sizes[i], i, schedule -> getSchedule(i), dag, tmp_ptrs); }
 
     comm_length = dag -> getLength();
   }
@@ -195,28 +203,39 @@ public:
     delete[] insts;
     delete[] inst_lengths;
     delete[] ptrs;
-
+    delete[] tmp_sizes;
   }
 
-  __host__ cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space) const
+  template <class T>
+  __host__ cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps) const
   {
-    int ** insts_temp = new int *[workers];
+    int ** insts_temp = new int * [workers]; T ** tmps_temp = new T * [workers];
     cudaMalloc(dev_insts, workers * sizeof(int *));
+    cudaMalloc(block_tmps, workers * sizeof(T *));
 
     for (int i = 0; i < workers; i++)
     {
       cudaMalloc(&insts_temp[i], ((size_t) inst_lengths[i] + _MAX_INST_LENGTH) * sizeof(int));
       cudaMemcpy(insts_temp[i], insts[i], (size_t) inst_lengths[i] * sizeof(int), cudaMemcpyHostToDevice);
+
+      if (tmp_sizes[i] > 0)
+      {
+        cudaMalloc(&tmps_temp[i], tmp_sizes[i] * sizeof(T));
+        cudaMemset(tmps_temp[i], 0, tmp_sizes[i] * sizeof(T));
+      }
+      else
+      { tmps_temp[i] = nullptr; }
     }
 
-    cudaMemcpy(*dev_insts, insts_temp, workers * sizeof(int *), cudaMemcpyHostToDevice);
-    delete[] insts_temp;
+    cudaMemcpy(* dev_insts, insts_temp, workers * sizeof(int *), cudaMemcpyHostToDevice);
+    cudaMemcpy(* block_tmps, tmps_temp, workers * sizeof(T *), cudaMemcpyHostToDevice);
+    delete[] insts_temp; delete[] tmps_temp;
 
     cudaMalloc(dev_ptrs, ptrs_size * sizeof(void *));
-    cudaMemcpy(*dev_ptrs, ptrs, ptrs_size * sizeof(void *), cudaMemcpyHostToDevice);
+    cudaMemcpy(* dev_ptrs, ptrs, ptrs_size * sizeof(void *), cudaMemcpyHostToDevice);
 
     cudaMalloc(comm_space, comm_length * sizeof(int));
-    cudaMemset(*comm_space, 0, comm_length * sizeof(int));
+    cudaMemset(* comm_space, 0, comm_length * sizeof(int));
     
     return cudaGetLastError();
   }

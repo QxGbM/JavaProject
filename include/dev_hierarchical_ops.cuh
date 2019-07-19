@@ -151,7 +151,7 @@ public:
     return accum;
   }
 
-  __host__ int writeOpParametersTo (int * inst, const int * mapping) const
+  __host__ int writeOpParametersTo (int * inst, int * tmp_size, const int * mapping) const
   {
 
     switch (opType())
@@ -172,7 +172,8 @@ public:
       { 
         printf("Error: GETRF on incompatible block.\n");
         inst[0] = (int) nop;
-        return nop_l;  
+        * tmp_size = 0;
+        return nop_l;
       }
 
       inst[0] = (int) getrf;
@@ -181,6 +182,7 @@ public:
       inst[3] = nx; 
       inst[4] = ny; 
       inst[5] = ld;
+      * tmp_size = 0;
       return getrf_l;
     }
     case trsml:
@@ -217,6 +219,7 @@ public:
       { 
         printf("Error: TRSML on incompatible block.\n");
         inst[0] = (int) nop;
+        * tmp_size = 0;
         return nop_l;
       }
 
@@ -231,6 +234,7 @@ public:
       inst[8] = ld_b;
       inst[9] = ld_l;
       inst[10] = b_T;
+      * tmp_size = 0;
       return trsml_l;
     }
     case trsmr:
@@ -267,6 +271,7 @@ public:
       { 
         printf("Error: TRSMR on incompatible block.\n");
         inst[0] = (int) nop;
+        * tmp_size = 0;
         return nop_l;
       }
 
@@ -281,6 +286,7 @@ public:
       inst[8] = ld_b;
       inst[9] = ld_u;
       inst[10] = b_T;
+      * tmp_size = 0;
       return trsmr_l;
     }
     case gemm:
@@ -365,6 +371,7 @@ public:
         inst[12] = ld_b;
         inst[13] = a_T;
         inst[14] = b_T;
+        * tmp_size = 0;
         return gemm_l;
       }
       else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
@@ -468,8 +475,8 @@ public:
 
       if (gemm_write)
       {
-        int t_size1;
-        int control = getControl_GEMM_3x(&t_size1, m, n, k, l);
+        int t_size;
+        int control = getControl_GEMM_3x(&t_size, m, n, k, l);
 
         inst[0] = (int) gemm_3x;
         inst[1] = M;
@@ -492,8 +499,7 @@ public:
         inst[18] = b_T;
         inst[19] = c_T;
         inst[20] = control;
-        inst[21] = t_size1;
-
+        * tmp_size = t_size;
         return gemm_3x_l;
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
@@ -529,8 +535,8 @@ public:
 
       if (gemm_write)
       {
-        int t_size1, t_size2;
-        int control = getControl_GEMM_4x (&t_size1, &t_size2, m, n, k, l, o);
+        int t_size, offset;
+        int control = getControl_GEMM_4x (&t_size, &offset, m, n, k, l, o);
 
         inst[0] = (int) gemm_4x;
         inst[1] = M;
@@ -558,15 +564,16 @@ public:
         inst[23] = c_T;
         inst[24] = d_T;
         inst[25] = control;
-        inst[26] = t_size1;
-        inst[27] = t_size2;
+        inst[26] = offset;
 
+        * tmp_size = t_size;
         return gemm_4x_l;
       }
       else
       {
         printf("Error: GEMM on incompatible block.\n"); print();
         inst[0] = (int) nop;
+        * tmp_size = 0;
         return nop_l;
       }
 
@@ -606,6 +613,7 @@ public:
         inst[12] = ld_b;
         inst[13] = a_T;
         inst[14] = b_T;
+        * tmp_size = 0;
         return gemm_plus_l;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
@@ -629,6 +637,9 @@ public:
         ld_u2 = read_only[0].getLd_y();
         ld_vt2 = read_only[0].getLd_x();
 
+        int tmp, offset1, offset2;
+        tmp = getTmpSize_ACCM_LR(&offset1, &offset2, nx, ny, rank1);
+
         inst[0] = (int) accum;
         inst[1] = U1;
         inst[2] = VT1;
@@ -646,7 +657,10 @@ public:
         inst[14] = ld_vt1;
         inst[15] = ld_u2;
         inst[16] = ld_vt2;
+        inst[17] = offset1;
+        inst[18] = offset2;
 
+        * tmp_size = tmp;
         return accum_l;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
@@ -654,18 +668,21 @@ public:
         // TODO
         printf("Error: Accum dense awaiting implementation.\n");
         inst[0] = (int) nop;
+        * tmp_size = 0;
         return nop_l;
       }
       else
       {
         printf("Error: ACCUM on incompatible block.\n");
         inst[0] = (int) nop;
+        * tmp_size = 0;
         return nop_l;
       }
     }
     default:
     { 
       inst[0] = (int) nop;
+      * tmp_size = 0;
       return nop_l;
     }
     }
@@ -872,6 +889,13 @@ public:
     }
   }
 
+  __host__ static int getTmpSize_ACCM_LR (int * offset1, int * offset2, const int nx, const int ny, const int rank1)
+  {
+    const int size_1 = ny * rank1, size_2 = nx * rank1, size_3 = ny * rank1;
+    * offset1 = size_1; * offset2 = size_1 + size_2;
+    return size_1 + size_2 + size_3;
+  }
+
   __host__ static int getControl_GEMM_3x (int * t_size, const int m, const int n, const int k, const int l)
   {
     const int size_1 = m * l, size_2 = n * k;
@@ -882,7 +906,7 @@ public:
     return (int) b_ab_a; 
   }
 
-  __host__ static int getControl_GEMM_4x (int * t_size1, int * t_size2, const int m, const int n, const int k, const int l, const int o)
+  __host__ static int getControl_GEMM_4x (int * t_size, int * offset, const int m, const int n, const int k, const int l, const int o)
   {
     const int size_1 = m * l, size_2 = m * o, size_3 = n * k, size_4 = n * l, size_5 = k * o;
 
@@ -898,22 +922,20 @@ public:
     int control;
     if (b_abc_a && b_abc_ab) // (A x B x C) x D
     {
-      * t_size2 = size_2;
       if (b_ab_bc) // ((A x B) x C) x D
-      { control = 0; * t_size1 = size_1; }
+      { control = 0; * offset = size_1; * t_size = size_1 + size_2; }
       else // (A x (B x C)) x D
-      { control = 1; * t_size1 = size_5; }
+      { control = 1; * offset = size_5; * t_size = size_5 + size_2; }
     }
     else if (b_abc_ab) // A x (B x C x D)
     {
-      * t_size2 = size_3;
       if (b_bc_cd) // A x ((B x C) x D)
-      { control = 2; * t_size1 = size_5; }
+      { control = 2; * offset = size_5; * t_size = size_5 + size_3; }
       else // A x (B x (C x D))
-      { control = 3; * t_size1 = size_4; }
+      { control = 3; * offset = size_4; * t_size = size_4 + size_3; }
     }
     else // (A x B) x (C x D)
-    { control = 4; * t_size1 = size_1; * t_size2 = size_4; }
+    { control = 4; * offset = size_1; * t_size = size_1 + size_4; }
 
     return control; 
   }
