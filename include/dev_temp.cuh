@@ -14,7 +14,7 @@ private:
   int * sizes;
 
 public:
-  __host__ dev_temp (const int size_in = _DEFAULT_PTRS_LENGTH)
+  __host__ dev_temp (const int size_in = _PTRS_LENGTH)
   {
     size = size_in > 0 ? size_in : 1;
     length = 0;

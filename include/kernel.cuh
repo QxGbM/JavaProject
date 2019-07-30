@@ -6,7 +6,7 @@
 #include <pspl.cuh>
 
 template <class T, class vecT, int vec_size, int shm_size> 
-__global__ void kernel_dynamic (const int ** __restrict__ insts, void ** __restrict__ ptrs, volatile int * __restrict__ comm_space, T ** __restrict__ block_tmps)
+__global__ void kernel_dynamic (const int ** __restrict__ insts, void ** __restrict__ ptrs, volatile int * __restrict__ comm_space, T ** __restrict__ block_tmps, T * __restrict__ dev_rnd_seed)
 {
   __shared__ int shm [shm_size]; 
 
@@ -39,7 +39,7 @@ exe:
     T * M = (T *) ptrs[shm[3]]; 
     const int offset = shm[4], nx = shm[5], ny = shm[6], ld = shm[7];
     __syncthreads();
-    blockDenseGetrf <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&M[offset], nx, ny, ld, (T *) shm);
+    blockDenseGetrf <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> (&M[offset], nx, ny, ld, (T *) shm);
     next_pc = getrf_l; goto write;  
   }
 
@@ -52,7 +52,7 @@ exe:
     if (b_T)
     { }
     else
-    { blockDenseTrsmL <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm); }
+    { blockDenseTrsmL <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> (&B[offset_b], &L[offset_l], nx_b, ny_b, nx_l, ld_b, ld_l, (T *) shm); }
     next_pc = trsml_l; goto write;
   }
 
@@ -63,9 +63,9 @@ exe:
     const bool b_T = (bool) shm[12];
     __syncthreads();
     if (b_T)
-    { blockDenseTrsmR_transposeB <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
+    { blockDenseTrsmR_transposeB <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
     else
-    { blockDenseTrsmR <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
+    { blockDenseTrsmR <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> (&B[offset_b], &U[offset_u], nx_b, ny_b, ny_u, ld_b, ld_u, (T *) shm); }
     next_pc = trsmr_l; goto write;
   }
 
@@ -75,7 +75,7 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> 
+    blockDenseGemm <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> 
       (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = gemm_l; goto write;
   }
@@ -86,7 +86,7 @@ exe:
     const int offset_m = shm[6], offset_a = shm[7], offset_b = shm[8], m = shm[9], n = shm[10], k = shm[11], ld_m = shm[12], ld_a = shm[13], ld_b = shm[14];
     const bool a_T = (bool) shm[15], b_T = (bool) shm[16];
     __syncthreads();
-    blockDenseGemm <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> 
+    blockDenseGemm <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> 
       (1., 1., &M[offset_m], &A[offset_a], &B[offset_b], m, n, k, ld_m, ld_a, ld_b, a_T, b_T, (T *) shm);
     next_pc = gemm_plus_l; goto write;
   }
@@ -99,7 +99,7 @@ exe:
     const bool a_T = (bool) shm[19], b_T = (bool) shm[20], c_T = (bool) shm[21];
     const int control = shm[22];
     __syncthreads();
-    blockDenseGemm_3x <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K>
+    blockDenseGemm_3x <T, vecT, vec_size, _BLOCK_M, _BLOCK_K>
       (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], m, n, k, l, ld_m, ld_a, ld_b, ld_c, a_T, b_T, c_T, control, (T *) shm, my_tmp);
     next_pc = gemm_3x_l; goto write;
   }
@@ -113,7 +113,7 @@ exe:
     const bool a_T = (bool) shm[23], b_T = (bool) shm[24], c_T = (bool) shm[25], d_T = (bool) shm[26];
     const int control = shm[27], offset = shm[28];
     __syncthreads();
-    blockDenseGemm_4x <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K>
+    blockDenseGemm_4x <T, vecT, vec_size, _BLOCK_M, _BLOCK_K>
       (-1., 1., &M[offset_m], &A[offset_a], &B[offset_b], &C[offset_c], &D[offset_d], m, n, k, l, o, ld_m, ld_a, ld_b, ld_c, ld_d, a_T, b_T, c_T, d_T, control, offset, (T *) shm, my_tmp);
 
     next_pc = gemm_4x_l; goto write;
@@ -126,8 +126,8 @@ exe:
     const int nx = shm[11], ny = shm[12], rank1 = shm[13], rank2 = shm[14], ld_u1 = shm[15], ld_vt1 = shm[16], ld_u2 = shm[17], ld_vt2 = shm[18];
     const int offset1 = shm[19], offset2 = shm[20];
     __syncthreads();
-    blockLowRankAccum <T, vecT, vec_size, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> 
-      (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, offset1, offset2, (T *) shm, my_tmp);
+    blockLowRankAccum <T, vecT, vec_size, _BLOCK_M, _BLOCK_K> 
+      (&U1[offset_u1], &VT1[offset_vt1], &U2[offset_u2], &VT2[offset_vt2], nx, ny, rank1, rank2, ld_u1, ld_vt1, ld_u2, ld_vt2, offset1, offset2, (T *) shm, my_tmp, dev_rnd_seed);
     next_pc = accum_l; goto write;
   }
 
@@ -174,25 +174,8 @@ __host__ void print_dev_mat (T * dev_mat, const int nx, const int ny)
 }
 
 template <class T>
-__host__ cudaError_t rndInitialize (unsigned int rnd_seed_in)
-{
-  srand(rnd_seed_in);
-
-  T * rnd_seed = new T[_RND_SEED_LENGTH];
-
-#pragma omp parallel for
-  for (int i = 0; i < _RND_SEED_LENGTH; i++) 
-  { rnd_seed[i] = (T) rand() / RAND_MAX; }
-
-  cudaError_t error = cudaMemcpyToSymbol (dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(T), 0, cudaMemcpyHostToDevice);
-  delete[] rnd_seed;
-
-  return error;
-}
-
-template <class T>
-__host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps, double * total_lapse, long long * flops,
-  const h_ops_tree * tree, T ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
+__host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps, T ** dev_rnd_seed, 
+  double * total_lapse, long long * flops, const h_ops_tree * tree, T ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
 {
   double clock_start, clock_end, clock_lapse, clock_total = 0.;
   printf("-- Host Summary: -- \n");
@@ -219,7 +202,7 @@ __host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev
   printf("Instruction generated in %f ms.\n", 1000. * clock_lapse); //ins.print();
 
   clock_start = omp_get_wtime();
-  cudaError_t error = ins.getLaunchArgs(dev_insts, dev_ptrs, comm_space, block_tmps);
+  cudaError_t error = ins.getLaunchArgs(dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, _SEED);
   clock_end = omp_get_wtime();
   clock_lapse = clock_end - clock_start;
   clock_total += clock_lapse;
@@ -232,9 +215,9 @@ __host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev
 }
 
 template <class T, class vecT, int vec_size, int shm_size>
-__host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, T ** block_tmps, const int workers, const int num_threads, cudaStream_t main_stream = 0)
+__host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, T ** block_tmps, T * dev_rnd_seed, const int workers, const int num_threads, cudaStream_t main_stream = 0)
 {
-  void ** args = new void * [4] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps };
+  void ** args = new void * [5] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed };
   cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T, vecT, vec_size, shm_size>, workers, num_threads, args, 0, main_stream);
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
@@ -250,6 +233,7 @@ __host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, i
   cudaFree(dev_ptrs);
   cudaFree(comm_space);
   cudaFree(block_tmps);
+  cudaFree(dev_rnd_seed);
   delete[] args;
 
   return error;
@@ -293,7 +277,7 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   printf("Tree Generated in %f ms.\n\n", 1000. * clock_lapse); //tree->print();
   delete root;
 
-  T ** tmp_ptrs = tmp_mngr.allocate <T> (), ** block_tmps;
+  T ** tmp_ptrs = tmp_mngr.allocate <T> (), ** block_tmps, * dev_rnd_seed;
   int ** dev_insts, * comm_space, iters = kernel_size <= 0 ? 1 : (tree -> length() + kernel_size - 1) / kernel_size;
   void ** dev_ptrs;
   long long int exeFLOPS = 0, tmp;
@@ -301,14 +285,14 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
 
   for (int i = 0; i < iters && error == cudaSuccess; i++)
   {
-    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
     printf("Host %f ms.\n\n", 1000. * clock_lapse);
     exeFLOPS += tmp;
 
     sprintf(event_name, "Kernel %d", i);
 
     myTimer.newEvent(event_name, start, main_stream);
-    error = launchKernelWithArgs <T, vecT, vec_size, shm_size> (dev_insts, dev_ptrs, comm_space, block_tmps, workers, num_threads, main_stream);
+    error = launchKernelWithArgs <T, vecT, vec_size, shm_size> (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, workers, num_threads, main_stream);
     myTimer.newEvent(event_name, end, main_stream);
   }
 

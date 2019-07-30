@@ -845,7 +845,7 @@ public:
     return error;
   }
 
-  __host__ static dev_hierarchical <T> * readStructureFromFile (FILE * stream, const int shadow_rank = _DEFAULT_SHADOW_RANK)
+  __host__ static dev_hierarchical <T> * readStructureFromFile (FILE * stream, const int shadow_rank = _SHADOW_RANK)
   {
     element_t type;
     void * h = dev_h_element <T> :: readStructureFromFile(stream, &type, shadow_rank);
@@ -866,7 +866,7 @@ public:
 
   }
 
-  __host__ static dev_hierarchical <T> * readFromFile (const char * file_name, const int shadow_rank = _DEFAULT_SHADOW_RANK, const bool reverse_bytes = true)
+  __host__ static dev_hierarchical <T> * readFromFile (const char * file_name, const int shadow_rank = _SHADOW_RANK, const bool reverse_bytes = true)
   {
     char str[32], bin[32];
     strcpy(str, file_name); strcat(str, ".struct");

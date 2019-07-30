@@ -151,7 +151,7 @@ public:
     return accum;
   }
 
-  __host__ int writeOpParametersTo (int * inst, int * tmp_size, const int * mapping) const
+  __host__ int writeOpParametersTo (int * inst, int * tmp_size, int * rnd_size, const int * mapping) const
   {
 
     switch (opType())
@@ -173,6 +173,7 @@ public:
         printf("Error: GETRF on incompatible block.\n");
         inst[0] = (int) nop;
         * tmp_size = 0;
+        * rnd_size = 0;
         return nop_l;
       }
 
@@ -183,6 +184,7 @@ public:
       inst[4] = ny; 
       inst[5] = ld;
       * tmp_size = 0;
+      * rnd_size = 0;
       return getrf_l;
     }
     case trsml:
@@ -220,6 +222,7 @@ public:
         printf("Error: TRSML on incompatible block.\n");
         inst[0] = (int) nop;
         * tmp_size = 0;
+        * rnd_size = 0;
         return nop_l;
       }
 
@@ -235,6 +238,7 @@ public:
       inst[9] = ld_l;
       inst[10] = b_T;
       * tmp_size = 0;
+      * rnd_size = 0;
       return trsml_l;
     }
     case trsmr:
@@ -272,6 +276,7 @@ public:
         printf("Error: TRSMR on incompatible block.\n");
         inst[0] = (int) nop;
         * tmp_size = 0;
+        * rnd_size = 0;
         return nop_l;
       }
 
@@ -287,6 +292,7 @@ public:
       inst[9] = ld_u;
       inst[10] = b_T;
       * tmp_size = 0;
+      * rnd_size = 0;
       return trsmr_l;
     }
     case gemm:
@@ -372,6 +378,7 @@ public:
         inst[13] = a_T;
         inst[14] = b_T;
         * tmp_size = 0;
+        * rnd_size = 0;
         return gemm_l;
       }
       else if (read_and_write[0].isU() && read_only[0].isLowRank() && read_only[1].isU())
@@ -500,6 +507,7 @@ public:
         inst[19] = c_T;
         inst[20] = control;
         * tmp_size = t_size;
+        * rnd_size = 0;
         return gemm_3x_l;
       }
       else if (read_and_write[0].isDense() && read_only[0].isLowRank() && read_only[1].isLowRank())
@@ -567,6 +575,7 @@ public:
         inst[26] = offset;
 
         * tmp_size = t_size;
+        * rnd_size = 0;
         return gemm_4x_l;
       }
       else
@@ -574,6 +583,7 @@ public:
         printf("Error: GEMM on incompatible block.\n"); print();
         inst[0] = (int) nop;
         * tmp_size = 0;
+        * rnd_size = 0;
         return nop_l;
       }
 
@@ -614,6 +624,7 @@ public:
         inst[13] = a_T;
         inst[14] = b_T;
         * tmp_size = 0;
+        * rnd_size = 0;
         return gemm_plus_l;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
@@ -661,6 +672,7 @@ public:
         inst[18] = offset2;
 
         * tmp_size = tmp;
+        * rnd_size = nx * rank1;
         return accum_l;
       }
       else if (read_and_write[0].isLowRank() && read_only[0].isLowRank())
@@ -669,6 +681,7 @@ public:
         printf("Error: Accum dense awaiting implementation.\n");
         inst[0] = (int) nop;
         * tmp_size = 0;
+        * rnd_size = 0;
         return nop_l;
       }
       else
@@ -676,6 +689,7 @@ public:
         printf("Error: ACCUM on incompatible block.\n");
         inst[0] = (int) nop;
         * tmp_size = 0;
+        * rnd_size = 0;
         return nop_l;
       }
     }
@@ -683,6 +697,7 @@ public:
     { 
       inst[0] = (int) nop;
       * tmp_size = 0;
+      * rnd_size = 0;
       return nop_l;
     }
     }
@@ -940,7 +955,7 @@ public:
     return control; 
   }
 
-  __host__ static long long int getFlops_GETRF (long long int * trim, const long long int nx, const long long int ny, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_GETRF (long long int * trim, const long long int nx, const long long int ny, const long long int trim_dim = _BLOCK_M)
   {
     long long int accum = 0, accum_trim = 0;
     long long int n = nx > ny ? ny : nx, nx_trim = nx < trim_dim ? trim_dim : nx, ny_trim = ny < trim_dim ? trim_dim : ny;
@@ -955,7 +970,7 @@ public:
     return accum;
   }
 
-  __host__ static long long int getFlops_TRSML (long long int * trim, const long long int nx_b, const long long int ny_b, const long long int nx_l, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_TRSML (long long int * trim, const long long int nx_b, const long long int ny_b, const long long int nx_l, const long long int trim_dim = _BLOCK_M)
   {
     long long int accum = 0, accum_trim = 0;
     long long int n = nx_l > ny_b ? ny_b : nx_l;
@@ -968,7 +983,7 @@ public:
     return accum;
   }
 
-  __host__ static long long int getFlops_TRSMR (long long int * trim, const long long int nx_b, const long long int ny_b, const long long int ny_u, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_TRSMR (long long int * trim, const long long int nx_b, const long long int ny_b, const long long int ny_u, const long long int trim_dim = _BLOCK_M)
   {
     long long int accum = 0, accum_trim = 0;
     long long int n = nx_b > ny_u ? ny_u : nx_b;
@@ -981,7 +996,7 @@ public:
     return accum;
   }
 
-  __host__ static long long int getFlops_GEMM (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_GEMM (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int trim_dim = _BLOCK_M)
   {
     long long int m_trim = m < trim_dim ? trim_dim : m, n_trim = n < trim_dim ? trim_dim : n;
     long long int k_trim = k < trim_dim ? trim_dim : k;
@@ -991,7 +1006,7 @@ public:
     return accum;
   }
 
-  __host__ static long long int getFlops_GEMM_3x (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int l, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_GEMM_3x (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int l, const long long int trim_dim = _BLOCK_M)
   {
     long long int f1 = k * n * (m + l), f2 = m * l * (k + n), accum = (f1 <= f2 ? f1 : f2) * 2;
     long long int m_trim = m < trim_dim ? trim_dim : m, n_trim = n < trim_dim ? trim_dim : n;
@@ -1004,7 +1019,7 @@ public:
     return accum;
   }
 
-  __host__ static long long int getFlops_GEMM_4x (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int l, const long long int o, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_GEMM_4x (long long int * trim, const long long int m, const long long int n, const long long int k, const long long int l, const long long int o, const long long int trim_dim = _BLOCK_M)
   {
     long long int m_trim = m < trim_dim ? trim_dim : m, n_trim = n < trim_dim ? trim_dim : n;
     long long int k_trim = k < trim_dim ? trim_dim : k, l_trim = l < trim_dim ? trim_dim : l;
@@ -1035,7 +1050,7 @@ public:
     return f_abcd * 2;
   }
 
-  __host__ static long long int getFlops_QR (long long int * trim, const long long int nx, const long long int ny, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_QR (long long int * trim, const long long int nx, const long long int ny, const long long int trim_dim = _BLOCK_M)
   {
     long long int nx_trim = nx < trim_dim ? trim_dim : nx, ny_trim = ny < trim_dim ? trim_dim : ny;
     long long int accum = nx * nx * (3 * ny - nx) * 2, accum_trim = nx_trim * nx_trim * (3 * ny_trim - nx_trim) * 2;
@@ -1044,7 +1059,7 @@ public:
     return accum;
   }
 
-  __host__ static long long int getFlops_LrAccum (long long int * trim, const long long int nx, const long long int ny, const long long int rank1, const long long int rank2, const long long int trim_dim = _DEFAULT_BLOCK_M)
+  __host__ static long long int getFlops_LrAccum (long long int * trim, const long long int nx, const long long int ny, const long long int rank1, const long long int rank2, const long long int trim_dim = _BLOCK_M)
   {
     long long int accum = 0, accum_trim = 0, tmp;
     accum += getFlops_GEMM_3x(&tmp, ny, rank1, rank1, nx); accum_trim += tmp;

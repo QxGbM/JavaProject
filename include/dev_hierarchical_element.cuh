@@ -574,7 +574,7 @@ public:
     return cudaErrorMissingConfiguration;
   }
 
-  __host__ static void * readStructureFromFile (FILE * stream, element_t * type, const int shadow_rank = _DEFAULT_SHADOW_RANK)
+  __host__ static void * readStructureFromFile (FILE * stream, element_t * type, const int shadow_rank = _SHADOW_RANK)
   {
     char * buf = new char[32];
     if (stream != nullptr && fgets(buf, 32, stream) > 0)

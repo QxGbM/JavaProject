@@ -17,6 +17,7 @@ private:
   int ptrs_size;
 
   int * tmp_sizes;
+  int rnd_size;
 
   int comm_length;
 
@@ -101,12 +102,12 @@ private:
 
   }
 
-  __host__ int loadInsts (int * tmp_size, const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
+  __host__ int loadInsts (int * tmp_size, int * rnd_size, const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
   {
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
 
-    int loc = 0, size = 0, size_max = 0, * inst = &(insts[worker_id][loc]), n_ptrs = 16, * mapping = new int [n_ptrs]; 
+    int loc = 0, size = 0, rnd = 0, size_max = 0, rnd_max = 0, * inst = &(insts[worker_id][loc]), n_ptrs = 16, * mapping = new int [n_ptrs]; 
     void ** ptrs = new void * [n_ptrs];
 
     for (const instructions_queue * ptr = queue; ptr != nullptr; ptr = ptr -> getNext())
@@ -125,12 +126,15 @@ private:
         memset(mapping, -1, n_ptrs * sizeof(int));
         n_ptrs = op -> getDataPointers (ptrs, tmp_ptrs);
 
-#pragma omp critical
+        #pragma omp critical
         { loadPointers (ptrs, n_ptrs, mapping); }
 
-        const int t = op -> writeOpParametersTo (&inst[2], &size, mapping);
+        const int t = op -> writeOpParametersTo (&inst[2], &size, &rnd, mapping);
+
         if (size > size_max)
         { size_max = size; }
+        if (rnd > rnd_max)
+        { rnd_max = rnd; }
 
         loc += t;
         inst = &inst[t];
@@ -160,6 +164,12 @@ private:
     delete[] ptrs;
     * tmp_size = size_max;
 
+    #pragma omp critical
+    { 
+      if (* rnd_size < rnd_max) 
+      { * rnd_size = rnd_max; } 
+    }
+
     return loc + 1;
   }
 
@@ -171,17 +181,18 @@ public:
     workers = num_workers;
     inst_lengths = new int [num_workers];
 
-    ptrs = new void * [_DEFAULT_PTRS_LENGTH];
-    ptrs_size = _DEFAULT_PTRS_LENGTH;
+    ptrs = new void * [_PTRS_LENGTH];
+    ptrs_size = _PTRS_LENGTH;
 
     tmp_sizes = new int[num_workers];
+    rnd_size = 0;
 
 #pragma omp parallel for
     for (int i = 0; i < num_workers; i++)
     { 
-      insts[i] = new int [_DEFAULT_INSTS_LENGTH];
-      memset (insts[i], -1, _DEFAULT_INSTS_LENGTH * sizeof(int));
-      inst_lengths[i] = _DEFAULT_INSTS_LENGTH;
+      insts[i] = new int [_INSTS_LENGTH];
+      memset (insts[i], -1, _INSTS_LENGTH * sizeof(int));
+      inst_lengths[i] = _INSTS_LENGTH;
     }
 
     memset(ptrs, 0, ptrs_size * sizeof(void *));
@@ -189,7 +200,7 @@ public:
 
 #pragma omp parallel for
     for (int i = 0; i < num_workers; i++)
-    { inst_lengths[i] = loadInsts(&tmp_sizes[i], i, schedule -> getSchedule(i), dag, tmp_ptrs); }
+    { inst_lengths[i] = loadInsts(&tmp_sizes[i], &rnd_size, i, schedule -> getSchedule(i), dag, tmp_ptrs); }
 
     comm_length = dag -> getLength();
   }
@@ -207,7 +218,7 @@ public:
   }
 
   template <class T>
-  __host__ cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps) const
+  __host__ cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps, T ** dev_rnd_seed, const unsigned int seed_in = 0) const
   {
     int ** insts_temp = new int * [workers]; T ** tmps_temp = new T * [workers];
     cudaMalloc(dev_insts, workers * sizeof(int *));
@@ -236,6 +247,19 @@ public:
 
     cudaMalloc(comm_space, comm_length * sizeof(int));
     cudaMemset(* comm_space, 0, comm_length * sizeof(int));
+
+    if (seed_in > 0)
+    { srand(seed_in); }
+
+    T * rnd_seed = new T[rnd_size];
+
+#pragma omp parallel for
+    for (int i = 0; i < rnd_size; i++) 
+    { rnd_seed[i] = (T) rand() / RAND_MAX; }
+
+    cudaMalloc(dev_rnd_seed, rnd_size * sizeof(T));
+    cudaMemcpy(* dev_rnd_seed, rnd_seed, rnd_size * sizeof(T), cudaMemcpyHostToDevice);
+    delete[] rnd_seed;
     
     return cudaGetLastError();
   }

@@ -212,15 +212,15 @@ __device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ 
 }
 
 template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
-__device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, 
-  const int k1, const int k2, const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, const int offset1, const int offset2, T * __restrict__ shm, T * __restrict__ my_tmp)
+__device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, const int k1, const int k2, 
+  const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, const int offset1, const int offset2, T * __restrict__ shm, T * __restrict__ my_tmp, const T *__restrict__ rnd_seed)
 {
   T * U = my_tmp, * V = &my_tmp[offset1], * Q = &my_tmp[offset2];
 
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, dev_rnd_seed, VT1, k1, k1, nx, k1, k1, ld_vt1, true, false, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, rnd_seed, VT1, k1, k1, nx, k1, k1, ld_vt1, true, false, shm);
   blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, U1, Q, ny, k1, k1, k1, ld_u1, k1, false, true, shm);
 
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, dev_rnd_seed, VT2, k1, k2, nx, k2, k1, ld_vt2, true, false, shm);
+  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, rnd_seed, VT2, k1, k2, nx, k2, k1, ld_vt2, true, false, shm);
   blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., U, U2, Q, ny, k1, k2, k1, ld_u2, k2, false, true, shm);
 
   blockGivensRotation <T> (U, k1, ny, k1);

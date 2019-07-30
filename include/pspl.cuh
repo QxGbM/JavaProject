@@ -28,17 +28,15 @@
 
 #define _MAX_INST_LENGTH 32
 #define _MIN_INST_FLOPS 10000000
-
-#define _DEFAULT_SHADOW_RANK 16
-#define _DEFAULT_PTRS_LENGTH 1024
-#define _DEFAULT_INSTS_LENGTH 1024
-#define _DEFAULT_COMM_LENGTH 1024
-#define _DEFAULT_COMPRESSOR_LENGTH 1024
-#define _DEFAULT_BLOCK_M 64
-#define _DEFAULT_BLOCK_K 16
-
-#define _RND_SEED_LENGTH 8192
+#define _SHADOW_RANK 16
+#define _PTRS_LENGTH 1024
+#define _INSTS_LENGTH 1024
+#define _COMM_LENGTH 1024
+#define _COMPRESSOR_LENGTH 1024
+#define _BLOCK_M 64
+#define _BLOCK_K 16
 #define _CLOCK_MULTIPLIER 1.e-3
+#define _SEED 200
 
 enum mark_t { start, end };
 
@@ -53,8 +51,6 @@ enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_no
 enum opcode_t { execute, signal_wait, finish };
 
 enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 23, gemm_4x_l = 29, accum_l = 21, accum_dense_l = -1, pivot_l = -1 };
-
-__constant__ double dev_rnd_seed [_RND_SEED_LENGTH];
 
 __device__ __forceinline__ int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }

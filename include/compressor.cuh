@@ -37,7 +37,7 @@ private:
   void ** str_ptrs;
 
 public:
-  __host__ compressor (const int rnd_seed_in = 0, const int default_size = _DEFAULT_COMPRESSOR_LENGTH)
+  __host__ compressor (const int rnd_seed_in = 0, const int default_size = _COMPRESSOR_LENGTH)
   {
     size = default_size;
     length = 0;
@@ -60,16 +60,6 @@ public:
 
     size_b = 3 * size_b;
     memset (dims, 0, size_b);
-
-    double * rnd_seed = new double [_RND_SEED_LENGTH];
-    srand(rnd_seed_in);
-
-#pragma omp parallel for
-    for (int i = 0; i < _RND_SEED_LENGTH; i++) 
-    { rnd_seed[i] = (double) rand() / RAND_MAX; }
-
-    cudaMemcpyToSymbol(dev_rnd_seed, rnd_seed, _RND_SEED_LENGTH * sizeof(double), 0, cudaMemcpyHostToDevice);
-    delete[] rnd_seed;
     
   }
 

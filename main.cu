@@ -4,16 +4,14 @@
 __global__ void getrf_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[6144];
-  blockDenseGetrf <double, double2, 2, _DEFAULT_BLOCK_M, _DEFAULT_BLOCK_K> (matrix, nx, ny, ld, shm);
+  blockDenseGetrf <double, double2, 2, _BLOCK_M, _BLOCK_K> (matrix, nx, ny, ld, shm);
 }
 
 template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[], const int blocks, const int threads, const int kernel_size,
-  const bool ref, char ref_name[], const int shadow_rank = _DEFAULT_SHADOW_RANK)
+  const bool ref, char ref_name[], const int shadow_rank = _SHADOW_RANK)
 {
   cudaSetDevice(0);
   cudaDeviceReset();
-
-  rndInitialize <T> (200);
 
   dev_hierarchical<T> * a = dev_hierarchical<T>::readFromFile(test_name, shadow_rank);
 
@@ -44,7 +42,7 @@ template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[
 
 int main(int argc, char * argv[])
 {
-  int blocks = 80, threads = 512, kernel_size = 0, rank = _DEFAULT_SHADOW_RANK;
+  int blocks = 80, threads = 512, kernel_size = 0, rank = _SHADOW_RANK;
   bool ref = false;
 
   char tmp[32], dir[32] = "bin/", ref_name[32], test_name[32] = "bin/test";
