@@ -6,17 +6,22 @@
 #include <pspl.cuh>
 
 template <class T, class vecT, int vec_size, int shm_size> 
-__global__ void kernel_dynamic (const int ** __restrict__ insts, void ** __restrict__ ptrs, volatile int * __restrict__ comm_space, T ** __restrict__ block_tmps, T * __restrict__ dev_rnd_seed)
+__global__ void kernel_dynamic (const int ** __restrict__ insts, void ** __restrict__ ptrs, volatile int * __restrict__ comm_space, 
+  T ** __restrict__ block_tmps, T * __restrict__ dev_rnd_seed, unsigned long long ** __restrict__ clocks)
 {
   __shared__ int shm [shm_size]; 
 
-  const int * pc = insts [block_rank()], t_id = thread_rank(); T * my_tmp = block_tmps[block_rank()];
+  const int * pc = insts [block_rank()], t_id = thread_rank(); 
+  T * my_tmp = block_tmps[block_rank()];
+  unsigned long long * clocks_block = clocks[block_rank()];
 
 load_inst:
   int next_pc = 0;
   const int * signal_id = nullptr;
   if (t_id < _MAX_INST_LENGTH)
   { shm[t_id] = pc[t_id]; }
+  if (t_id == 0)
+  { clocks_block[0] = clock64(); printf("%d: %lld\n", block_rank(), clocks_block[0]); clocks_block = &clocks_block[1]; }
   __syncthreads();
 
   switch ((opcode_t) shm[0])
@@ -173,8 +178,23 @@ __host__ void print_dev_mat (T * dev_mat, const int nx, const int ny)
    delete[] data;
 }
 
+__host__ cudaError_t allocate_clocks (unsigned long long *** clocks, const int workers, const int * lengths)
+{
+  unsigned long long ** tmp = new unsigned long long * [workers];
+  cudaMalloc(clocks, workers * sizeof(unsigned long long *));
+
+  for (int i = 0; i < workers; i++)
+  {
+    cudaMalloc(&tmp[i], lengths[i] * sizeof(unsigned long long));
+    cudaMemset(tmp[i], 0, lengths[i] * sizeof(unsigned long long));
+  }
+  cudaMemcpy(* clocks, tmp, workers * sizeof(unsigned long long *), cudaMemcpyHostToDevice);
+
+  return cudaGetLastError();
+}
+
 template <class T>
-__host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps, T ** dev_rnd_seed, 
+__host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps, T ** dev_rnd_seed, unsigned long long *** clocks,
   double * total_lapse, long long * flops, const h_ops_tree * tree, T ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
 {
   double clock_start, clock_end, clock_lapse, clock_total = 0.;
@@ -193,6 +213,10 @@ __host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev
   clock_lapse = clock_end - clock_start;
   clock_total += clock_lapse;
   printf("Schedule Created in %f ms.\n", 1000. * clock_lapse); //schedule.print();
+
+  int * lengths = schedule.getLengths();
+  allocate_clocks(clocks, workers, lengths);
+  delete lengths;
 
   clock_start = omp_get_wtime();
   instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
@@ -215,9 +239,10 @@ __host__ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev
 }
 
 template <class T, class vecT, int vec_size, int shm_size>
-__host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, T ** block_tmps, T * dev_rnd_seed, const int workers, const int num_threads, cudaStream_t main_stream = 0)
+__host__ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, T ** block_tmps, T * dev_rnd_seed, unsigned long long ** clocks, 
+  const int workers, const int num_threads, cudaStream_t main_stream = 0)
 {
-  void ** args = new void * [5] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed };
+  void ** args = new void * [6] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks };
   cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic <T, vecT, vec_size, shm_size>, workers, num_threads, args, 0, main_stream);
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
@@ -281,18 +306,19 @@ __host__ cudaError_t hierarchical_GETRF (dev_hierarchical <T> * h, const int num
   int ** dev_insts, * comm_space, iters = kernel_size <= 0 ? 1 : (tree -> length() + kernel_size - 1) / kernel_size;
   void ** dev_ptrs;
   long long int exeFLOPS = 0, tmp;
+  unsigned long long int ** clocks;
   char event_name[32];
 
   for (int i = 0; i < iters && error == cudaSuccess; i++)
   {
-    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    error = generateLaunchArgsFromTree <T> (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
     printf("Host %f ms.\n\n", 1000. * clock_lapse);
     exeFLOPS += tmp;
 
     sprintf(event_name, "Kernel %d", i);
 
     myTimer.newEvent(event_name, start, main_stream);
-    error = launchKernelWithArgs <T, vecT, vec_size, shm_size> (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, workers, num_threads, main_stream);
+    error = launchKernelWithArgs <T, vecT, vec_size, shm_size> (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, clocks, workers, num_threads, main_stream);
     myTimer.newEvent(event_name, end, main_stream);
   }
 

@@ -43,6 +43,14 @@ public:
     ptr -> next = next; next = ptr; return ptr;
   }
 
+  __host__ int getLength() const
+  {
+    int l = 0;
+    for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
+    { l++; }
+    return l;
+  }
+
   __host__ void print() const
   {
     for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
@@ -501,6 +509,17 @@ public:
 
   __host__ instructions_queue * getSchedule (const int worker_id) const
   { return (worker_id >= 0 && worker_id < workers) ? result_queues[worker_id] : nullptr; }
+
+  __host__ int getLength (const int worker_id) const
+  { return (worker_id >= 0 && worker_id < workers) ? result_queues[worker_id] -> getLength() : 0; }
+
+  __host__ int * getLengths () const
+  {
+    int * lengths = new int[workers];
+    for (int i = 0; i < workers; i++)
+    { lengths[i] = result_queues[i] -> getLength(); }
+    return lengths; 
+  }
 
   __host__ void print () const
   {
