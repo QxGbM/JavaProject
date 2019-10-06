@@ -1,25 +1,24 @@
 
-#include <pspl.cuh>
+#include <kernel.cuh>
 
 __global__ void getrf_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[6144];
-  blockDenseGetrf <double, double2, 2, _BLOCK_M, _BLOCK_K> (matrix, nx, ny, ld, shm);
+  blockDenseGetrf (matrix, nx, ny, ld, shm);
 }
 
-template <class T, class vecT, int vec_size> __host__ int test0 (char test_name[], const int blocks, const int threads, const int kernel_size,
-  const bool ref, char ref_name[], const int shadow_rank = _SHADOW_RANK)
+int test0 (char test_name[], const int blocks, const int threads, const int kernel_size, const bool ref, char ref_name[], const int shadow_rank = _SHADOW_RANK)
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  dev_hierarchical<T> * a = dev_hierarchical<T>::readFromFile(test_name, shadow_rank);
+  dev_hierarchical * a = dev_hierarchical :: readFromFile(test_name, shadow_rank);
 
-  cudaError_t error = hierarchical_GETRF <T, vecT, vec_size, 12288> (a, blocks, threads, kernel_size);
+  cudaError_t error = hierarchical_GETRF (a, blocks, threads, kernel_size);
 
   if (ref && error == cudaSuccess)
   {
-    dev_dense <T> * b = a->convertToDense(), * c = dev_dense <T>::readFromFile(ref_name, 0);
+    dev_dense * b = a->convertToDense(), * c = dev_dense :: readFromFile(ref_name, 0);
 
     timer my_timer = timer();
     my_timer.newEvent("ref", start);
@@ -69,7 +68,7 @@ int main(int argc, char * argv[])
     { printf("Unrecognized Arg: %s.\n", argv[i]); }
   }
 
-  test0 <double, double2, 2> (test_name, blocks, threads, kernel_size, ref, ref_name, rank);
+  test0 (test_name, blocks, threads, kernel_size, ref, ref_name, rank);
 
   return 0;
 }

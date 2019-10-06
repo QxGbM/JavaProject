@@ -3,9 +3,12 @@
 #ifdef __INTELLISENSE__
 
 #define __syncthreads()
+#define __threadfence()
 #define asm
 #define volatile()
 #define clock64() 0
+#define __shfl_sync() 0
+#define __shfl_xor_sync() 0
 
 #endif
 
@@ -26,6 +29,19 @@
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
+#ifdef _PSPL_USE_SINGLE
+typedef float real_t;
+typedef float4 vec_t;
+const int vec_size = 4;
+const int real_bits = 4;
+#else
+typedef double real_t;
+typedef double2 vec_t;
+const int vec_size = 2;
+const int real_bits = 8;
+#endif
+
+#define _SHM_SIZE 12288
 #define _MAX_INST_LENGTH 32
 #define _MIN_INST_FLOPS 10000000
 #define _SHADOW_RANK 16
@@ -37,6 +53,8 @@
 #define _BLOCK_K 16
 #define _CLOCK_MULTIPLIER 1.e-3
 #define _SEED 200
+
+#define abs(x) ((x)<0 ? -(x) : (x))
 
 enum mark_t { start, end };
 
@@ -88,10 +106,11 @@ __device__ __forceinline__ void wait (clock_t lapse)
   return;
 }
 
-template <class T> class dev_dense;
-template <class T> class dev_low_rank;
-template <class T> class dev_hierarchical;
-template <class T> class dev_h_element;
+
+class dev_dense;
+class dev_low_rank;
+class dev_hierarchical;
+class dev_h_element;
 class dev_temp;
 
 class h_index;
@@ -101,34 +120,31 @@ class h_ops_dag;
 
 class instructions_queue;
 class instructions_scheduler;
-
 class instructions_manager;
 
 class dependency_linked_list;
 class event_linked_list;
 class timer;
-class compressor;
-
-#include <dev_hierarchical_index.cuh>
-#include <dev_hierarchical_ops.cuh>
-
-#include <dev_dense_funcs.cuh>
-#include <dev_low_rank_funcs.cuh>
 
 #include <dev_temp.cuh>
 #include <dev_dense.cuh>
-#include <compressor.cuh>
+//#include <compressor.cuh>
 #include <dev_low_rank.cuh>
 #include <dev_hierarchical.cuh>
 #include <dev_hierarchical_element.cuh>
 
+#include <dev_hierarchical_index.cuh>
+#include <dev_hierarchical_ops.cuh>
+#include <dev_hierarchical_ops_tree.cuh>
 #include <dev_hierarchical_ops_dag.cuh>
 
 #include <instructions_scheduler.cuh>
 #include <instructions_manager.cuh>
 
-#include <timer.cuh>
-#include <kernel.cuh>
+//#include <timer.cuh>
+//#include <dev_dense_funcs.cuh>
+//#include <dev_low_rank_funcs.cuh>
+//#include <kernel.cuh>
 
 
 #endif

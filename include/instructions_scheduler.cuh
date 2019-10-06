@@ -14,7 +14,7 @@ private:
   instructions_queue * next;
 
 public:
-  __host__ instructions_queue (const int inst_in, const bool ex_w_in, const long long int flops_in)
+  instructions_queue (const int inst_in, const bool ex_w_in, const long long int flops_in)
   {
     inst = inst_in;
     ex_w = ex_w_in;
@@ -22,28 +22,28 @@ public:
     next = nullptr;
   }
 
-  __host__ ~instructions_queue ()
+  ~instructions_queue ()
   { delete next; }
 
-  __host__ int getInst () const
+  int getInst () const
   { return inst; }
 
-  __host__ bool getExW () const
+  bool getExW () const
   { return ex_w; }
 
-  __host__ long long int getElapsedFlops () const
+  long long int getElapsedFlops () const
   { return next -> starting_flops_count - starting_flops_count; }
 
-  __host__ instructions_queue * getNext () const
+  instructions_queue * getNext () const
   { return next; }
 
-  __host__ instructions_queue * setNext (const int inst_in, const bool ex_w_in, const long long int flops_in)
+  instructions_queue * setNext (const int inst_in, const bool ex_w_in, const long long int flops_in)
   {
     instructions_queue * ptr = new instructions_queue (inst_in, ex_w_in, flops_in);
     ptr -> next = next; next = ptr; return ptr;
   }
 
-  __host__ int getLength() const
+  int getLength() const
   {
     int l = 0;
     for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
@@ -51,7 +51,7 @@ public:
     return l;
   }
 
-  __host__ void print() const
+  void print() const
   {
     for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
     {
@@ -77,7 +77,7 @@ private:
   ready_queue * next;
 
 public:
-  __host__ ready_queue (const int inst_in, const int workers, const h_ops_dag * dag, const long long int * flops_after_inst, const int * inst_executed_by, ready_queue * next_q = nullptr)
+  ready_queue (const int inst_in, const int workers, const h_ops_dag * dag, const long long int * flops_after_inst, const int * inst_executed_by, ready_queue * next_q = nullptr)
   {
     inst_number = inst_in;
     num_deps = dag -> getDepCount_From(inst_in);
@@ -111,28 +111,28 @@ public:
     delete[] flops_container;
   }
 
-  __host__ ~ready_queue ()
+  ~ready_queue ()
   {
     delete[] sync_with;
     delete next; 
   }
 
-  __host__ int getInst() const
+  int getInst() const
   { return inst_number; }
 
-  __host__ int getNumDeps () const
+  int getNumDeps () const
   { return num_deps; }
 
-  __host__ long long int getFlops (const long long int min_flops = _MIN_INST_FLOPS) const
+  long long int getFlops (const long long int min_flops = _MIN_INST_FLOPS) const
   { return anticipated_flops > min_flops ? anticipated_flops : min_flops; }
 
-  __host__ long long int getMaxSync() const
+  long long int getMaxSync() const
   { return max_sync; }
 
-  __host__ int * getSyncWith() const
+  int * getSyncWith() const
   { return sync_with; }
 
-  __host__ ready_queue * getLast()
+  ready_queue * getLast()
   {
     for (ready_queue * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
@@ -142,14 +142,14 @@ public:
     return nullptr;
   }
 
-  __host__ ready_queue * setNext (ready_queue * next_q)
+  ready_queue * setNext (ready_queue * next_q)
   {
     ready_queue * ptr = next;
     next = next_q;
     return ptr;
   }
 
-  __host__ bool hookup (ready_queue * queue)
+  bool hookup (ready_queue * queue)
   {
     ready_queue * q_ptr = queue, * ptr = next, * last = this;
 
@@ -170,7 +170,7 @@ public:
     return ptr == nullptr;
   }
 
-  __host__ ready_queue * deleteCriticalNode (ready_queue ** deleted_ptr_out, const long long int flops_synced)
+  ready_queue * deleteCriticalNode (ready_queue ** deleted_ptr_out, const long long int flops_synced)
   {
     if (flops_synced < max_sync)
     {
@@ -209,7 +209,7 @@ public:
     }
   }
 
-  __host__ void print() const
+  void print() const
   {
     int length = 0;
     printf("Ready Queue: \n");
@@ -239,7 +239,7 @@ private:
   int * inst_executed_by;
   long long int * last_sync_flops;
 
-  __host__ long long int getSmallestLoad()
+  long long int getSmallestLoad()
   { 
     long long int min_flops = flops_worker[0];
     for (int i = 1; i < workers; i++)
@@ -250,7 +250,7 @@ private:
     return min_flops;
   }
 
-  __host__ void loadWorkingQueue (const h_ops_dag * dag)
+  void loadWorkingQueue (const h_ops_dag * dag)
   {
     for (int i = 0; i < length; i++)
     {
@@ -264,7 +264,7 @@ private:
 
   }
 
-  __host__ long long int findLatestSyncs (const h_ops_dag * dag, int * sync_with, const int inst)
+  long long int findLatestSyncs (const h_ops_dag * dag, int * sync_with, const int inst)
   {
     const dependency_linked_list * list = dag -> getDepList_To(inst);
 
@@ -293,7 +293,7 @@ private:
 
   }
 
-  __host__ int findWorkerWithMinimalWaiting (const long long int max_sync)
+  int findWorkerWithMinimalWaiting (const long long int max_sync)
   {
     int worker_before_sync = -1, worker_after_sync = 0;
     long long int latest_before_sync = -1, earliest_after_sync = flops_worker[0];
@@ -315,7 +315,7 @@ private:
 
   }
 
-  __host__ void eliminateExtraSync (int * sync_with, const int worker_id)
+  void eliminateExtraSync (int * sync_with, const int worker_id)
   {
     sync_with[worker_id] = -1;
 
@@ -332,7 +332,7 @@ private:
 
   }
 
-  __host__ void addInstToWorker (const int inst, const long long int flops_anticipated, const int worker_id)
+  void addInstToWorker (const int inst, const long long int flops_anticipated, const int worker_id)
   {
     if (result_queues[worker_id] == nullptr)
     { result_queue_tails[worker_id] = result_queues[worker_id] = new instructions_queue(inst, true, flops_worker[worker_id]); }
@@ -343,7 +343,7 @@ private:
     inst_executed_by[inst] = worker_id;
   }
 
-  __host__ void addWaitToWorker (const int inst, const int worker_id)
+  void addWaitToWorker (const int inst, const int worker_id)
   {
     if (result_queues[worker_id] == nullptr)
     { result_queue_tails[worker_id] = result_queues[worker_id] = new instructions_queue(inst, false, flops_worker[worker_id]); }
@@ -356,7 +356,7 @@ private:
     last_sync_flops[worker_id * workers + src] = flops;
   }
 
-  __host__ void updateDepsCounts (const h_ops_dag * dag, const int inst_finished)
+  void updateDepsCounts (const h_ops_dag * dag, const int inst_finished)
   {
     ready_queue * queue = nullptr, * last = nullptr;
 
@@ -398,7 +398,7 @@ private:
 
   }
 
-  __host__ void schedule (const h_ops_dag * dag)
+  void schedule (const h_ops_dag * dag)
   {
     int comm_wait_counts = 0; long long int flops_total = 0, trimming_flops = _MIN_INST_FLOPS;
 
@@ -458,7 +458,7 @@ private:
 
 public:
 
-  __host__ instructions_scheduler (const h_ops_dag * dag, const int num_workers_limit)
+  instructions_scheduler (const h_ops_dag * dag, const int num_workers_limit)
   {
     length = dag -> getLength();
     workers = num_workers_limit;
@@ -489,7 +489,7 @@ public:
     schedule (dag);
   }
 
-  __host__ ~instructions_scheduler ()
+  ~instructions_scheduler ()
   {
     delete working_queue;
 
@@ -507,13 +507,13 @@ public:
     delete[] last_sync_flops;
   }
 
-  __host__ instructions_queue * getSchedule (const int worker_id) const
+  instructions_queue * getSchedule (const int worker_id) const
   { return (worker_id >= 0 && worker_id < workers) ? result_queues[worker_id] : nullptr; }
 
-  __host__ int getLength (const int worker_id) const
+  int getLength (const int worker_id) const
   { return (worker_id >= 0 && worker_id < workers) ? result_queues[worker_id] -> getLength() : 0; }
 
-  __host__ int * getLengths () const
+  int * getLengths () const
   {
     int * lengths = new int[workers];
     for (int i = 0; i < workers; i++)
@@ -521,7 +521,7 @@ public:
     return lengths; 
   }
 
-  __host__ void print () const
+  void print () const
   {
     working_queue -> print();
     for (int i = 0; i < workers; i++)

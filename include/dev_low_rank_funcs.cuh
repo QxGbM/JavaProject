@@ -6,16 +6,16 @@
 #include <pspl.cuh>
 
 
-template <class T> __device__ T warpAllReduceSum (T value)
+__device__ int warpAllReduceSum (int value)
 {
   for (int mask = warpSize / 2; mask > 0; mask /= 2)
   { value += __shfl_xor_sync(0xffffffff, value, mask, warpSize); }
   return value;
 }
 
-template <class T> __device__ T blockAllReduceSum (T value, T * shm)
+__device__ int blockAllReduceSum (int value, int * shm)
 {
-  value = warpAllReduceSum <T> (value);
+  value = warpAllReduceSum (value);
 
   if (lane_rank() == 0)
   { shm[warp_rank()] = value; }
@@ -27,7 +27,7 @@ template <class T> __device__ T blockAllReduceSum (T value, T * shm)
     for (int i = lane_rank(); i < num_warps(); i += warpSize)
     { value += shm[i]; }
 
-    value = warpAllReduceSum <T> (value);
+    value = warpAllReduceSum (value);
     if (lane_rank() == 0)
     { shm[0] = value; }
   }
@@ -37,8 +37,7 @@ template <class T> __device__ T blockAllReduceSum (T value, T * shm)
 }
 
 
-template <class T> 
-__device__ bool blockSingleSideJacobiSVD (T * __restrict__ UxS, T * __restrict__ VT, const int nx, const int ny, const int ld_UxS, const int ld_VT, T * __restrict__ shm, const T epi)
+__device__ bool blockSingleSideJacobiSVD (real_t * __restrict__ UxS, real_t * __restrict__ VT, const int nx, const int ny, const int ld_UxS, const int ld_VT, real_t * __restrict__ shm, const real_t epi)
 {
   bool iter = false;
 
@@ -53,7 +52,7 @@ __device__ bool blockSingleSideJacobiSVD (T * __restrict__ UxS, T * __restrict__
       const int row_UxS = row * ld_UxS;
       for (int col = thread_rank(); col < nx; col += block_dim())
       {
-        const T e = UxS[row_UxS + col];
+        const real_t e = UxS[row_UxS + col];
         shm[col] += e * e;
         const int lane = col % (2 * step);
         if (lane < step)
@@ -91,17 +90,17 @@ __device__ bool blockSingleSideJacobiSVD (T * __restrict__ UxS, T * __restrict__
         for (int row = lane_rank(); row < ny; row += warpSize)
         {
           const int row_UxS = row * ld_UxS;
-          const T e1 = swap ? UxS[row_UxS + col2] : UxS[row_UxS + col], e2 = swap ? UxS[row_UxS + col] : UxS[row_UxS + col2];
+          const real_t e1 = swap ? UxS[row_UxS + col2] : UxS[row_UxS + col], e2 = swap ? UxS[row_UxS + col] : UxS[row_UxS + col2];
           UxS[row_UxS + col] = cosine * e1 - sine * e2;
           UxS[row_UxS + col2] = sine * e1 + cosine * e2;
         }
 
         for (int row = lane_rank(); row < nx; row += warpSize)
         {
-          const int row_VT = row * ld_VT;
-          const T e3 = swap ? VT[row_VT + col2] : VT[row_VT + col], e4 = swap ? VT[row_VT + col] : VT[row_VT + col2];
-          VT[row_VT + col] = cosine * e3 - sine * e4;
-          VT[row_VT + col2] = sine * e3 + cosine * e4;
+          const int row_Vreal_t = row * ld_VT;
+          const real_t e3 = swap ? VT[row_Vreal_t + col2] : VT[row_Vreal_t + col], e4 = swap ? VT[row_Vreal_t + col] : VT[row_Vreal_t + col2];
+          VT[row_Vreal_t + col] = cosine * e3 - sine * e4;
+          VT[row_Vreal_t + col2] = sine * e3 + cosine * e4;
         }
         __syncwarp();
 
@@ -114,8 +113,7 @@ __device__ bool blockSingleSideJacobiSVD (T * __restrict__ UxS, T * __restrict__
 }
 
 
-template <class T> 
-__device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int ny, const int ld_m)
+__device__ void blockGivensRotation (real_t * __restrict__ M, const int nx, const int ny, const int ld_m)
 {
   const int l_id = lane_rank(), w_id = warp_rank(), n_wp = num_warps(), n = nx + ny - 2;
 
@@ -127,20 +125,20 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
       if (row < ny - 1 && row >= col)
       {
         const int row2 = row + 1;
-        T cosine, sine, * M_row = &M[row * ld_m], * M_row2 = &M[row2 * ld_m]; 
+        real_t cosine, sine, * M_row = &M[row * ld_m], * M_row2 = &M[row2 * ld_m]; 
 
         if (l_id == 0)
         {
-          T a = M_row[col], b = M_row2[col], r, p;
+          real_t a = M_row[col], b = M_row2[col], r, p;
 
           if (b == 0)
           { cosine = copysign(1., a); sine = 0.; r = fabs(a); p = 0.; }
           else if (a == 0)
           { cosine = 0.; sine = copysign(1., b); r = fabs(b); p = 1.; }
           else if (fabs(b) > fabs(a))
-          { T t = - a / b; sine = rhypot(1., t); cosine = sine * t; r = - b / sine; p = 2. / cosine; } // rhypot(1, t) = 1 / sqrt(1 + t * t);
+          { real_t t = - a / b; sine = rhypot(1., t); cosine = sine * t; r = - b / sine; p = 2. / cosine; } // rhypot(1, t) = 1 / sqrt(1 + t * t);
           else
-          { T t = - b / a; cosine = rhypot(1., t); sine = cosine * t; r = a / cosine; p = sine / 2.; }
+          { real_t t = - b / a; cosine = rhypot(1., t); sine = cosine * t; r = a / cosine; p = sine / 2.; }
 
           M_row[col] = r;
           M_row2[col] = p;
@@ -151,7 +149,7 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
 
         for (int i = col + l_id + 1; i < nx; i += warpSize)
         {
-          const T a = M_row[i], b = M_row2[i];
+          const real_t a = M_row[i], b = M_row2[i];
           M_row[i] = fma (cosine, a, fma (- sine, b, 0.)); // cosine * a - sine * b;
           M_row2[i] = fma (sine, a, fma (cosine, b, 0.)); // sine * a + cosine * b;
         }
@@ -161,13 +159,12 @@ __device__ void blockGivensRotation (T * __restrict__ M, const int nx, const int
   }
 }
 
-template <class T>
-__device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ R, const int nx, const int ny, const int p, const int ld_q, const int ld_r)
+__device__ void blockGivensRecoverQ (real_t * __restrict__ Q, const real_t * __restrict__ R, const int nx, const int ny, const int p, const int ld_q, const int ld_r)
 {
   const int l_id = lane_rank(), w_id = warp_rank(), n_wp = num_warps(), n = nx + ny - 2;
 
   for (int row = w_id; row < ny; row += n_wp) for (int col = l_id; col < p; col += warpSize)
-  { Q[row * ld_q + col] = (T) (row == col); }
+  { Q[row * ld_q + col] = (real_t) (row == col); }
   __syncthreads();
 
   for (int iter = 0; iter < n; iter++)
@@ -178,11 +175,11 @@ __device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ 
       if (row < ny - 1 && row >= col)
       {
         const int row2 = row + 1;
-        T cosine, sine, * Q_row = &Q[row * ld_q], * Q_row2 = &Q[row2 * ld_q];
+        real_t cosine, sine, * Q_row = &Q[row * ld_q], * Q_row2 = &Q[row2 * ld_q];
 
         if (l_id == 0)
         {
-          T p = R[row2 * ld_r + col];
+          real_t p = R[row2 * ld_r + col];
 
           if (p == 0)
           { cosine = 1.; sine = 0.; }
@@ -200,7 +197,7 @@ __device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ 
 
         for (int i = col + l_id; i < p; i += warpSize)
         {
-          const T a = Q_row[i], b = Q_row2[i];
+          const real_t a = Q_row[i], b = Q_row2[i];
           Q_row[i] = fma (cosine, a, fma (sine, b, 0.)); // cosine * a + sine * b;
           Q_row2[i] = fma (- sine, a, fma (cosine, b, 0.)); // - sine * a + cosine * b;
         }
@@ -211,36 +208,34 @@ __device__ void blockGivensRecoverQ (T * __restrict__ Q, const T * __restrict__ 
   }
 }
 
-template <class T, class vecT, int vec_size, int block_dim_m, int block_dim_k>
-__device__ void blockLowRankAccum (T * __restrict__ U1, T * __restrict__ VT1, const T * __restrict__ U2, const T * __restrict__ VT2, const int nx, const int ny, const int k1, const int k2, 
-  const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, const int offset1, const int offset2, T * __restrict__ shm, T * __restrict__ my_tmp, const T *__restrict__ rnd_seed)
+__device__ void blockLowRankAccum (real_t * __restrict__ U1, real_t * __restrict__ VT1, const real_t * __restrict__ U2, const real_t * __restrict__ VT2, const int nx, const int ny, const int k1, const int k2, 
+  const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, const int offset1, const int offset2, real_t * __restrict__ shm, real_t * __restrict__ my_tmp, const real_t *__restrict__ rnd_seed)
 {
-  T * U = my_tmp, * V = &my_tmp[offset1], * Q = &my_tmp[offset2];
+  real_t * U = my_tmp, * V = &my_tmp[offset1], * Q = &my_tmp[offset2];
 
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, rnd_seed, VT1, k1, k1, nx, k1, k1, ld_vt1, true, false, shm);
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, U1, Q, ny, k1, k1, k1, ld_u1, k1, false, true, shm);
+  blockDenseGemm (1., 0., Q, rnd_seed, VT1, k1, k1, nx, k1, k1, ld_vt1, true, false, shm);
+  blockDenseGemm (1., 0., U, U1, Q, ny, k1, k1, k1, ld_u1, k1, false, true, shm);
 
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., Q, rnd_seed, VT2, k1, k2, nx, k2, k1, ld_vt2, true, false, shm);
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., U, U2, Q, ny, k1, k2, k1, ld_u2, k2, false, true, shm);
+  blockDenseGemm (1., 0., Q, rnd_seed, VT2, k1, k2, nx, k2, k1, ld_vt2, true, false, shm);
+  blockDenseGemm (1., 1., U, U2, Q, ny, k1, k2, k1, ld_u2, k2, false, true, shm);
 
-  blockGivensRotation <T> (U, k1, ny, k1);
-  blockGivensRecoverQ <T> (Q, U, k1, ny, k1, k1, k1);
+  blockGivensRotation (U, k1, ny, k1);
+  blockGivensRecoverQ (Q, U, k1, ny, k1, k1, k1);
 
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, Q, U1, k1, k1, ny, k1, k1, ld_u1, true, false, shm);
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., V, VT1, U, nx, k1, k1, k1, ld_vt1, k1, false, true, shm);
+  blockDenseGemm (1., 0., U, Q, U1, k1, k1, ny, k1, k1, ld_u1, true, false, shm);
+  blockDenseGemm (1., 0., V, VT1, U, nx, k1, k1, k1, ld_vt1, k1, false, true, shm);
 
-  matrixCopy <T, vecT, vec_size> (Q, U1, k1, ny, k1, ld_u1);
+  matrixCopy (Q, U1, k1, ny, k1, ld_u1);
 
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 0., U, Q, U2, k1, k2, ny, k2, k1, ld_u2, true, false, shm);
-  blockDenseGemm <T, vecT, vec_size, block_dim_m, block_dim_k> (1., 1., V, VT2, U, nx, k1, k2, k1, ld_vt2, k2, false, true, shm);
+  blockDenseGemm (1., 0., U, Q, U2, k1, k2, ny, k2, k1, ld_u2, true, false, shm);
+  blockDenseGemm (1., 1., V, VT2, U, nx, k1, k2, k1, ld_vt2, k2, false, true, shm);
 
-  matrixCopy <T, vecT, vec_size> (V, VT1, k1, nx, k1, ld_vt1);
+  matrixCopy (V, VT1, k1, nx, k1, ld_vt1);
   __syncthreads();
 
 }
 
-template <class T>
-__device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, const int ld, const double epi, T * __restrict__ shm, const int shm_size)
+__device__ int blockReadRank (real_t * __restrict__ A, const int nx, const int ny, const int ld, const double epi, real_t * __restrict__ shm, const int shm_size)
 {
   const int step = shm_size / nx, total = step * nx;
 
@@ -253,7 +248,7 @@ __device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, co
     for (int j = thread_rank(); j < total; j += block_dim())
     {
       const int row = i + j / nx, col = j - (row - i) * nx;
-      const T e = A[row * ld + col];
+      const real_t e = A[row * ld + col];
       shm[j] += e * e;
     }
   }
@@ -262,26 +257,25 @@ __device__ int blockReadRank (T * __restrict__ A, const int nx, const int ny, co
   int r = 0;
   for (int i = thread_rank(); i < nx; i += block_dim())
   {
-    T norm = 0;
+    real_t norm = 0;
     for (int j = 0; j < step; j++)
     { norm += shm[j * nx + i]; }
     r += (int) (norm >= epi);
   }
   __syncthreads();
   
-  const int r_ = blockAllReduceSum <int> (r, (int *) shm);
+  const int r_ = blockAllReduceSum (r, (int *) shm);
   __syncthreads();
 
   return r_;
 }
 
-template <class T> 
-__device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
-  const int rank, const double epi, const int iter_limit, T * __restrict__ shm, const int shm_size)
+__device__ int blockRandomizedSVD (real_t * __restrict__ A, real_t * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
+  const int rank, const double epi, const int iter_limit, real_t * __restrict__ shm, const int shm_size)
 {
   /*const int P = rank > nx ? (nx > ny ? ny : nx) : (rank > ny ? ny : rank);
 
-  T * X, ** X_ptr = (T **) &shm[0], *Y, **Y_ptr = (T **) &shm[1], *B, ** B_ptr = (T **) &shm[2];
+  real_t * X, ** X_ptr = (real_t **) &shm[0], *Y, **Y_ptr = (real_t **) &shm[1], *B, ** B_ptr = (real_t **) &shm[2];
   if (thread_rank() == 0)
   { 
     X = new T[ny * P]; *X_ptr = X; 
@@ -327,7 +321,7 @@ __device__ int blockRandomizedSVD (T * __restrict__ A, T * __restrict__ VT, cons
   { delete X; delete Y; delete B; }
   __syncthreads();*/
 
-  const int r = blockReadRank <T> (A, nx, ny, nx, epi, shm, shm_size);
+  const int r = blockReadRank (A, nx, ny, nx, epi, shm, shm_size);
 
   return r;
 

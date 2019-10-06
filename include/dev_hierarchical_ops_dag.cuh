@@ -15,26 +15,26 @@ private:
 
 public:
 
-  __host__ dependency_linked_list (const int inst_in, const dependency_t dependency_in, dependency_linked_list * next_in = nullptr)
+  dependency_linked_list (const int inst_in, const dependency_t dependency_in, dependency_linked_list * next_in = nullptr)
   {
     inst = inst_in;
     dependency = dependency_in;
     next = next_in;
   }
 
-  __host__ ~dependency_linked_list ()
+  ~dependency_linked_list ()
   { delete next; }
 
-  __host__ int getInst () const
+  int getInst () const
   { return inst; }
 
-  __host__ dependency_t getDep () const
+  dependency_t getDep () const
   { return dependency; }
 
-  __host__ dependency_linked_list * getNext () const
+  dependency_linked_list * getNext () const
   { return next; }
 
-  __host__ dependency_t lookupDependency (const int inst_in) const
+  dependency_t lookupDependency (const int inst_in) const
   {
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { 
@@ -44,14 +44,14 @@ public:
     return no_dep;
   }
 
-  __host__ int length () const
+  int length () const
   {
     int l = 0;
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { l++; }
     return l;
   }
 
-  __host__ void print () const
+  void print () const
   {
     for (const dependency_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { printf("%d ", ptr -> inst); }
     printf("\n");
@@ -72,7 +72,7 @@ private:
 
 public:
 
-  __host__ h_ops_dag (const h_ops_tree * ops, const int start_index = 0, const int length_max = 0) 
+  h_ops_dag (const h_ops_tree * ops, const int start_index = 0, const int length_max = 0) 
   {
     ops_list = ops -> flatten(start_index, length_max);
     length = ops_list -> length();
@@ -113,7 +113,7 @@ public:
 
   }
 
-  __host__ ~h_ops_dag ()
+  ~h_ops_dag ()
   {
     for (int i = 0; i < length; i++)
     { delete deps_graph_from[i]; delete deps_graph_to[i]; }
@@ -123,13 +123,13 @@ public:
     delete ops_list;
   }
 
-  __host__ int getLength () const
+  int getLength () const
   { return length; }
 
-  __host__ h_ops * getOp (const int index) const
+  h_ops * getOp (const int index) const
   { return ops_list -> getChild(index); }
 
-  __host__ dependency_t getDep (const int from, const int to) const
+  dependency_t getDep (const int from, const int to) const
   {
     if (deps_graph_from[from] == nullptr) 
     { return no_dep; }
@@ -137,7 +137,7 @@ public:
     { return deps_graph_from[from] -> lookupDependency(to); }
   }
 
-  __host__ dependency_linked_list * getDepList_From (const int from) const
+  dependency_linked_list * getDepList_From (const int from) const
   {
     if (from >= 0 && from < length)
     { return deps_graph_from[from]; }
@@ -145,7 +145,7 @@ public:
     { return nullptr; }
   }
 
-  __host__ dependency_linked_list * getDepList_To (const int to) const
+  dependency_linked_list * getDepList_To (const int to) const
   {
     if (to >= 0 && to < length)
     { return deps_graph_to[to]; }
@@ -153,7 +153,7 @@ public:
     { return nullptr; }
   }
 
-  __host__ int getDepCount_From (const int from) const
+  int getDepCount_From (const int from) const
   {
     if (from >= 0 && from < length)
     { return deps_graph_from[from] -> length(); }
@@ -161,7 +161,7 @@ public:
     { return 0; }
   }
 
-  __host__ int * getDepCountList_To () const
+  int * getDepCountList_To () const
   {
     int * deps = new int [length];
 
@@ -172,7 +172,7 @@ public:
     return deps;
   }
 
-  __host__ long long int getFlops (const int index = -1) const
+  long long int getFlops (const int index = -1) const
   { 
     if (index >= 0 && index < length) 
     { return flops[index]; }
@@ -186,7 +186,7 @@ public:
     }
   }
 
-  __host__ long long int getFlops_Trim (const int index = -1) const
+  long long int getFlops_Trim (const int index = -1) const
   { 
     if (index >= 0 && index < length) 
     { return flops_trim[index]; }
@@ -200,7 +200,7 @@ public:
     }
   }
 
-  __host__ void print() const
+  void print() const
   {
     for (int i = 0; i < length; i++)
     {

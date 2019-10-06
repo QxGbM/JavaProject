@@ -5,15 +5,14 @@
 
 #include <pspl.cuh>
 
-template <class T, int shm_size, int rank>
-__global__ void compressor_kernel (const int length, T ** __restrict__ U_ptrs, T ** __restrict__ V_ptrs, int * __restrict__ ranks, const int * __restrict__ dims)
+__global__ void compressor_kernel (const int length, real_t ** __restrict__ U_ptrs, real_t** __restrict__ V_ptrs, int * __restrict__ ranks, const int * __restrict__ dims)
 {
-  __shared__ int shm[shm_size];
+  __shared__ int shm[_SHM_SIZE];
 
   for (int i = block_rank(); i < length; i += grid_dim())
   {
     const int i_3 = i * 3;
-    int r = blockRandomizedSVD <T> (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], rank, 1.e-24, 64, (T *) shm, shm_size * 4 / sizeof(T));
+    int r = blockRandomizedSVD (U_ptrs[i], V_ptrs[i], dims[i_3], dims[i_3 + 1], dims[i_3 + 2], dims[i_3 + 1], 16, 1.e-24, 64, (real_t *) shm, _SHM_SIZE * 4 / sizeof(real_t));
     if (thread_rank() == 0)
     { ranks[i] = r; }
     __syncthreads();
@@ -37,7 +36,7 @@ private:
   void ** str_ptrs;
 
 public:
-  __host__ compressor (const int rnd_seed_in = 0, const int default_size = _COMPRESSOR_LENGTH)
+  compressor (const int rnd_seed_in = 0, const int default_size = _COMPRESSOR_LENGTH)
   {
     size = default_size;
     length = 0;
@@ -63,7 +62,7 @@ public:
     
   }
 
-  __host__ ~compressor()
+  ~compressor()
   {
     delete[] U_ptrs;
     delete[] V_ptrs;
@@ -73,7 +72,7 @@ public:
 
   }
 
-  __host__ void resize (const int size_in)
+  void resize (const int size_in)
   {
     if (size_in > 0 && size_in != size)
     {
@@ -135,7 +134,7 @@ public:
     }
   }
 
-  template <class T> __host__ void compress (dev_low_rank <T> * M)
+  void compress (dev_low_rank * M)
   {
     if (length == size)
     { resize(size * 2); }
@@ -152,23 +151,23 @@ public:
     length++;
   }
 
-  template <class T, int shm_size, int rank> __host__ cudaError_t launch ()
+  cudaError_t launch ()
   {
-    T ** dev_U_ptrs, ** dev_V_ptrs;
+    real_t ** dev_U_ptrs, ** dev_V_ptrs;
     int * dev_ranks, * dev_dims;
 
-    cudaMalloc(&dev_U_ptrs, length * sizeof(T *));
-    cudaMalloc(&dev_V_ptrs, length * sizeof(T *));
+    cudaMalloc(&dev_U_ptrs, length * sizeof(real_t *));
+    cudaMalloc(&dev_V_ptrs, length * sizeof(real_t *));
     cudaMalloc(&dev_ranks, length * sizeof(int));
     cudaMalloc(&dev_dims, 3 * length * sizeof(int));
 
-    cudaMemcpy(dev_U_ptrs, U_ptrs, length * sizeof(T *), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_V_ptrs, V_ptrs, length * sizeof(T *), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_U_ptrs, U_ptrs, length * sizeof(real_t *), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_V_ptrs, V_ptrs, length * sizeof(real_t *), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_ranks, ranks, length * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_dims, dims, 3 * length * sizeof(int), cudaMemcpyHostToDevice);
 
     void ** args = new void *[5] { &length, &dev_U_ptrs, &dev_V_ptrs, &dev_ranks, &dev_dims };
-    cudaError_t error = cudaLaunchKernel((void *) compressor_kernel <T, shm_size, rank>, 16, 1024, args, 0, 0);
+    cudaError_t error = cudaLaunchKernel((void *) compressor_kernel, 16, 1024, args, 0, 0);
 
     error = cudaDeviceSynchronize();
     fprintf(stderr, "Device: %s\n\n", cudaGetErrorString(error));
@@ -176,7 +175,7 @@ public:
     cudaMemcpy(ranks, dev_ranks, length * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < length; i++)
     { 
-      dev_low_rank <T> * lr = (dev_low_rank <T> *) str_ptrs[i];
+      dev_low_rank * lr = (dev_low_rank *) str_ptrs[i];
       lr -> adjustRank(ranks[i]);
     }
 
@@ -189,7 +188,7 @@ public:
     return error;
   }
 
-  __host__ void print()
+  void print()
   {
     for (int i = 0; i < length; i++)
     {

@@ -15,7 +15,7 @@ private:
 
 public:
 
-  __host__ event_linked_list (const mark_t type_in, const cudaStream_t stream = 0)
+  event_linked_list (const mark_t type_in, const cudaStream_t stream = 0)
   {
     cudaEventCreate (&event);
     cudaEventRecord (event, stream);
@@ -23,26 +23,26 @@ public:
     next = nullptr;
   }
 
-  __host__ ~event_linked_list ()
+  ~event_linked_list ()
   {
     cudaEventDestroy(event);
     delete next;
   }
 
-  __host__ void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
+  void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
   {
     for (event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
     { if (ptr -> next == nullptr) { ptr -> next = new event_linked_list (type_in, stream); return; } }
   }
 
-  __host__ int length () const
+  int length () const
   { 
     int l = 0;
     for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { l++; }
     return l;
   }
 
-  __host__ int length (const mark_t type_in) const
+  int length (const mark_t type_in) const
   {
     int l = 0;
     for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) 
@@ -50,7 +50,7 @@ public:
     return l;
   }
 
-  __host__ float getTotal_Sync (const event_linked_list *e = nullptr) const
+  float getTotal_Sync (const event_linked_list *e = nullptr) const
   {
     float millis = 0.0;
     switch (type)
@@ -79,7 +79,7 @@ private:
 
 public:
 
-  __host__ timer (const int time_table_size = 16)
+  timer (const int time_table_size = 16)
   {
     events = new event_linked_list * [time_table_size];
     names = new char * [time_table_size];
@@ -89,7 +89,7 @@ public:
     table_size = (time_table_size > 0) ? time_table_size : 1;
   }
 
-  __host__ ~timer ()
+  ~timer ()
   {
     for (int i = 0; i < event_counter; i++)
     { delete events[i]; delete names[i]; }
@@ -97,7 +97,7 @@ public:
     delete[] names;
   }
 
-  __host__ event_linked_list * getEvent (const char *event_name) const
+  event_linked_list * getEvent (const char *event_name) const
   {
     for (int i = 0; i < event_counter; i++)
     {
@@ -107,7 +107,7 @@ public:
     return nullptr;
   }
 
-  __host__ void change_table_size (const int time_table_size)
+  void change_table_size (const int time_table_size)
   {
     int size = (time_table_size > 0) ? time_table_size : 1;
 
@@ -137,7 +137,7 @@ public:
     printf("-- Timer: Table size changed to %d --\n\n", table_size);
   }
 
-  __host__ void newEvent (const char *event_name, mark_t type, cudaStream_t stream = 0)
+  void newEvent (const char *event_name, mark_t type, cudaStream_t stream = 0)
   {
     event_linked_list *p = getEvent(event_name);
     
@@ -158,7 +158,7 @@ public:
 
   }
 
-  __host__ double dumpAllEvents_Sync ()
+  double dumpAllEvents_Sync ()
   {
     cudaError_t error = cudaDeviceSynchronize();
     if (error != cudaSuccess) 
@@ -185,7 +185,7 @@ public:
     return accum;
   }
 
-  __host__ void printStatus () const
+  void printStatus () const
   {
     printf("-- Timer Status: --\n"
       "Total Timed Events: %d.\n"

@@ -14,7 +14,7 @@ private:
   int * sizes;
 
 public:
-  __host__ dev_temp (const int size_in = _PTRS_LENGTH)
+  dev_temp (const int size_in = _PTRS_LENGTH)
   {
     size = size_in > 0 ? size_in : 1;
     length = 0;
@@ -24,12 +24,12 @@ public:
     memset (sizes, 0, size * sizeof(int));
   }
 
-  __host__ ~dev_temp ()
+  ~dev_temp ()
   {
     delete[] sizes;
   }
 
-  __host__ void resize (const int size_in)
+  void resize (const int size_in)
   {
     if (size_in > 0 && size != size_in)
     {
@@ -51,7 +51,7 @@ public:
     }
   }
 
-  __host__ int requestTemp (const int tmp_size)
+  int requestTemp (const int tmp_size)
   {
     if (length == size)
     { resize(size * 2); }
@@ -64,19 +64,19 @@ public:
 
   }
 
-  __host__ int requestTemp_2x (const int tmp_size1, const int tmp_size2)
+  int requestTemp_2x (const int tmp_size1, const int tmp_size2)
   {
     int block_id = requestTemp(tmp_size1);
     requestTemp(tmp_size2);
     return block_id;
   }
 
-  __host__ inline int getLength () const
+  inline int getLength () const
   { return length; }
 
-  template <class T> __host__ T ** allocate () const
+  real_t ** allocate () const
   {
-    T ** ptrs = new T * [length];
+    real_t** ptrs = new real_t * [length];
     int * offsets = new int [length], accum = 0;
 
     for (int i = 0; i < length; i++)
@@ -84,8 +84,8 @@ public:
 
     printf("TMP length: %d.\n", accum);
 
-    cudaMalloc(&(ptrs[0]), accum * sizeof(T));
-    cudaMemset(ptrs[0], 0, accum * sizeof(T));
+    cudaMalloc(&(ptrs[0]), accum * real_bits);
+    cudaMemset(ptrs[0], 0, accum * real_bits);
 
 #pragma omp parallel for
     for (int i = 1; i < length; i++)
@@ -95,7 +95,7 @@ public:
     return ptrs;
   }
 
-  __host__ void print() const
+  void print() const
   {
     printf("Temp Manager: Size %d. \n", size);
     for (int i = 0; i < length; i++)

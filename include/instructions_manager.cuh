@@ -21,7 +21,7 @@ private:
 
   int comm_length;
 
-  __host__ void changeInstsSize (const int worker_id, const int size_in)
+  void changeInstsSize (const int worker_id, const int size_in)
   {
     if (worker_id >= 0 && worker_id < workers)
     {
@@ -41,7 +41,7 @@ private:
     }
   }
 
-  __host__ void changePointersSize (const int size_in)
+  void changePointersSize (const int size_in)
   {
     const int size = (size_in >= 1) ? size_in : 1;
     if (size != ptrs_size)
@@ -59,7 +59,7 @@ private:
     }
   }
 
-  __host__ void loadPointers (void ** ptrs_in, const int n_ptrs, int * mapping)
+  void loadPointers (void ** ptrs_in, const int n_ptrs, int * mapping)
   {
     if (n_ptrs == 0)
     { return; }
@@ -102,7 +102,7 @@ private:
 
   }
 
-  __host__ int loadInsts (int * tmp_size, int * rnd_size, const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
+  int loadInsts (int * tmp_size, int * rnd_size, const int worker_id, const instructions_queue * queue, const h_ops_dag * dag, void ** tmp_ptrs, const double gpu_clock_multiplier = _CLOCK_MULTIPLIER)
   {
     if (queue == nullptr) 
     { insts[worker_id][0] = (int) finish; return 1; }
@@ -175,7 +175,7 @@ private:
 
 public:
 
-  __host__ instructions_manager (const int num_workers, const h_ops_dag * dag, const instructions_scheduler * schedule, void ** tmp_ptrs)
+  instructions_manager (const int num_workers, const h_ops_dag * dag, const instructions_scheduler * schedule, void ** tmp_ptrs)
   {
     insts = new int * [num_workers];
     workers = num_workers;
@@ -205,7 +205,7 @@ public:
     comm_length = dag -> getLength();
   }
 
-  __host__ ~instructions_manager ()
+  ~instructions_manager ()
   {
 #pragma omp parallel for
     for (int i = 0; i < workers; i++)
@@ -217,12 +217,11 @@ public:
     delete[] tmp_sizes;
   }
 
-  template <class T>
-  __host__ cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space, T *** block_tmps, T ** dev_rnd_seed, const unsigned int seed_in = 0) const
+  cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space, real_t*** block_tmps, real_t ** dev_rnd_seed, const unsigned int seed_in = 0) const
   {
-    int ** insts_temp = new int * [workers]; T ** tmps_temp = new T * [workers];
+    int ** insts_temp = new int * [workers]; real_t ** tmps_temp = new real_t * [workers];
     cudaMalloc(dev_insts, workers * sizeof(int *));
-    cudaMalloc(block_tmps, workers * sizeof(T *));
+    cudaMalloc(block_tmps, workers * sizeof(real_t *));
 
     for (int i = 0; i < workers; i++)
     {
@@ -231,15 +230,15 @@ public:
 
       if (tmp_sizes[i] > 0)
       {
-        cudaMalloc(&tmps_temp[i], tmp_sizes[i] * sizeof(T));
-        cudaMemset(tmps_temp[i], 0, tmp_sizes[i] * sizeof(T));
+        cudaMalloc(&tmps_temp[i], tmp_sizes[i] * real_bits);
+        cudaMemset(tmps_temp[i], 0, tmp_sizes[i] * real_bits);
       }
       else
       { tmps_temp[i] = nullptr; }
     }
 
     cudaMemcpy(* dev_insts, insts_temp, workers * sizeof(int *), cudaMemcpyHostToDevice);
-    cudaMemcpy(* block_tmps, tmps_temp, workers * sizeof(T *), cudaMemcpyHostToDevice);
+    cudaMemcpy(* block_tmps, tmps_temp, workers * sizeof(real_t *), cudaMemcpyHostToDevice);
     delete[] insts_temp; delete[] tmps_temp;
 
     cudaMalloc(dev_ptrs, ptrs_size * sizeof(void *));
@@ -251,20 +250,20 @@ public:
     if (seed_in > 0)
     { srand(seed_in); }
 
-    T * rnd_seed = new T[rnd_size];
+    real_t * rnd_seed = new real_t[rnd_size];
 
 #pragma omp parallel for
     for (int i = 0; i < rnd_size; i++) 
-    { rnd_seed[i] = (T) rand() / RAND_MAX; }
+    { rnd_seed[i] = (real_t) rand() / RAND_MAX; }
 
-    cudaMalloc(dev_rnd_seed, rnd_size * sizeof(T));
-    cudaMemcpy(* dev_rnd_seed, rnd_seed, rnd_size * sizeof(T), cudaMemcpyHostToDevice);
+    cudaMalloc(dev_rnd_seed, rnd_size * real_bits);
+    cudaMemcpy(* dev_rnd_seed, rnd_seed, rnd_size * real_bits, cudaMemcpyHostToDevice);
     delete[] rnd_seed;
     
     return cudaGetLastError();
   }
 
-  __host__ void print (const int limit = 32, const int ptrs_limit = 32) const
+  void print (const int limit = 32, const int ptrs_limit = 32) const
   {
     for (int i = 0; i < workers; i++)
     {
