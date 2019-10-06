@@ -6,14 +6,14 @@
 #include <pspl.cuh>
 
 
-__device__ int warpAllReduceSum (int value)
+DEVICE int warpAllReduceSum (int value)
 {
   for (int mask = warpSize / 2; mask > 0; mask /= 2)
   { value += __shfl_xor_sync(0xffffffff, value, mask, warpSize); }
   return value;
 }
 
-__device__ int blockAllReduceSum (int value, int * shm)
+DEVICE int blockAllReduceSum (int value, int * shm)
 {
   value = warpAllReduceSum (value);
 
@@ -37,7 +37,7 @@ __device__ int blockAllReduceSum (int value, int * shm)
 }
 
 
-__device__ bool blockSingleSideJacobiSVD (real_t * __restrict__ UxS, real_t * __restrict__ VT, const int nx, const int ny, const int ld_UxS, const int ld_VT, real_t * __restrict__ shm, const real_t epi)
+DEVICE bool blockSingleSideJacobiSVD (real_t * __restrict__ UxS, real_t * __restrict__ VT, const int nx, const int ny, const int ld_UxS, const int ld_VT, real_t * __restrict__ shm, const real_t epi)
 {
   bool iter = false;
 
@@ -113,7 +113,7 @@ __device__ bool blockSingleSideJacobiSVD (real_t * __restrict__ UxS, real_t * __
 }
 
 
-__device__ void blockGivensRotation (real_t * __restrict__ M, const int nx, const int ny, const int ld_m)
+DEVICE void blockGivensRotation (real_t * __restrict__ M, const int nx, const int ny, const int ld_m)
 {
   const int l_id = lane_rank(), w_id = warp_rank(), n_wp = num_warps(), n = nx + ny - 2;
 
@@ -159,7 +159,7 @@ __device__ void blockGivensRotation (real_t * __restrict__ M, const int nx, cons
   }
 }
 
-__device__ void blockGivensRecoverQ (real_t * __restrict__ Q, const real_t * __restrict__ R, const int nx, const int ny, const int p, const int ld_q, const int ld_r)
+DEVICE void blockGivensRecoverQ (real_t * __restrict__ Q, const real_t * __restrict__ R, const int nx, const int ny, const int p, const int ld_q, const int ld_r)
 {
   const int l_id = lane_rank(), w_id = warp_rank(), n_wp = num_warps(), n = nx + ny - 2;
 
@@ -208,7 +208,7 @@ __device__ void blockGivensRecoverQ (real_t * __restrict__ Q, const real_t * __r
   }
 }
 
-__device__ void blockLowRankAccum (real_t * __restrict__ U1, real_t * __restrict__ VT1, const real_t * __restrict__ U2, const real_t * __restrict__ VT2, const int nx, const int ny, const int k1, const int k2, 
+DEVICE void blockLowRankAccum (real_t * __restrict__ U1, real_t * __restrict__ VT1, const real_t * __restrict__ U2, const real_t * __restrict__ VT2, const int nx, const int ny, const int k1, const int k2, 
   const int ld_u1, const int ld_vt1, const int ld_u2, const int ld_vt2, const int offset1, const int offset2, real_t * __restrict__ shm, real_t * __restrict__ my_tmp, const real_t *__restrict__ rnd_seed)
 {
   real_t * U = my_tmp, * V = &my_tmp[offset1], * Q = &my_tmp[offset2];
@@ -235,7 +235,7 @@ __device__ void blockLowRankAccum (real_t * __restrict__ U1, real_t * __restrict
 
 }
 
-__device__ int blockReadRank (real_t * __restrict__ A, const int nx, const int ny, const int ld, const double epi, real_t * __restrict__ shm, const int shm_size)
+DEVICE int blockReadRank (real_t * __restrict__ A, const int nx, const int ny, const int ld, const double epi, real_t * __restrict__ shm, const int shm_size)
 {
   const int step = shm_size / nx, total = step * nx;
 
@@ -270,7 +270,7 @@ __device__ int blockReadRank (real_t * __restrict__ A, const int nx, const int n
   return r_;
 }
 
-__device__ int blockRandomizedSVD (real_t * __restrict__ A, real_t * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
+DEVICE int blockRandomizedSVD (real_t * __restrict__ A, real_t * __restrict__ VT, const int nx, const int ny, const int ld_a, const int ld_v, 
   const int rank, const double epi, const int iter_limit, real_t * __restrict__ shm, const int shm_size)
 {
   /*const int P = rank > nx ? (nx > ny ? ny : nx) : (rank > ny ? ny : rank);

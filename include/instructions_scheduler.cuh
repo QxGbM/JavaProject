@@ -43,12 +43,26 @@ public:
     ptr -> next = next; next = ptr; return ptr;
   }
 
-  int getLength() const
+  int getLength () const
   {
     int l = 0;
+
     for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
     { l++; }
+
     return l;
+  }
+
+  bool * getExList (bool * list = nullptr) const
+  {
+    if (list == nullptr)
+    { list = new bool [getLength()]; }
+
+    int i = 0;
+    for (const instructions_queue * ptr = this; ptr != nullptr; ptr = ptr -> next) 
+    { list[i] = ptr -> ex_w; }
+
+    return list;
   }
 
   void print() const
@@ -472,7 +486,7 @@ public:
     flops_worker = new long long int [workers];
 
     inst_executed_by = new int [length];
-    last_sync_flops = new long long int [workers * workers];
+    last_sync_flops = new long long int [(size_t) workers * workers];
 
 #pragma omp parallel for
     for (int i = 0; i < workers; i++)
@@ -484,7 +498,7 @@ public:
     memset(flops_worker, 0, workers * sizeof(long long int));
 
     memset(inst_executed_by, 0xffffffff, length * sizeof(int));
-    memset(last_sync_flops, 0, workers * workers * sizeof(long long int));
+    memset(last_sync_flops, 0, (size_t) workers * workers * sizeof(long long int));
 
     schedule (dag);
   }
@@ -519,6 +533,58 @@ public:
     for (int i = 0; i < workers; i++)
     { lengths[i] = result_queues[i] -> getLength(); }
     return lengths; 
+  }
+
+  cudaError_t analyzeClocks (unsigned long long int ** clocks_gpu, const unsigned long long int block_ticks = _TICKS, const int row_blocks = _ROW_BLOCKS) const
+  {
+    unsigned long long int ** clocks_cpu = new unsigned long long int * [workers];
+    cudaMemcpy (clocks_cpu, clocks_gpu, workers * sizeof(unsigned long long int *), cudaMemcpyDeviceToHost);
+
+    for (int i = 0; i < workers; i++)
+    {
+      const int length = 1 + getLength(i);
+      unsigned long long int * clocks_worker = new unsigned long long int [length];
+      cudaMemcpy (clocks_worker, clocks_cpu[i], length * sizeof(unsigned long long int), cudaMemcpyDeviceToHost);
+      cudaFree (clocks_cpu[i]);
+
+      unsigned long long int block = clocks_worker[0];
+      const unsigned long long int end = clocks_worker[length - 1], ticks = end - block;
+      bool * ex_list = new bool [(size_t) length - 1]; result_queues[i] -> getExList(ex_list);
+
+      printf("worker: %d, ticks: %lld\n", i, ticks);
+      bool color = false; printf("\033[41m");
+
+      int inst = 0, count = 0;
+
+      while (block <= end && inst < length - 1)
+      {
+        if (color && !ex_list[inst])
+        { color = false; printf("\033[41m"); }
+        else if (!color && ex_list[inst])
+        { color = true; printf("\033[42m"); }
+
+        printf(" ");
+
+        if (clocks_worker[inst] <= (block += block_ticks))
+        { inst ++; }
+
+        if (count++ == row_blocks)
+        {
+          count = 0; printf("\033[0m\n");
+          if (color) { printf("\033[42m"); }
+          else { printf("\033[41m"); }
+        }
+      }
+
+      printf("\033[0m\n");
+
+      delete[] ex_list;
+      delete[] clocks_worker;
+    }
+
+    cudaFree (clocks_gpu);
+    delete[] clocks_cpu;
+    return cudaGetLastError();
   }
 
   void print () const

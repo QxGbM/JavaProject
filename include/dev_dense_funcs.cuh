@@ -5,8 +5,44 @@
 
 #include <pspl.cuh>
 
+DEVICE int thread_rank()
+{ return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
+
+DEVICE int block_dim()
+{ return blockDim.z * blockDim.y * blockDim.x; }
+
+DEVICE int block_rank()
+{ return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
+
+DEVICE int grid_dim()
+{ return gridDim.z * gridDim.y * gridDim.x; }
+
+DEVICE int warp_rank()
+{
+  unsigned int warpid;
+  asm volatile("mov.u32 %0, %warpid;" : "=r"(warpid));
+  return (int) warpid;
+}
+
+DEVICE int lane_rank()
+{ 
+  unsigned int laneid;
+  asm volatile("mov.u32 %0, %laneid;" : "=r"(laneid));
+  return (int) laneid;
+}
+
+DEVICE int num_warps()
+{ return (block_dim() + warpSize - 1) / warpSize; }
+
+DEVICE void wait (clock_t lapse)
+{
+  clock_t start = clock64();
+  while (lapse > abs(clock64() - start));
+  return;
+}
+
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ __forceinline__ void matrixCopy (const real_t * __restrict__ from, real_t * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to)
+DEVICE void matrixCopy (const real_t * __restrict__ from, real_t * __restrict__ to, const int nx_to, const int ny_to, const int ld_from, const int ld_to)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
   const int iter = nx_to / vec_size, last_start = iter * vec_size, last = nx_to - last_start;
@@ -33,7 +69,7 @@ __device__ __forceinline__ void matrixCopy (const real_t * __restrict__ from, re
 }
 
 /* A convinient call to copy from shared memory to global or vice versa. Reading "from" in row major. */
-__device__ __forceinline__ int matrixCopy_keepT (const real_t * __restrict__ from, real_t * __restrict__ to, const int nx_from, const int ny_from, const int ld_from, const bool transpose)
+DEVICE int matrixCopy_keepT (const real_t * __restrict__ from, real_t * __restrict__ to, const int nx_from, const int ny_from, const int ld_from, const bool transpose)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
 
@@ -67,7 +103,7 @@ __device__ __forceinline__ int matrixCopy_keepT (const real_t * __restrict__ fro
 
 
 /* LU decomposition of matrix of ny by nx. */
-__device__ __forceinline__ void DenseGetrf (real_t * M, const int nx, const int ny, const int ld)
+DEVICE void DenseGetrf (real_t * M, const int nx, const int ny, const int ld)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx > ny ? ny : nx;
 
@@ -113,7 +149,7 @@ __device__ __forceinline__ void DenseGetrf (real_t * M, const int nx, const int 
 }
 
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-__device__ __forceinline__ void DenseTrsmL (real_t * __restrict__ B, const real_t * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
+DEVICE void DenseTrsmL (real_t * __restrict__ B, const real_t * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_l > ny_b ? ny_b : nx_l;
 
@@ -148,7 +184,7 @@ __device__ __forceinline__ void DenseTrsmL (real_t * __restrict__ B, const real_
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-__device__ __forceinline__ void DenseTrsmR (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+DEVICE void DenseTrsmR (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
 
@@ -192,7 +228,7 @@ __device__ __forceinline__ void DenseTrsmR (real_t * __restrict__ B, const real_
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-__device__ __forceinline__ void DenseTrsmR_transposeB (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
+DEVICE void DenseTrsmR_transposeB (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps(), min_n = nx_b > ny_u ? ny_u : nx_b;
 
@@ -251,7 +287,7 @@ __device__ __forceinline__ void DenseTrsmR_transposeB (real_t * __restrict__ B, 
 }
 
 /* General Matrix multiplication. M (m by n) = A (m by k) * B (k by n) + old_M. */
-__device__ __forceinline__ void DenseGemm (real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B, const int m, const int n, const int k, 
+DEVICE void DenseGemm (real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B, const int m, const int n, const int k, 
   const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
@@ -378,7 +414,7 @@ __device__ __forceinline__ void DenseGemm (real_t * __restrict__ M, const real_t
 }
 
 /* General Matrix multiplication. M (m by n) = alpha * A (m by k) * B (k by n) + beta * old_M. */
-__device__ __forceinline__ void blockDenseGemm (const real_t alpha, const real_t beta, real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B,
+DEVICE void blockDenseGemm (const real_t alpha, const real_t beta, real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B,
   const int m, const int n, const int k, const int ld_m, const int ld_a, const int ld_b, const bool a_T, const bool b_T, real_t * __restrict__ shm)
 {
   const int w_id = warp_rank(), l_id = lane_rank(), n_wp = num_warps();
@@ -630,7 +666,7 @@ __device__ __forceinline__ void blockDenseGemm (const real_t alpha, const real_t
 }
 
 /* L is ny_l x nx_l lower triangular and unit diagonal, B is ny_l by nx_b, solves L x X = B, overwrites X in B. */
-__device__ __forceinline__ void blockDenseTrsmL (real_t * __restrict__ B, const real_t * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, real_t * __restrict__ shm)
+DEVICE void blockDenseTrsmL (real_t * __restrict__ B, const real_t * __restrict__ L, const int nx_b, const int ny_b, const int nx_l, const int ld_b, const int ld_l, real_t * __restrict__ shm)
 {
   const int l_step = _BLOCK_M * ld_l + _BLOCK_M, b_step = _BLOCK_M * ld_b; int remain_nx = nx_l, remain_ny = ny_b;
   const real_t * L_diag = L, * L_left = &L[l_step - _BLOCK_M];
@@ -681,7 +717,7 @@ __device__ __forceinline__ void blockDenseTrsmL (real_t * __restrict__ B, const 
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-__device__ __forceinline__ void blockDenseTrsmR (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, real_t * __restrict__ shm)
+DEVICE void blockDenseTrsmR (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, real_t * __restrict__ shm)
 {
   const int u_step = _BLOCK_M * ld_u + _BLOCK_M, b_step = _BLOCK_M; int remain_nx = nx_b, remain_ny = ny_u;
   const real_t * U_diag = U, * U_top = &U[_BLOCK_M];
@@ -732,7 +768,7 @@ __device__ __forceinline__ void blockDenseTrsmR (real_t * __restrict__ B, const 
 }
 
 /* U is ny_u x nx_u upper triangular and not unit diagonal, B is ny_b by nx_u, solves X x U = B, overwrites X in B. */
-__device__ __forceinline__ void blockDenseTrsmR_transposeB (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, real_t * __restrict__ shm)
+DEVICE void blockDenseTrsmR_transposeB (real_t * __restrict__ B, const real_t * __restrict__ U, const int nx_b, const int ny_b, const int ny_u, const int ld_b, const int ld_u, real_t * __restrict__ shm)
 {
   const int u_step = _BLOCK_M * ld_u + _BLOCK_M, b_step = _BLOCK_M * ld_b; int remain_nx = nx_b, remain_ny = ny_u;
   const real_t * U_diag = U, * U_top = &U[_BLOCK_M];
@@ -783,7 +819,7 @@ __device__ __forceinline__ void blockDenseTrsmR_transposeB (real_t * __restrict_
 }
 
 /* LU decomposition of matrix of ny by nx, utilizes L1 cache. */
-__device__ __forceinline__ void blockDenseGetrf (real_t * __restrict__ M, const int nx, const int ny, const int ld, real_t * __restrict__ shm)
+DEVICE void blockDenseGetrf (real_t * __restrict__ M, const int nx, const int ny, const int ld, real_t * __restrict__ shm)
 {
   const int iter_step = _BLOCK_M * ld + _BLOCK_M; int remain_nx = nx, remain_ny = ny;
   real_t * M_diag = M, * M_top = &M[_BLOCK_M], * M_left = &M[iter_step - _BLOCK_M], * M_next = &M[iter_step];
@@ -849,7 +885,7 @@ __device__ __forceinline__ void blockDenseGetrf (real_t * __restrict__ M, const 
 
 
 /* General Matrix multiplication with 3 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by n) + beta * old_M. */
-__device__ __forceinline__ void blockDenseGemm_3x (const real_t alpha, const real_t beta, real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B, 
+DEVICE void blockDenseGemm_3x (const real_t alpha, const real_t beta, real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B, 
   const real_t * __restrict__ C, const int m, const int n, const int k, const int l, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
   const bool a_T, const bool b_T, const bool c_T, const int control, real_t * __restrict__ shm, real_t * __restrict__ my_tmp)
 {
@@ -870,7 +906,7 @@ __device__ __forceinline__ void blockDenseGemm_3x (const real_t alpha, const rea
 }
 
 /* General Matrix multiplication with 4 matrices. M (m by n) = alpha * A (m by k) * B (k by l) * C (l by o) * D (o by n) + beta * old_M. */
-__device__ __forceinline__ void blockDenseGemm_4x (const real_t alpha, const real_t beta, real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B, const real_t * __restrict__ C, 
+DEVICE void blockDenseGemm_4x (const real_t alpha, const real_t beta, real_t * __restrict__ M, const real_t * __restrict__ A, const real_t * __restrict__ B, const real_t * __restrict__ C, 
   const real_t * __restrict__ D, const int m, const int n, const int k, const int l, const int o, const int ld_m, const int ld_a, const int ld_b, const int ld_c, 
   const int ld_d, const bool a_T, const bool b_T, const bool c_T, const bool d_T, const int control, const int offset, real_t * __restrict__ shm, real_t * __restrict__ my_tmp)
 {
@@ -921,7 +957,7 @@ __device__ __forceinline__ void blockDenseGemm_4x (const real_t alpha, const rea
 }
 
 /* Find the index of the largest absolute value element across the warp. Returns lane number [0, 31]. */
-__device__ __forceinline__ int warpReduceMax_Index (const real_t max_in)
+DEVICE int warpReduceMax_Index (const real_t max_in)
 {
   real_t max = max_in; int max_lane = lane_rank();
 
@@ -937,7 +973,7 @@ __device__ __forceinline__ int warpReduceMax_Index (const real_t max_in)
 }
 
 /* Find the index of the largest absolute value element in matrix[0], matrix[1], ... matrix[n-1]. Returns [0, n-1]. */
-__device__ __forceinline__ int blockReduceMax_Index (const real_t * __restrict__ M, const int n, int * __restrict__ shm)
+DEVICE int blockReduceMax_Index (const real_t * __restrict__ M, const int n, int * __restrict__ shm)
 {
   real_t max = 0; int index = 0;
   
@@ -972,21 +1008,21 @@ __device__ __forceinline__ int blockReduceMax_Index (const real_t * __restrict__
 }
 
 /* Exchange row1[0] with row2[0], row1[1] with row2[1], ... row1[n-1] with row2[n-1]. */
-__device__ __forceinline__ void blockSwapRows (real_t * __restrict__ row1, real_t * __restrict__ row2, const int n)
+DEVICE void blockSwapRows (real_t * __restrict__ row1, real_t * __restrict__ row2, const int n)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { const real_t t = row1[i]; row1[i] = row2[i]; row2[i] = t; }
 }
  
 /* Exchange col1[0] with col2[0], col1[1] with col2[1], ... col1[n-1] with col2[n-1]. */
-__device__ __forceinline__ void blockSwapColumns (real_t * __restrict__ col1, real_t * __restrict__ col2, const int n, const int ld)
+DEVICE void blockSwapColumns (real_t * __restrict__ col1, real_t * __restrict__ col2, const int n, const int ld)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { const real_t t = col1[i * ld]; col1[i * ld] = col2[i * ld]; col2[i * ld] = t; }
 }
 
 /* Using a group of threads to apply pivot the pivot swaps to the matrix. Recover flag retrieves original matrix. Utilizes L1. */
-__device__ __forceinline__ void blockApplyPivot (real_t * __restrict__ M, const int * __restrict__ p, const int nx, const int ny, const int ld, const bool recover, 
+DEVICE void blockApplyPivot (real_t * __restrict__ M, const int * __restrict__ p, const int nx, const int ny, const int ld, const bool recover, 
   real_t * __restrict__ shm, const int shm_size)
 {
   const int step_size = shm_size / ny;
@@ -1010,7 +1046,7 @@ __device__ __forceinline__ void blockApplyPivot (real_t * __restrict__ M, const 
 }
 
 /* Set pivot[0] = 0, pivot[1] = 1, ... pivot[n-1] = n-1. */
-__device__ __forceinline__ void resetPivot (int *p, const int n)
+DEVICE void resetPivot (int *p, const int n)
 {
   for (int i = thread_rank(); i < n; i += block_dim())
   { p[i] = i; }

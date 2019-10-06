@@ -4,9 +4,12 @@
 
 #define __syncthreads()
 #define __threadfence()
+#define __syncwarp()
 #define asm
 #define volatile()
 #define clock64() 0
+#define rsqrt() 0
+#define rhypot() 0
 #define __shfl_sync() 0
 #define __shfl_xor_sync() 0
 
@@ -41,6 +44,13 @@ const int vec_size = 2;
 const int real_bits = 8;
 #endif
 
+//#define _PSPL_DEVICE_INLINE
+#ifdef _PSPL_DEVICE_INLINE
+#define DEVICE __device__ __forceinline__
+#else
+#define DEVICE __device__
+#endif
+
 #define _SHM_SIZE 12288
 #define _MAX_INST_LENGTH 32
 #define _MIN_INST_FLOPS 10000000
@@ -53,6 +63,8 @@ const int real_bits = 8;
 #define _BLOCK_K 16
 #define _CLOCK_MULTIPLIER 1.e-3
 #define _SEED 200
+#define _TICKS 100000
+#define _ROW_BLOCKS 80
 
 #define abs(x) ((x)<0 ? -(x) : (x))
 
@@ -69,42 +81,6 @@ enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_no
 enum opcode_t { execute, signal_wait, finish };
 
 enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 23, gemm_4x_l = 29, accum_l = 21, accum_dense_l = -1, pivot_l = -1 };
-
-__device__ __forceinline__ int thread_rank()
-{ return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }
-
-__device__ __forceinline__ int block_dim()
-{ return blockDim.z * blockDim.y * blockDim.x; }
-
-__device__ __forceinline__ int block_rank()
-{ return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x; }
-
-__device__ __forceinline__ int grid_dim()
-{ return gridDim.z * gridDim.y * gridDim.x; }
-
-__device__ __forceinline__ int warp_rank()
-{
-  unsigned int warpid;
-  asm volatile("mov.u32 %0, %warpid;" : "=r"(warpid));
-  return (int) warpid;
-}
-
-__device__ __forceinline__ int lane_rank()
-{ 
-  unsigned int laneid;
-  asm volatile("mov.u32 %0, %laneid;" : "=r"(laneid));
-  return (int) laneid;
-}
-
-__device__ __forceinline__ int num_warps()
-{ return (block_dim() + warpSize - 1) / warpSize; }
-
-__device__ __forceinline__ void wait (clock_t lapse)
-{
-  clock_t start = clock64();
-  while (lapse > abs(clock64() - start));
-  return;
-}
 
 
 class dev_dense;

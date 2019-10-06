@@ -230,8 +230,8 @@ public:
 
       if (tmp_sizes[i] > 0)
       {
-        cudaMalloc(&tmps_temp[i], tmp_sizes[i] * real_bits);
-        cudaMemset(tmps_temp[i], 0, tmp_sizes[i] * real_bits);
+        cudaMalloc(&tmps_temp[i], (size_t) tmp_sizes[i] * real_bits);
+        cudaMemset(tmps_temp[i], 0, (size_t) tmp_sizes[i] * real_bits);
       }
       else
       { tmps_temp[i] = nullptr; }
@@ -256,8 +256,8 @@ public:
     for (int i = 0; i < rnd_size; i++) 
     { rnd_seed[i] = (real_t) rand() / RAND_MAX; }
 
-    cudaMalloc(dev_rnd_seed, rnd_size * real_bits);
-    cudaMemcpy(* dev_rnd_seed, rnd_seed, rnd_size * real_bits, cudaMemcpyHostToDevice);
+    cudaMalloc(dev_rnd_seed, (size_t) rnd_size * real_bits);
+    cudaMemcpy(* dev_rnd_seed, rnd_seed, (size_t) rnd_size * real_bits, cudaMemcpyHostToDevice);
     delete[] rnd_seed;
     
     return cudaGetLastError();

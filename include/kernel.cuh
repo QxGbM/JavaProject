@@ -190,7 +190,7 @@ cudaError_t allocate_clocks (unsigned long long *** clocks, const int workers, c
 }
 
 cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, real_t *** block_tmps, real_t ** dev_rnd_seed, unsigned long long *** clocks,
-  double * total_lapse, long long * flops, const h_ops_tree * tree, real_t ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
+  instructions_scheduler ** schedule_addr, double * total_lapse, long long * flops, const h_ops_tree * tree, real_t ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
 {
   double clock_start, clock_end, clock_lapse, clock_total = 0.;
   printf("-- Host Summary: -- \n");
@@ -203,18 +203,18 @@ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, in
   printf("DAG Created in %f ms.\n", 1000. * clock_lapse); //dag.print();
 
   clock_start = omp_get_wtime();
-  instructions_scheduler schedule = instructions_scheduler (&dag, workers);
+  * schedule_addr = new instructions_scheduler (&dag, workers);
   clock_end = omp_get_wtime();
   clock_lapse = clock_end - clock_start;
   clock_total += clock_lapse;
   printf("Schedule Created in %f ms.\n", 1000. * clock_lapse); //schedule.print();
 
-  int * lengths = schedule.getLengths();
+  int * lengths = (* schedule_addr) -> getLengths();
   allocate_clocks(clocks, workers, lengths);
   delete lengths;
 
   clock_start = omp_get_wtime();
-  instructions_manager ins = instructions_manager (workers, &dag, &schedule, (void **) tmp_ptrs);
+  instructions_manager ins = instructions_manager (workers, &dag, * schedule_addr, (void **) tmp_ptrs);
   clock_end = omp_get_wtime();
   clock_lapse = clock_end - clock_start;
   clock_total += clock_lapse;
@@ -304,7 +304,8 @@ cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, cons
 
   for (int i = 0; i < iters && error == cudaSuccess; i++)
   {
-    error = generateLaunchArgsFromTree (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    instructions_scheduler * schedule;
+    error = generateLaunchArgsFromTree (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks, &schedule, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
     printf("Host %f ms.\n\n", 1000. * clock_lapse);
     exeFLOPS += tmp;
 
@@ -313,6 +314,9 @@ cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, cons
     myTimer.newEvent(event_name, start, main_stream);
     error = launchKernelWithArgs (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, clocks, workers, num_threads, main_stream);
     myTimer.newEvent(event_name, end, main_stream);
+
+    schedule -> analyzeClocks(clocks);
+    delete schedule;
   }
 
   const double exeTime = myTimer.dumpAllEvents_Sync();

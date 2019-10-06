@@ -84,8 +84,8 @@ public:
 
     printf("TMP length: %d.\n", accum);
 
-    cudaMalloc(&(ptrs[0]), accum * real_bits);
-    cudaMemset(ptrs[0], 0, accum * real_bits);
+    cudaMalloc(&(ptrs[0]), (size_t) accum * real_bits);
+    cudaMemset(ptrs[0], 0, (size_t) accum * real_bits);
 
 #pragma omp parallel for
     for (int i = 1; i < length; i++)

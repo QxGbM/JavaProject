@@ -27,7 +27,10 @@ int test0 (char test_name[], const int blocks, const int threads, const int kern
 
     my_timer.dumpAllEvents_Sync();
 
+    printf("\033[0;31m");
     printf("Rel. L2 Error: %e\n\n", c -> L2Error(b)); 
+    printf("\033[0m");
+
     delete b; b = nullptr;
     delete c; c = nullptr;
   }
