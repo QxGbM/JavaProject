@@ -1,6 +1,8 @@
 
 #include <kernel.cuh>
 
+extern DEVICE void blockDenseGetrf(real_t* __restrict__ M, const int nx, const int ny, const int ld, real_t* __restrict__ shm);
+
 __global__ void getrf_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {
   __shared__ double shm[6144];

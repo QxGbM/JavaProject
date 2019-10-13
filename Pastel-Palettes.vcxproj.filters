@@ -10,14 +10,12 @@
     <ClInclude Include="include\dev_hierarchical_index.cuh" />
     <ClInclude Include="include\dev_hierarchical_element.cuh" />
     <ClInclude Include="include\dev_hierarchical_ops_dag.cuh" />
-    <ClInclude Include="include\dev_low_rank_funcs.cuh" />
     <ClInclude Include="include\kernel.cuh" />
     <ClInclude Include="include\instructions_scheduler.cuh" />
     <ClInclude Include="include\instructions_manager.cuh" />
     <ClInclude Include="include\compressor.cuh" />
     <ClInclude Include="include\dev_temp.cuh" />
     <ClInclude Include="include\dev_hierarchical_ops_tree.cuh" />
-    <ClInclude Include="include\dev_dense_funcs.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
@@ -28,6 +26,7 @@
     <CudaCompile Include="include\dev_hierarchical.cu" />
     <CudaCompile Include="include\dev_hierarchical_element.cu" />
     <CudaCompile Include="include\dev_hierarchical_ops_tree.cu" />
+    <CudaCompile Include="include\kernel.cu" />
   </ItemGroup>
   <ItemGroup>
     <None Include="docs\README.md" />

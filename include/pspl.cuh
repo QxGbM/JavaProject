@@ -53,7 +53,7 @@ const int real_bits = 8;
 
 #define _SHM_SIZE 12288
 #define _MAX_INST_LENGTH 32
-#define _MIN_INST_FLOPS 10000000
+#define _MIN_INST_FLOPS 1000000
 #define _SHADOW_RANK 16
 #define _PTRS_LENGTH 1024
 #define _INSTS_LENGTH 1024
@@ -63,7 +63,7 @@ const int real_bits = 8;
 #define _BLOCK_K 16
 #define _CLOCK_MULTIPLIER 1.e-3
 #define _SEED 200
-#define _TICKS 100000
+#define _TICKS 500000
 #define _ROW_BLOCKS 80
 
 #define abs(x) ((x)<0 ? -(x) : (x))

@@ -117,12 +117,12 @@ Hierarchical low-rank matrix compresses the total FLOPS for LU factorization nee
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=\linewidth]{pspl_vs_hlibpro}
+  \includegraphics[width=\linewidth]{kernel_time}
   \caption{Pastel-Palettes vs. HLIBpro. H-LU Performance.}
   \Description{Pastel-Palettes vs. HLIBpro. H-LU Performance.}
 \end{figure}
 
-When comparing to existing H-matrix libraries, HLIBpro\cite{Kriemann13} also implemented task-based H-LU using only CPU. HLIBpro uses a well-tuned linear algebra library, LAPACK, for dense and low-rank routines. As the result shows, our implementation shows generally faster performance than HLIBpro, and the DAG overheads are less exhibited in the overall performance.
+When comparing to existing H-matrix libraries, HLIBpro\cite{Kriemann13} also implemented task-based H-LU using only CPU. HLIBpro uses a well-tuned linear algebra library, LAPACK, for dense and low-rank routines. As the result shows, our implementation shows generally faster performance than HLIBpro, and the DAG overheads are less noticeable in the overall performance.
 
 \section{Conclusion}
 Conclusively, we discovered that although GPUs are typically considered ineffective handling tree structures and recursions, with enough preprocessing from the CPU, trees can be transformed into batched tasks effectively. Additionally, Hierarchical Low-rank Approximations of matrices compresses the FLOPS required for matrix calculations very significantly, which is not only LU factorization. We believe that our approach could be developed further to accommodate even more kinds of H-matrix calculations.
