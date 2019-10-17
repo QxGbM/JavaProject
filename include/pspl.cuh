@@ -103,16 +103,16 @@ class event_linked_list;
 class timer;
 
 #include <dev_temp.cuh>
-#include <dev_dense.cuh>
+#include <matrix/dev_dense.cuh>
 //#include <compressor.cuh>
-#include <dev_low_rank.cuh>
-#include <dev_hierarchical.cuh>
-#include <dev_hierarchical_element.cuh>
+#include <matrix/dev_low_rank.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <matrix/dev_hierarchical_element.cuh>
 
-#include <dev_hierarchical_index.cuh>
-#include <dev_hierarchical_ops.cuh>
-#include <dev_hierarchical_ops_tree.cuh>
-#include <dev_hierarchical_ops_dag.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
+#include <h_ops/dev_hierarchical_ops_dag.cuh>
 
 #include <instructions_scheduler.cuh>
 #include <instructions_manager.cuh>

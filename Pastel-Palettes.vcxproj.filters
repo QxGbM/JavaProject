@@ -1,37 +1,107 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="include\dev_dense.cuh" />
-    <ClInclude Include="include\dev_hierarchical.cuh" />
-    <ClInclude Include="include\dev_low_rank.cuh" />
-    <ClInclude Include="include\timer.cuh" />
-    <ClInclude Include="include\pspl.cuh" />
-    <ClInclude Include="include\dev_hierarchical_ops.cuh" />
-    <ClInclude Include="include\dev_hierarchical_index.cuh" />
-    <ClInclude Include="include\dev_hierarchical_element.cuh" />
-    <ClInclude Include="include\dev_hierarchical_ops_dag.cuh" />
-    <ClInclude Include="include\kernel.cuh" />
-    <ClInclude Include="include\instructions_scheduler.cuh" />
-    <ClInclude Include="include\instructions_manager.cuh" />
-    <ClInclude Include="include\compressor.cuh" />
-    <ClInclude Include="include\dev_temp.cuh" />
-    <ClInclude Include="include\dev_hierarchical_ops_tree.cuh" />
+    <ClInclude Include="include\compressor.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\instructions_manager.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\instructions_scheduler.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\dev_temp.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\kernel.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\timer.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pspl.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="src\h_ops\getrf_op.cuh">
+      <Filter>src\h_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="src\h_ops\op_basic.cuh">
+      <Filter>src\h_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\dev_dense.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\dev_hierarchical.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\dev_hierarchical_element.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\dev_low_rank.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\h_ops\dev_hierarchical_index.cuh">
+      <Filter>include\h_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\h_ops\dev_hierarchical_ops.cuh">
+      <Filter>include\h_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\h_ops\dev_hierarchical_ops_dag.cuh">
+      <Filter>include\h_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\h_ops\dev_hierarchical_ops_tree.cuh">
+      <Filter>include\h_ops</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
-    <CudaCompile Include="include\dev_hierarchical_index.cu" />
-    <CudaCompile Include="include\dev_hierarchical_ops.cu" />
-    <CudaCompile Include="include\dev_dense.cu" />
-    <CudaCompile Include="include\dev_low_rank.cu" />
-    <CudaCompile Include="include\dev_hierarchical.cu" />
-    <CudaCompile Include="include\dev_hierarchical_element.cu" />
-    <CudaCompile Include="include\dev_hierarchical_ops_tree.cu" />
     <CudaCompile Include="include\kernel.cu" />
+    <CudaCompile Include="src\h_ops\dev_hierarchical_index.cu">
+      <Filter>src\h_ops</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\h_ops\dev_hierarchical_ops.cu">
+      <Filter>src\h_ops</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\h_ops\dev_hierarchical_ops_tree.cu">
+      <Filter>src\h_ops</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\dev_dense.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\dev_hierarchical.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\dev_hierarchical_element.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\dev_low_rank.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="docs\README.md" />
     <None Include="Makefile" />
     <None Include="docs\CONTRIBUTING.md" />
     <None Include=".gitignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{f9ed9726-3565-44c2-adeb-00cc84637896}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{afe66f1a-b884-438e-aeaf-2835a2782197}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\h_ops">
+      <UniqueIdentifier>{fd489147-421a-4cff-bbb8-d3c5255e0182}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\matrix">
+      <UniqueIdentifier>{0debd3ca-19d2-4b49-aaea-6f08b7351551}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\matrix">
+      <UniqueIdentifier>{a182f6ba-321c-4e1a-8055-d947405e48b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\h_ops">
+      <UniqueIdentifier>{e8227bbc-73f6-4059-a317-e185748257d0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>
