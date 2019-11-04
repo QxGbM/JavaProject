@@ -1,126 +1,226 @@
 
-/* This part does nothing but to resolve mis-reported intellisense errors. */
-#ifdef __INTELLISENSE__
-
-#define __syncthreads()
-#define __threadfence()
-#define __syncwarp()
-#define asm
-#define volatile()
-#define clock64() 0
-#define rsqrt() 0
-#define rhypot() 0
-#define __shfl_sync() 0
-#define __shfl_xor_sync() 0
-
-#endif
-
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-#include <memory.h>
-#include <time.h>
-
-#include <omp.h>
-
 #pragma once
 #ifndef _PSPL_CUH
 #define _PSPL_CUH
 
-#ifdef _PSPL_USE_SINGLE
-typedef float real_t;
-typedef float4 vec_t;
-const int vec_size = 4;
-const int real_bits = 4;
-#else
-typedef double real_t;
-typedef double2 vec_t;
-const int vec_size = 2;
-const int real_bits = 8;
-#endif
-
-//#define _PSPL_DEVICE_INLINE
-#ifdef _PSPL_DEVICE_INLINE
-#define DEVICE __device__ __forceinline__
-#else
-#define DEVICE __device__
-#endif
-
-#define _SHM_SIZE 12288
-#define _MAX_INST_LENGTH 32
-#define _MIN_INST_FLOPS 1000000
-#define _SHADOW_RANK 16
-#define _PTRS_LENGTH 1024
-#define _INSTS_LENGTH 1024
-#define _COMM_LENGTH 1024
-#define _COMPRESSOR_LENGTH 1024
-#define _BLOCK_M 64
-#define _BLOCK_K 16
-#define _CLOCK_MULTIPLIER 1.e-3
-#define _SEED 200
-#define _TICKS 500000
-#define _ROW_BLOCKS 80
-
-#define abs(x) ((x)<0 ? -(x) : (x))
-
-enum mark_t { start, end };
-
-enum element_t { empty, dense, low_rank, hierarchical, temp_dense, temp_low_rank, shadow };
-
-enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
-
-enum operation_t { nop, getrf, trsml, trsmr, gemm, gemm_plus, gemm_3x, gemm_4x, accum, accum_dense, pivot };
-
-enum relation_t { diff_mat, same_mat_diff_branch, same_branch_diff_node, same_node_no_overlap, same_node_overlapped, same_node_different_temp, same_index };
-
-enum opcode_t { execute, signal_wait, finish };
-
-enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 23, gemm_4x_l = 29, accum_l = 21, accum_dense_l = -1, pivot_l = -1 };
-
-
-class dev_dense;
-class dev_low_rank;
-class dev_hierarchical;
-class dev_h_element;
-class dev_temp;
-
-class h_index;
-class h_ops;
-class h_ops_tree;
-class h_ops_dag;
-
-class instructions_queue;
-class instructions_scheduler;
-class instructions_manager;
-
-class dependency_linked_list;
-class event_linked_list;
-class timer;
-
-#include <dev_temp.cuh>
-#include <matrix/dev_dense.cuh>
-//#include <compressor.cuh>
-#include <matrix/dev_low_rank.cuh>
-#include <matrix/dev_hierarchical.cuh>
-#include <matrix/dev_hierarchical_element.cuh>
-
-#include <h_ops/dev_hierarchical_index.cuh>
-#include <h_ops/dev_hierarchical_ops.cuh>
-#include <h_ops/dev_hierarchical_ops_tree.cuh>
-#include <h_ops/dev_hierarchical_ops_dag.cuh>
-
+#include <definitions.cuh>
+#include <timer.cuh>
 #include <instructions_scheduler.cuh>
 #include <instructions_manager.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops_dag.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
+#include <dev_temp.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <kernel.cuh>
 
-//#include <timer.cuh>
-//#include <dev_dense_funcs.cuh>
-//#include <dev_low_rank_funcs.cuh>
-//#include <kernel.cuh>
+void print_dev_mat (real_t * dev_mat, const int nx, const int ny)
+{
+   real_t * data = new real_t [(size_t) nx * ny];
+   cudaMemcpy (data, dev_mat, (size_t) nx * ny * sizeof(real_t), cudaMemcpyDeviceToHost);
+   for (int i = 0; i < ny; i++)
+   {
+     for (int j = 0; j < nx; j++)
+     { printf("%e ", data[i * nx + j]); }
+     printf("\n");
+   }
+   delete[] data;
+}
 
+cudaError_t allocate_clocks (unsigned long long *** clocks, const int workers, const int * lengths)
+{
+  unsigned long long ** tmp = new unsigned long long * [workers];
+  cudaMalloc(clocks, workers * sizeof(unsigned long long *));
+
+  for (int i = 0; i < workers; i++)
+  {
+    cudaMalloc(&tmp[i], ((size_t) 1 + lengths[i]) * sizeof(unsigned long long));
+    cudaMemset(tmp[i], 0, ((size_t)1 + lengths[i]) * sizeof(unsigned long long));
+  }
+  cudaMemcpy(* clocks, tmp, workers * sizeof(unsigned long long *), cudaMemcpyHostToDevice);
+
+  return cudaGetLastError();
+}
+
+cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, real_t *** block_tmps, real_t ** dev_rnd_seed, unsigned long long *** clocks,
+  instructions_scheduler ** schedule_addr, double * total_lapse, long long * flops, const h_ops_tree * tree, real_t ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
+{
+  double clock_start, clock_end, clock_lapse, clock_total = 0.;
+  printf("-- Host Summary: -- \n");
+
+  clock_start = omp_get_wtime();
+  h_ops_dag dag = h_ops_dag (tree, start_index, length_max);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("DAG Created in %f ms.\n", 1000. * clock_lapse); //dag.print();
+
+  clock_start = omp_get_wtime();
+  * schedule_addr = new instructions_scheduler (&dag, workers);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("Schedule Created in %f ms.\n", 1000. * clock_lapse); //schedule.print();
+
+  int * lengths = (* schedule_addr) -> getLengths();
+  allocate_clocks(clocks, workers, lengths);
+  delete lengths;
+
+  clock_start = omp_get_wtime();
+  instructions_manager ins = instructions_manager (workers, &dag, * schedule_addr, (void **) tmp_ptrs);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("Instruction generated in %f ms.\n", 1000. * clock_lapse); //ins.print();
+
+  clock_start = omp_get_wtime();
+  cudaError_t error = ins.getLaunchArgs(dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, _SEED);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  clock_total += clock_lapse;
+  printf("Args generated in %f ms.\n", 1000. * clock_lapse);
+  fprintf(stderr, "-- Host Args Generation: %s. --\n\n", cudaGetErrorString(error));
+
+  * total_lapse = clock_total;
+  * flops = dag.getFlops();
+  return error;
+}
+
+cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, real_t ** block_tmps, real_t * dev_rnd_seed, unsigned long long ** clocks, 
+  const int workers, const int num_threads, cudaStream_t main_stream = 0)
+{
+  void ** args = new void * [6] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks };
+  cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic, workers, num_threads, args, 0, main_stream);
+  fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
+
+  /*cudaDeviceSynchronize();
+  for (int i = 0; i < workers; i++)
+  {
+    cudaFree(dev_insts[i]); // creates seg fault due to dev_insts is on device;
+    if (block_tmps[i] != nullptr)
+    { cudaFree(block_tmps[i]); }
+  }*/
+
+  cudaFree(dev_insts);
+  cudaFree(dev_ptrs);
+  cudaFree(comm_space);
+  cudaFree(block_tmps);
+  cudaFree(dev_rnd_seed);
+  delete[] args;
+
+  return error;
+}
+
+cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, const int num_threads, const int kernel_size = 0)
+{
+  cudaSetDevice(0);
+  if (sizeof(real_t) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
+  { printf("Shared memory bank size configured to be 8-bytes.\n"); }
+
+  cudaDeviceProp deviceprop;
+  cudaGetDeviceProperties(&deviceprop, 0);
+  int numSMs = deviceprop.multiProcessorCount, numBlocksPerSm = 0;
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, (void *) kernel_dynamic, num_threads, 0);
+  printf("# SMs: %d, # Blocks per SM for launch: %d\n\n", numSMs, numBlocksPerSm);
+
+  const int workers_max = numSMs * numBlocksPerSm, workers = workers_max < num_blocks ? workers_max : num_blocks;
+  if (workers == 0)
+  { printf("Launch Config: Too many resources requested for launch.\n\n"); return cudaErrorInvalidConfiguration; }
+  else if (workers < num_blocks)
+  { printf("Launch Config: Number of launched blocks reduced from %d to %d. \n\n", num_blocks, workers); }
+
+  const int ny = h -> getNy_abs(), nx = h -> getNx_abs();
+  printf("Start Testing Hierarchical - LU for: %d x %d.\n\n", ny, nx);
+
+  timer myTimer = timer();
+  cudaStream_t main_stream;
+  cudaStreamCreate(&main_stream);
+
+  double clock_start, clock_end, clock_lapse;
+  cudaError_t error = cudaSuccess;
+  dev_temp tmp_mngr = dev_temp();
+
+  clock_start = omp_get_wtime();
+  const h_index * root = h -> getRootIndex();
+  const h_ops_tree * tree = h -> generateOps_GETRF(root, &tmp_mngr);
+  clock_end = omp_get_wtime();
+  clock_lapse = clock_end - clock_start;
+  printf("Tree Generated in %f ms.\n\n", 1000. * clock_lapse); //tree->print();
+  delete root;
+
+  real_t ** tmp_ptrs = tmp_mngr.allocate(), ** block_tmps, * dev_rnd_seed;
+  int ** dev_insts, * comm_space, iters = kernel_size <= 0 ? 1 : (tree -> length() + kernel_size - 1) / kernel_size;
+  void ** dev_ptrs;
+  long long int exeFLOPS = 0, tmp;
+  unsigned long long int ** clocks;
+  char event_name[32];
+
+  for (int i = 0; i < iters && error == cudaSuccess; i++)
+  {
+    instructions_scheduler * schedule;
+    error = generateLaunchArgsFromTree (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks, &schedule, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    printf("Host %f ms.\n\n", 1000. * clock_lapse);
+    exeFLOPS += tmp;
+
+    sprintf(event_name, "Kernel %d", i);
+
+    myTimer.newEvent(event_name, start, main_stream);
+    error = launchKernelWithArgs (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, clocks, workers, num_threads, main_stream);
+    myTimer.newEvent(event_name, end, main_stream);
+
+    schedule -> analyzeClocks(clocks);
+    delete schedule;
+  }
+
+  const double exeTime = myTimer.dumpAllEvents_Sync();
+
+  cudaFree(tmp_ptrs[0]);
+  delete[] tmp_ptrs;
+
+  const long long int estFLOPS = h_ops::getFlops_GETRF(&tmp, nx, ny);
+  const double compressRatio = estFLOPS == 0 ? 0 : 100. * exeFLOPS / estFLOPS;
+
+  printf("-- Kernel Running Summary --\n"
+    "Actual FLOPS: %llu.\nDense-LU FLOPS: %llu.\nFLOPS Compression Ratio: %f%%.\n", 
+    exeFLOPS, estFLOPS, compressRatio);
+
+  double gpuflops = 1.e3 * exeFLOPS / exeTime;
+  int power = 0;
+
+  while (power < 4 && gpuflops > 1.e3) 
+  { gpuflops *= 1.e-3; power ++; }
+  printf("GPU: %f ", gpuflops);
+
+  switch (power)
+  {
+  case 0: break;
+  case 1: printf("K"); break;
+  case 2: printf("M"); break;
+  case 3: printf("G"); break;
+  case 4: printf("T"); break;
+  }
+  printf("FLOPS/S.\n");
+
+  gpuflops *= compressRatio == 0 ? 0 : 100. / compressRatio;
+
+  while (power < 4 && gpuflops > 1.e3) 
+  { gpuflops *= 1.e-3; power ++; }
+  printf("Equivalent Dense-LU: %f ", gpuflops);
+
+  switch (power)
+  {
+  case 0: break;
+  case 1: printf("K"); break;
+  case 2: printf("M"); break;
+  case 3: printf("G"); break;
+  case 4: printf("T"); break;
+  }
+  printf("FLOPS/S.\n\n");
+
+  error = cudaStreamDestroy(main_stream);
+
+  return error;
+}
 
 #endif

@@ -1,5 +1,8 @@
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
 
 h_ops_tree::h_ops_tree () : h_ops ()
 { l_children = 0; children = nullptr; }

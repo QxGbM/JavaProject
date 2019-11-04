@@ -3,7 +3,8 @@
 #ifndef _COMPRESSOR_CUH
 #define _COMPRESSOR_CUH
 
-#include <pspl.cuh>
+/*
+#include <definitions.cuh>
 
 __global__ void compressor_kernel (const int length, real_t ** __restrict__ U_ptrs, real_t** __restrict__ V_ptrs, int * __restrict__ ranks, const int * __restrict__ dims)
 {
@@ -199,5 +200,5 @@ public:
 
 };
 
-
+*/
 #endif

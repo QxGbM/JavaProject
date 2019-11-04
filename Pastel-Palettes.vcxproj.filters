@@ -19,15 +19,6 @@
     <ClInclude Include="include\timer.cuh">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\pspl.cuh">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="src\h_ops\getrf_op.cuh">
-      <Filter>src\h_ops</Filter>
-    </ClInclude>
-    <ClInclude Include="src\h_ops\op_basic.cuh">
-      <Filter>src\h_ops</Filter>
-    </ClInclude>
     <ClInclude Include="include\matrix\dev_dense.cuh">
       <Filter>include\matrix</Filter>
     </ClInclude>
@@ -52,10 +43,15 @@
     <ClInclude Include="include\h_ops\dev_hierarchical_ops_tree.cuh">
       <Filter>include\h_ops</Filter>
     </ClInclude>
+    <ClInclude Include="include\definitions.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pspl.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
-    <CudaCompile Include="include\kernel.cu" />
     <CudaCompile Include="src\h_ops\dev_hierarchical_index.cu">
       <Filter>src\h_ops</Filter>
     </CudaCompile>
@@ -76,6 +72,9 @@
     </CudaCompile>
     <CudaCompile Include="src\matrix\dev_low_rank.cu">
       <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="include\kernel.cu">
+      <Filter>src</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>

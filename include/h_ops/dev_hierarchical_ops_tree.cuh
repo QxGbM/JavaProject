@@ -3,7 +3,8 @@
 #ifndef _DEV_HIERARCHICAL_OPS_TREE_CUH
 #define _DEV_HIERARCHICAL_OPS_TREE_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
 
 class h_ops_tree : public h_ops
 {

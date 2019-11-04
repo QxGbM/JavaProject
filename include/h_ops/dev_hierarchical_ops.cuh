@@ -3,7 +3,7 @@
 #ifndef _DEV_HIERARCHICAL_OPS_CUH
 #define _DEV_HIERARCHICAL_OPS_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class h_ops
 {

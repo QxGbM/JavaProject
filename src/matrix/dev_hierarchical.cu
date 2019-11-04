@@ -1,6 +1,13 @@
 
-#include <pspl.cuh>
-
+#include <definitions.cuh>
+#include <matrix/dev_dense.cuh>
+#include <matrix/dev_low_rank.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <matrix/dev_hierarchical_element.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
+#include <dev_temp.cuh>
 
 dev_hierarchical::dev_hierarchical (const int nx_in, const int ny_in, element_t type, void ** elements_in)
 {

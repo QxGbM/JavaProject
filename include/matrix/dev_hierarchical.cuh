@@ -3,7 +3,7 @@
 #ifndef _DEV_HIERARCHICAL_CUH
 #define _DEV_HIERARCHICAL_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class dev_hierarchical 
 {

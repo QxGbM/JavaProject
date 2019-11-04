@@ -1,5 +1,7 @@
 
-#include <kernel.cuh>
+#include <matrix/dev_dense.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <pspl.cuh>
 
 extern DEVICE void blockDenseGetrf(real_t* __restrict__ M, const int nx, const int ny, const int ld, real_t* __restrict__ shm);
 

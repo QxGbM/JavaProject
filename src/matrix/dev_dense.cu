@@ -1,5 +1,14 @@
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <matrix/dev_dense.cuh>
+#include <matrix/dev_low_rank.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <matrix/dev_hierarchical_element.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
+#include <dev_temp.cuh>
+
 
 dev_dense::dev_dense (const int nx_in, const int ny_in, const int ld_in, const int shadow_rank_in, const int device_id_in, const bool alloc_pivot)
 {

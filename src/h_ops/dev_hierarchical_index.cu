@@ -1,6 +1,11 @@
 
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <matrix/dev_hierarchical_element.cuh>
+#include <matrix/dev_low_rank.cuh>
+#include <matrix/dev_dense.cuh>
 
 h_index::h_index()
 {

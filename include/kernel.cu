@@ -1,5 +1,6 @@
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <kernel.cuh>
 
 DEVICE int thread_rank()
 { return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x; }

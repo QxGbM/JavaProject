@@ -3,7 +3,7 @@
 #ifndef _INSTRUCTIONS_MANAGER_CUH
 #define _INSTRUCTIONS_MANAGER_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class instructions_manager
 {

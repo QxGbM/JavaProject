@@ -3,7 +3,7 @@
 #ifndef _DEV_LOW_RANK_CUH
 #define _DEV_LOW_RANK_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class dev_low_rank 
 {

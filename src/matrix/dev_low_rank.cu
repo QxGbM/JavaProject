@@ -1,5 +1,14 @@
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <matrix/dev_dense.cuh>
+#include <matrix/dev_low_rank.cuh>
+#include <matrix/dev_hierarchical.cuh>
+#include <matrix/dev_hierarchical_element.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
+#include <dev_temp.cuh>
+
 
 dev_low_rank::dev_low_rank (const int x, const int y, const int rank_in)
 {

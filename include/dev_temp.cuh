@@ -3,7 +3,7 @@
 #ifndef _DEV_TEMP_CUH
 #define _DEV_TEMP_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class dev_temp
 {

@@ -121,10 +121,9 @@
     <ClInclude Include="include\matrix\dev_hierarchical.cuh" />
     <ClInclude Include="include\matrix\dev_hierarchical_element.cuh" />
     <ClInclude Include="include\matrix\dev_low_rank.cuh" />
-    <ClInclude Include="include\timer.cuh" />
     <ClInclude Include="include\pspl.cuh" />
-    <ClInclude Include="src\h_ops\getrf_op.cuh" />
-    <ClInclude Include="src\h_ops\op_basic.cuh" />
+    <ClInclude Include="include\timer.cuh" />
+    <ClInclude Include="include\definitions.cuh" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />

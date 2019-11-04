@@ -3,7 +3,9 @@
 #ifndef _DEV_HIERARCHICAL_OPS_DAG_CUH
 #define _DEV_HIERARCHICAL_OPS_DAG_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
+#include <h_ops/dev_hierarchical_ops_tree.cuh>
 
 class dependency_linked_list
 {

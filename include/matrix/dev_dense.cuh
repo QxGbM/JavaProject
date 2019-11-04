@@ -3,7 +3,7 @@
 #ifndef _DEV_DENSE_CUH
 #define _DEV_DENSE_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class dev_dense 
 {

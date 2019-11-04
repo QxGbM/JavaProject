@@ -1,6 +1,8 @@
 
 
-#include <pspl.cuh>
+#include <definitions.cuh>
+#include <h_ops/dev_hierarchical_index.cuh>
+#include <h_ops/dev_hierarchical_ops.cuh>
 
 h_ops::h_ops()
 {

@@ -3,7 +3,7 @@
 #ifndef _CUDA_TIMER_CUH
 #define _CUDA_TIMER_CUH
 
-#include <pspl.cuh>
+#include <definitions.cuh>
 
 class event_linked_list
 {
