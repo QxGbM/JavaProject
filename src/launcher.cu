@@ -1,18 +1,17 @@
 
-#pragma once
-#ifndef _PSPL_CUH
-#define _PSPL_CUH
 
 #include <definitions.cuh>
+#include <launcher.cuh>
+
 #include <timer.cuh>
-#include <instructions_scheduler.cuh>
-#include <instructions_manager.cuh>
 #include <h_ops/dev_hierarchical_index.cuh>
 #include <h_ops/dev_hierarchical_ops_dag.cuh>
 #include <h_ops/dev_hierarchical_ops_tree.cuh>
 #include <h_ops/dev_hierarchical_ops.cuh>
 #include <dev_temp.cuh>
 #include <matrix/dev_hierarchical.cuh>
+#include <instructions/instructions_scheduler.cuh>
+#include <instructions/instructions_manager.cuh>
 #include <kernel.cuh>
 
 void print_dev_mat (real_t * dev_mat, const int nx, const int ny)
@@ -44,7 +43,7 @@ cudaError_t allocate_clocks (unsigned long long *** clocks, const int workers, c
 }
 
 cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, int ** comm_space, real_t *** block_tmps, real_t ** dev_rnd_seed, unsigned long long *** clocks,
-  instructions_scheduler ** schedule_addr, double * total_lapse, long long * flops, const h_ops_tree * tree, real_t ** tmp_ptrs, const int workers, const int start_index = 0, const int length_max = 0)
+  instructions_scheduler ** schedule_addr, double * total_lapse, long long * flops, const h_ops_tree * tree, real_t ** tmp_ptrs, const int workers, const int start_index, const int length_max)
 {
   double clock_start, clock_end, clock_lapse, clock_total = 0.;
   printf("-- Host Summary: -- \n");
@@ -88,7 +87,7 @@ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, in
 }
 
 cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, real_t ** block_tmps, real_t * dev_rnd_seed, unsigned long long ** clocks, 
-  const int workers, const int num_threads, cudaStream_t main_stream = 0)
+  const int workers, const int num_threads, cudaStream_t main_stream)
 {
   void ** args = new void * [6] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks };
   cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic, workers, num_threads, args, 0, main_stream);
@@ -112,7 +111,7 @@ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm
   return error;
 }
 
-cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, const int num_threads, const int kernel_size = 0)
+cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, const int num_threads, const int kernel_size)
 {
   cudaSetDevice(0);
   if (sizeof(real_t) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
@@ -223,4 +222,3 @@ cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, cons
   return error;
 }
 
-#endif

@@ -1,9 +1,11 @@
 
 #include <matrix/dev_dense.cuh>
 #include <matrix/dev_hierarchical.cuh>
-#include <pspl.cuh>
+#include <launcher.cuh>
+#include <timer.cuh>
 
 extern DEVICE void blockDenseGetrf(real_t* __restrict__ M, const int nx, const int ny, const int ld, real_t* __restrict__ shm);
+
 
 __global__ void getrf_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
 {

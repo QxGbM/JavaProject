@@ -3,6 +3,7 @@
 #include <definitions.cuh>
 #include <h_ops/dev_hierarchical_index.cuh>
 #include <h_ops/dev_hierarchical_ops.cuh>
+#include <h_ops/dependency.cuh>
 
 h_ops::h_ops()
 {
@@ -73,7 +74,7 @@ operation_t h_ops::opType() const
 
 dependency_t h_ops::checkDependencyFrom (const h_ops * op_from) const
 {
-  int rw_from = op_from -> n_rw, ro_from = op_from -> n_ro, rw_to = n_rw, ro_to = n_ro, dep = (int) no_dep;
+  int rw_from = op_from -> n_rw, ro_from = op_from -> n_ro, rw_to = n_rw, ro_to = n_ro, dep = (int) dependency_t::no_dep;
 
   for (int i = 0; i < rw_from * (rw_to + ro_to); i++)
   {
@@ -87,7 +88,7 @@ dependency_t h_ops::checkDependencyFrom (const h_ops * op_from) const
       case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
         break;
       case same_branch_diff_node: case same_node_overlapped: case same_index:
-        dep |= (int) output_dep;
+        dep |= (int) dependency_t::output_dep;
       }
     }
     else
@@ -98,7 +99,7 @@ dependency_t h_ops::checkDependencyFrom (const h_ops * op_from) const
       case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
         break;
       case same_branch_diff_node: case same_node_overlapped: case same_index:
-        dep |= (int) flow_dep;
+        dep |= (int) dependency_t::flow_dep;
       }
     }
   }
@@ -112,7 +113,7 @@ dependency_t h_ops::checkDependencyFrom (const h_ops * op_from) const
     case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
       break;
     case same_branch_diff_node: case same_node_overlapped: case same_index:
-      dep |= (int) anti_dep;
+      dep |= (int) dependency_t::anti_dep;
     }
   }
 

@@ -4,12 +4,6 @@
     <ClInclude Include="include\compressor.cuh">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\instructions_manager.cuh">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="include\instructions_scheduler.cuh">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="include\dev_temp.cuh">
       <Filter>include</Filter>
     </ClInclude>
@@ -46,7 +40,16 @@
     <ClInclude Include="include\definitions.cuh">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\pspl.cuh">
+    <ClInclude Include="include\h_ops\dependency.cuh">
+      <Filter>include\h_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\instructions\instructions_manager.cuh">
+      <Filter>include\instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="include\instructions\instructions_scheduler.cuh">
+      <Filter>include\instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="include\launcher.cuh">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
@@ -73,8 +76,23 @@
     <CudaCompile Include="src\matrix\dev_low_rank.cu">
       <Filter>src\matrix</Filter>
     </CudaCompile>
-    <CudaCompile Include="include\kernel.cu">
+    <CudaCompile Include="src\kernel.cu">
       <Filter>src</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\launcher.cu">
+      <Filter>src</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\h_ops\dev_hierarchical_ops_dag.cu">
+      <Filter>src\h_ops</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\instructions\instructions_manager.cu">
+      <Filter>src\instructions</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\instructions\instructions_scheduler.cu">
+      <Filter>src\instructions</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\h_ops\dependency.cu">
+      <Filter>src\h_ops</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
@@ -101,6 +119,12 @@
     </Filter>
     <Filter Include="include\h_ops">
       <UniqueIdentifier>{e8227bbc-73f6-4059-a317-e185748257d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\instructions">
+      <UniqueIdentifier>{7419e027-8c49-4688-a256-15b33e918a93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\instructions">
+      <UniqueIdentifier>{974d9ae7-42a7-4617-ac43-20e2475fe194}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

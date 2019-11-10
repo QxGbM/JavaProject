@@ -72,7 +72,8 @@ enum mark_t { start, end };
 
 enum element_t { empty, dense, low_rank, hierarchical, temp_dense, temp_low_rank, shadow };
 
-enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
+enum class dependency_t;
+//enum dependency_t { no_dep, flow_dep, anti_dep, flow_anti_dep, output_dep, flow_output_dep, anti_output_dep, flow_anti_output_dep };
 
 enum operation_t { nop, getrf, trsml, trsmr, gemm, gemm_plus, gemm_3x, gemm_4x, accum, accum_dense, pivot };
 

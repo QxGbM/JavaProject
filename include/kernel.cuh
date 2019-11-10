@@ -10,6 +10,4 @@ __global__ void kernel_dynamic(const int** __restrict__ insts, void** __restrict
 
 
 
-
-
 #endif
