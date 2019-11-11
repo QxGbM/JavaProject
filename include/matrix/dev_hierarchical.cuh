@@ -19,7 +19,7 @@ private:
 
 public:
   
-  dev_hierarchical (const int nx_in, const int ny_in, element_t type = empty, void ** elements_in = nullptr);
+  dev_hierarchical (const int nx_in, const int ny_in, const int abs_y = 0, const int abs_x = 0, element_t type = empty, void ** elements_in = nullptr);
 
   ~dev_hierarchical ();
 
@@ -31,7 +31,7 @@ public:
 
   int getNy_abs () const;
 
-  bool updateOffsets ();
+  bool updateOffsets (const int abs_y = 0, const int abs_x = 0);
 
   void setElement (void * M, const element_t type, const int x, const int y);
 

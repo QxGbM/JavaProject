@@ -9,7 +9,7 @@
 #include <h_ops/dev_hierarchical_ops_tree.cuh>
 #include <dev_temp.cuh>
 
-dev_hierarchical::dev_hierarchical (const int nx_in, const int ny_in, element_t type, void ** elements_in)
+dev_hierarchical::dev_hierarchical (const int nx_in, const int ny_in, const int abs_y, const int abs_x, element_t type, void ** elements_in)
 {
   nx = nx_in > 0 ? nx_in : 1;
   x_offsets = new int [nx + 1];
@@ -21,7 +21,7 @@ dev_hierarchical::dev_hierarchical (const int nx_in, const int ny_in, element_t 
   for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
   { setElement((type == empty && elements_in == nullptr) ? nullptr : elements_in[y * nx + x], type, x, y); }
 
-  updateOffsets();
+  updateOffsets(abs_y, abs_x);
 }
 
 dev_hierarchical::~dev_hierarchical ()
@@ -43,7 +43,7 @@ int dev_hierarchical::getNx_abs () const
 int dev_hierarchical::getNy_abs () const
 { return y_offsets[ny]; }
 
-bool dev_hierarchical::updateOffsets ()
+bool dev_hierarchical::updateOffsets (const int abs_y, const int abs_x)
 {
   int accum = 0;
   for (int y = 0; y < ny; y++)
@@ -52,7 +52,11 @@ bool dev_hierarchical::updateOffsets ()
     
   accum = 0;
   for (int x = 0; x < nx; x++)
-  { x_offsets[x] = accum; accum += elements[x].getNx(); }
+  { 
+    x_offsets[x] = accum; accum += elements[x].getNx();
+    for (int y = 0; y < ny; y++)
+    { elements[y * nx + x].setAbs(y_offsets[y] + abs_y, accum + abs_x); }
+  }
   x_offsets[nx] = accum;
 
   for (int y = 1; y < ny; y++) for (int x = 1; x < nx; x++)

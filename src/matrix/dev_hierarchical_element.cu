@@ -121,6 +121,12 @@ real_t dev_h_element::getElement (const int y_in, const int x_in) const
   return 0;
 }
 
+void dev_h_element::setAbs (const int abs_y_in, const int abs_x_in)
+{ abs_y = abs_y_in; abs_x = abs_x_in; }
+
+void dev_h_element::getAbs (int * abs_y_out, int * abs_x_out)
+{ * abs_y_out = abs_y; * abs_x_out = abs_x; }
+
 dev_dense * dev_h_element::convertToDense() const
 {
   const dev_dense *d = getElementDense();

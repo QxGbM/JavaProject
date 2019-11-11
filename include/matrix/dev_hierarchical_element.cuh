@@ -12,9 +12,12 @@ private:
   void * element;
   element_t type;
 
+  int abs_x;
+  int abs_y;
+
 public:
   
-  dev_h_element (void *element_in = nullptr, const element_t type_in = empty);
+  dev_h_element (void * element_in = nullptr, const element_t type_in = empty);
 
   ~dev_h_element ();
 
@@ -37,6 +40,10 @@ public:
   void setElement (void * element_in, element_t type_in);
 
   real_t getElement (const int y_in, const int x_in) const;
+
+  void setAbs (const int abs_y_in, const int abs_x_in);
+
+  void getAbs (int * abs_y_out, int * abs_x_out);
 
   dev_dense * convertToDense() const;
 
