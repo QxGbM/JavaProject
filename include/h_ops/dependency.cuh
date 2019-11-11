@@ -42,6 +42,12 @@ public:
 
   dependency_t lookupDependency (const int inst_in) const;
 
+  void addDependency (const int inst_in, const dependency_t dependency_in);
+
+  void updateDependency (const int inst_in, const dependency_t dependency_in);
+
+  void addInstOffset (const int offset);
+
   int length () const;
 
   void print () const;
@@ -65,7 +71,13 @@ public:
 
   void resize (int size_new);
 
-  void add_dep (const int inst_from, const int inst_to, dependency_t type);
+  void addDependency (const int inst_from, const int inst_to, dependency_t dep);
+
+  void updateDependency (const int inst_from, const int inst_to, dependency_t dep);
+
+  void concatTable (dependency_table * table);
+
+  void print() const;
 
 };
 
