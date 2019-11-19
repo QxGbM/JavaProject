@@ -20,57 +20,112 @@ void matrix_painter::update_entry (const int entry_in, const int y, const int x)
 {
   auto * data_row = row.data();
   auto iter_col = col.begin() + data_row[y], iter_entry = entry.begin() + data_row[y];
+  auto entry_end = (y >= ny - 1) ? entry.end() : entry.begin() + data_row[y + 1];
 
-  while (* iter_col < x && iter_col != col.end())
+  while (* iter_col < x && iter_entry != entry_end)
   { iter_col++; iter_entry++; }
 
-  if (* iter_col == x)
+  if (iter_col == col.end())
+  { 
+    col.push_back(x); 
+    entry.push_back(entry_in);
+    for (int i = y + 1; i < ny; i++)
+    { data_row[i]++; }
+  }
+  else if (* iter_col == x)
   { * iter_entry = entry_in; }
   else
   { 
-    col.insert(iter_col, x); 
-    entry.insert(iter_entry, entry_in); 
+    col.insert(iter_col, x);
+    entry.insert(iter_entry, entry_in);
     for (int i = y + 1; i < ny; i++)
     { data_row[i]++; }
   }
 
 }
 
-int matrix_painter::lookup_one (const int y, const int x) const
+void matrix_painter::clear_entries (const int y, const int x, const int ny, const int nx)
 {
   auto * data_row = row.data();
-  auto iter_col = col.begin(), iter_entry = entry.begin();
 
-  if (data_row[y] > 0)
+  for (int i = y; i < y + ny && i < this -> ny; i++)
   {
-    for (int i = 0; i < y; i++)
-    { iter_col += data_row[i]; iter_entry += data_row[i]; }
-
-    while (* iter_col < x) 
-    { iter_col ++; iter_entry ++; }
-
-    return * iter_entry;
-  }
-  else
-  {
-    int ret = -1;
-    for (int i = 0; i < y; i++)
+    int n = (i == this -> ny - 1) ? entry.size() - data_row[i] : data_row[i + 1] - data_row[i], count = n;
+    if (n > 0)
     {
-      for (int j = 0; j < data_row[i]; j++)
+      auto start_col = col.begin() + data_row[i], start_entry = entry.begin() + data_row[i];
+      auto end_col = start_col + n, end_entry = start_entry + n;
+
+      while (* start_col < x)
+      { start_col++; start_entry++; count--; }
+
+      while (* (std :: prev(end_col)) >= x + nx)
+      { end_col--; end_entry--; count--; }
+
+      if (count > 0)
       {
-        if (* iter_col <= x) { ret = * iter_entry; }
-        iter_col ++; iter_entry ++;
+        col.erase(start_col, end_col);
+        entry.erase(start_entry, end_entry);
+        for (int j = i + 1; j < this -> ny; j++)
+        { data_row[j] -= count; }
       }
     }
-
-    return ret;
   }
 }
+
+int matrix_painter::lookup_one (const int y, const int x) const
+{
+  if (y >= ny || x >= nx || y < 0 || x < 0 || entry.size() == 0) 
+  { return -1; }
+
+  auto * data_row = row.data();
+  auto iter_col = col.begin(), iter_entry = entry.begin();
+  auto entry_end = (y >= ny - 1) ? entry.end() : entry.begin() + data_row[y + 1];
+  int ret = -1;
+
+  while (iter_entry != entry_end) 
+  {
+    if (* iter_col <= x)
+    { ret = * iter_entry; }
+    iter_col ++; iter_entry ++; 
+  }
+
+  return ret;
+}
+
+int * matrix_painter::lookup (int * result_length_out, const int y, const int x, const int ny, const int nx) const
+{
+  return nullptr;
+}
+
 
 
 void matrix_painter::update (const int entry, const int y, const int x, const int ny, const int nx)
 {
+  std::vector <int> inst_y = std::vector <int> (ny, -1);
+  std::vector <int> inst_x = std::vector <int> (nx, -1);
+
+  for (int i = 0; i < ny; i++)
+  { inst_y[i] = lookup_one(y + i, x + nx); }
+
+  for (int i = 0; i < nx; i++)
+  { inst_x[i] = lookup_one(y + ny, x + i); }
+
+  if (ny > 1 || nx > 1)
+  { clear_entries(y, x, ny, nx); }
   update_entry(entry, y, x);
+
+  for (int i = 0; i < ny; i++)
+  { 
+    if (lookup_one(y + i, x + nx) != inst_y[i])
+    { update_entry(inst_y[i], y + i, x + nx); }
+  }
+
+  for (int i = 0; i < nx; i++)
+  {
+    if (lookup_one(y + ny, x + i) != inst_x[i])
+    { update_entry(inst_x[i], y + ny, x + i); }
+  }
 }
 
 void matrix_painter::print_internal () const
@@ -127,16 +182,18 @@ int main()
 {
   matrix_painter test = matrix_painter(4, 4);
   test.update(1, 0, 0);
-  test.update(2, 0, 1);
-  test.update(4, 1, 1);
-  test.update(3, 1, 0);
-  test.update(5, 1, 2);
+  test.update(2, 0, 1, 1, 3);
+  test.update(4, 1, 1, 3, 3);
+  test.update(3, 1, 0, 3, 2);
+  /*test.update(5, 1, 2);
   test.update(6, 2, 1);
   test.update(7, 2, 2);
   test.update(8, 2, 3);
   test.update(9, 3, 2);
-  test.update(10, 3, 3);
+  test.update(10, 3, 3);*/
+
   test.print_internal();
   test.print();
+
   return 0;
 }
