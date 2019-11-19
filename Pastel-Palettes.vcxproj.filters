@@ -52,6 +52,9 @@
     <ClInclude Include="include\launcher.cuh">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\h_ops\dependency_checker.cuh">
+      <Filter>include\h_ops</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
@@ -92,6 +95,9 @@
       <Filter>src\instructions</Filter>
     </CudaCompile>
     <CudaCompile Include="src\h_ops\dependency.cu">
+      <Filter>src\h_ops</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\h_ops\dependency_checker.cu">
       <Filter>src\h_ops</Filter>
     </CudaCompile>
   </ItemGroup>

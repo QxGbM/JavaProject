@@ -10,10 +10,12 @@
 #include <dev_temp.cuh>
 
 
-dev_h_element::dev_h_element (void * element_in, const element_t type_in)
+dev_h_element::dev_h_element (void * element_in, const element_t type_in, const int nx, const int ny)
 {
   element = element_in;
   type = type_in;
+  block_x = nx > 0 ? nx : getNx();
+  block_y = ny > 0 ? ny : getNy();
 }
 
 dev_h_element::~dev_h_element ()

@@ -1,4 +1,7 @@
 
+//#define RUN
+#ifdef RUN
+
 #include <matrix/dev_dense.cuh>
 #include <matrix/dev_hierarchical.cuh>
 #include <launcher.cuh>
@@ -81,3 +84,5 @@ int main(int argc, char * argv[])
 
   return 0;
 }
+
+#endif

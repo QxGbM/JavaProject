@@ -99,6 +99,7 @@
   <ItemGroup>
     <CudaCompile Include="main.cu" />
     <CudaCompile Include="src\h_ops\dependency.cu" />
+    <CudaCompile Include="src\h_ops\dependency_checker.cu" />
     <CudaCompile Include="src\h_ops\dev_hierarchical_index.cu" />
     <CudaCompile Include="src\h_ops\dev_hierarchical_ops.cu" />
     <CudaCompile Include="src\h_ops\dev_hierarchical_ops_dag.cu" />
@@ -116,6 +117,7 @@
     <ClInclude Include="include\compressor.cuh" />
     <ClInclude Include="include\dev_temp.cuh" />
     <ClInclude Include="include\h_ops\dependency.cuh" />
+    <ClInclude Include="include\h_ops\dependency_checker.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_index.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_ops.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_ops_dag.cuh" />

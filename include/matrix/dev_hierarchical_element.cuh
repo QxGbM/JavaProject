@@ -15,9 +15,12 @@ private:
   int abs_x;
   int abs_y;
 
+  int block_x;
+  int block_y;
+
 public:
   
-  dev_h_element (void * element_in = nullptr, const element_t type_in = empty);
+  dev_h_element (void * element_in = nullptr, const element_t type_in = empty, const int nx = 0, const int ny = 0);
 
   ~dev_h_element ();
 
