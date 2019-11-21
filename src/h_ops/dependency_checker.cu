@@ -18,6 +18,9 @@ matrix_painter::~matrix_painter ()
 
 void matrix_painter::update_entry (const int entry_in, const int y, const int x)
 {
+  if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0) 
+  { std :: cout << "Invalid Input at Matrix-Painter Update." << std ::endl; return; }
+
   auto * data_row = row.data();
   auto iter_col = col.begin() + data_row[y], iter_entry = entry.begin() + data_row[y];
   auto entry_end = (y >= ny - 1) ? entry.end() : entry.begin() + data_row[y + 1];
@@ -46,11 +49,14 @@ void matrix_painter::update_entry (const int entry_in, const int y, const int x)
 
 void matrix_painter::clear_entries (const int y, const int x, const int ny, const int nx)
 {
+  if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0) 
+  { std :: cout << "Invalid Input at Matrix-Painter Clear Entry." << std ::endl; return; }
+
   auto * data_row = row.data();
 
   for (int i = y; i < y + ny && i < this -> ny; i++)
   {
-    int n = (i == this -> ny - 1) ? entry.size() - data_row[i] : data_row[i + 1] - data_row[i], count = n;
+    int n = (i == this -> ny - 1) ? ((int) entry.size() - data_row[i]) : (data_row[i + 1] - data_row[i]), count = n;
     if (n > 0)
     {
       auto start_col = col.begin() + data_row[i], start_entry = entry.begin() + data_row[i];
@@ -76,7 +82,7 @@ void matrix_painter::clear_entries (const int y, const int x, const int ny, cons
 int matrix_painter::lookup_one (const int y, const int x) const
 {
   if (y >= ny || x >= nx || y < 0 || x < 0 || entry.size() == 0) 
-  { return -1; }
+  { std :: cout << "Invalid Input at Matrix-Painter Lookup." << std ::endl; return -1; }
 
   auto * data_row = row.data();
   auto iter_col = col.begin(), iter_entry = entry.begin();
@@ -93,15 +99,45 @@ int matrix_painter::lookup_one (const int y, const int x) const
   return ret;
 }
 
-int * matrix_painter::lookup (int * result_length_out, const int y, const int x, const int ny, const int nx) const
+std :: vector <int> * matrix_painter::lookup (const int y, const int x, const int ny, const int nx) const
 {
-  return nullptr;
-}
+  if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0 || entry.size() == 0) 
+  { std :: cout << "Invalid Input at Matrix-Painter Lookup." << std ::endl; return nullptr; }
 
+  std :: unordered_set <int> set;
+  std :: vector <int> tmp = std :: vector <int> (nx, lookup_one(y, x));
+
+  auto data_row = row.data();
+
+  for (int i = y; i < y + ny && i < this -> ny; i++)
+  {
+    int n = (i == this -> ny - 1) ? ((int) entry.size() - data_row[i]) : (data_row[i + 1] - data_row[i]), count = 1;
+    auto iter_col = col.begin() + data_row[i], iter_entry = entry.begin() + data_row[i];
+
+    if (n > 0)
+    for (int j = 0; j < nx && j < (this -> nx - x); j++)
+    {
+      if (count < n && * (std :: next(iter_col)) <= j + x)
+      { iter_col++; iter_entry++; count++; }
+
+      if (j + x >= * iter_col)
+      { tmp[j] = * iter_entry; }
+    }
+
+    for (int j : tmp)
+    { if (j > 0) { set.insert(j); } }
+  }
+
+  return set.size() > 0  ? new std :: vector <int> (set.begin(), set.end()) : nullptr; 
+
+}
 
 
 void matrix_painter::update (const int entry, const int y, const int x, const int ny, const int nx)
 {
+  if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0) 
+  { std :: cout << "Invalid Input at Matrix-Painter Update." << std ::endl; return; }
+
   std::vector <int> inst_y = std::vector <int> (ny, -1);
   std::vector <int> inst_x = std::vector <int> (nx, -1);
 
@@ -157,7 +193,7 @@ void matrix_painter::print () const
 
   for (int y = 0; y < ny; y++)
   {
-    int n = (y == ny - 1) ? entry.size() - data_row[y] : data_row[y + 1] - data_row[y], count = 1;
+    int n = (y == ny - 1) ? ((int) entry.size() - data_row[y]) : (data_row[y + 1] - data_row[y]), count = 1;
     auto iter_col = col.begin() + data_row[y], iter_entry = entry.begin() + data_row[y];
 
     if (n > 0)
@@ -194,6 +230,13 @@ int main()
 
   test.print_internal();
   test.print();
+
+  std::vector<int> * vec = test.lookup(0, 1, 2, 2);
+
+  for (int i : * vec)
+  { printf("%d ", i); }
+  
+  delete vec;
 
   return 0;
 }

@@ -21,6 +21,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
+#include <unordered_set>
+#include <algorithm>
+#include <iostream>
 #include <math.h>
 #include <string.h>
 #include <memory.h>
