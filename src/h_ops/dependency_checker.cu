@@ -81,8 +81,10 @@ void matrix_painter::clear_entries (const int y, const int x, const int ny, cons
 
 int matrix_painter::lookup_one (const int y, const int x) const
 {
-  if (y >= ny || x >= nx || y < 0 || x < 0 || entry.size() == 0) 
-  { std :: cout << "Invalid Input at Matrix-Painter Lookup." << std ::endl; return -1; }
+  if (y >= ny || x >= nx || y < 0 || x < 0) 
+  { std :: cout << "Invalid Input at Matrix-Painter Lookup @" << y << ", " << x << "." << std ::endl; return -1; }
+  else if (entry.size() == 0)
+  { return -1; }
 
   auto * data_row = row.data();
   auto iter_col = col.begin(), iter_entry = entry.begin();
@@ -101,8 +103,10 @@ int matrix_painter::lookup_one (const int y, const int x) const
 
 std :: vector <int> * matrix_painter::lookup (const int y, const int x, const int ny, const int nx) const
 {
-  if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0 || entry.size() == 0) 
-  { std :: cout << "Invalid Input at Matrix-Painter Lookup." << std ::endl; return nullptr; }
+  if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0) 
+  { std :: cout << "Invalid Input at Matrix-Painter Lookup @" << y << ", " << x << "." << std ::endl; return nullptr; }
+  else if (entry.size() == 0)
+  { return nullptr; }
 
   std :: unordered_set <int> set;
   std :: vector <int> tmp = std :: vector <int> (nx, lookup_one(y, x));
@@ -141,23 +145,23 @@ void matrix_painter::update (const int entry, const int y, const int x, const in
   std::vector <int> inst_y = std::vector <int> (ny, -1);
   std::vector <int> inst_x = std::vector <int> (nx, -1);
 
-  for (int i = 0; i < ny; i++)
+  if (x + nx < this -> nx) for (int i = 0; i < ny; i++)
   { inst_y[i] = lookup_one(y + i, x + nx); }
 
-  for (int i = 0; i < nx; i++)
+  if (y + ny < this -> ny) for (int i = 0; i < nx; i++)
   { inst_x[i] = lookup_one(y + ny, x + i); }
 
   if (ny > 1 || nx > 1)
   { clear_entries(y, x, ny, nx); }
   update_entry(entry, y, x);
 
-  for (int i = 0; i < ny; i++)
+  if (x + nx < this -> nx) for (int i = 0; i < ny; i++)
   { 
     if (lookup_one(y + i, x + nx) != inst_y[i])
     { update_entry(inst_y[i], y + i, x + nx); }
   }
 
-  for (int i = 0; i < nx; i++)
+  if (y + ny < this -> ny) for (int i = 0; i < nx; i++)
   {
     if (lookup_one(y + ny, x + i) != inst_x[i])
     { update_entry(inst_x[i], y + ny, x + i); }
