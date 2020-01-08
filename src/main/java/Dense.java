@@ -226,7 +226,8 @@ public class Dense extends Matrix implements Block
     for (int i = 0; i < m; i++)
     {
       Matrix blocks = getMatrix(i * dim, (i + 1) * dim - 1, 0, getColumnDimension() - 1);
-      Matrix Q = blocks.times(random(getColumnDimension(), dim)).qr().getQ();
+      //Matrix Q = blocks.times(random(getColumnDimension(), dim)).qr().getQ();
+      Matrix Q = blocks.svd().getU();
       row_col[0].setElement(i, Q); 
     }
 
@@ -234,7 +235,8 @@ public class Dense extends Matrix implements Block
     for (int i = 0; i < n; i++)
     {
       Matrix blocks = getMatrix(0, getRowDimension() - 1, i * dim, (i + 1) * dim - 1).transpose();
-      Matrix Q = blocks.times(random(getRowDimension(), dim)).qr().getQ();
+      //Matrix Q = blocks.times(random(getRowDimension(), dim)).qr().getQ();
+      Matrix Q = blocks.svd().getU();
       row_col[1].setElement(i, Q); 
     }
 
