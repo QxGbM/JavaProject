@@ -72,11 +72,11 @@ public class PsplHMatrixPack {
       Dense d2 = bs[0].applyLeft(d1);
       d2.print(0, 3);*/
       int [] joints = {4};
-      Jama.Matrix[] list = ClusterBasis.checkerlize(d, bs[0].getBasis(0), bs[1].getBasis(0).transpose(), joints);
+      Jama.Matrix[] list = ClusterBasis.checkerlize(d, bs[0].toMatrix(), bs[1].toMatrix().transpose(), joints);
       list[0].print(0, 3);
       list[1].print(0, 3);
 
-      Jama.Matrix m = ClusterBasis.uncheckerlize(list, bs[0].getBasis(0), bs[1].getBasis(0).transpose());
+      Jama.Matrix m = ClusterBasis.uncheckerlize(list, bs[0].toMatrix(), bs[1].toMatrix().transpose());
       m.print(0, 3);
 
       if (write_h)

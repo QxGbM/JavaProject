@@ -3,73 +3,75 @@ import Jama.Matrix;
 
 public class ClusterBasis {
 
-  private Matrix elements[];
+  private Matrix basis;
   private ClusterBasis children[];
   
-  public ClusterBasis (int n, int dim) {
-    elements = new Matrix[n];
+  public ClusterBasis (int m, int n) {
+    basis = new Matrix(m, n);
     children = null;
-    for (int i = 0; i < n; i++)
-    { elements[i] = new Matrix(dim, dim); }
   }
 
-  public ClusterBasis (int n, int dim, int n_child) {
-    elements = new Matrix[n];
+  public ClusterBasis (int m, int n, int n_child) {
+    basis = new Matrix(m, n);
     children = new ClusterBasis[n_child];
-    for (int i = 0; i < n; i++)
-    { elements[i] = new Matrix(dim, dim); }
   }
 
-  public void setElement (int index, Matrix m) {
-    elements[index] = m.copy();
+  public int getRowDimension () {
+    if (children == null)
+    return basis.getRowDimension();
+    else { 
+      int rows = 0; 
+      for (int i = 0; i < children.length; i++)
+      rows += children[i].getRowDimension();
+      return rows;
+    }
+  }
+
+  public int getColDimension () {
+    if (children == null)
+    return basis.getRowDimension();
+    else 
+    return children[0].getColDimension();
+  }
+
+  public void setBasis (Matrix m) {
+    basis = m.copy();
   }
 
   public void setChildren (int index, ClusterBasis b) {
     children[index] = b;
   }
 
-  public Matrix getBasis (int index) {
-    return elements[index];
+  public void applyLeft (Dense d) {
+    d = new Dense(basis.times(d).getArray());
   }
 
-  public Dense applyLeft (Dense d) {
-    int row = 0, e = 0; 
-    Dense result_d = new Dense(d.getColumnDimension(), d.getRowDimension());
-    double[][] data = result_d.getArray();
-    while (row < d.getColumnDimension()) {
-      int row_new = row + elements[e].getColumnDimension() - 1;
-      Matrix m = elements[e].times(d.getMatrix(row, row_new, 0, d.getRowDimension() - 1));
-      for (int i = row; i <= row_new; i++) {
-        for (int j = 0; j < m.getColumnDimension(); j++)
-        { data[i][j] = m.get(i - row, j); }
-      }
-      row = row_new + 1; e++;
-    }
-    return result_d;
+  public void solveLeft (Dense d) {
+    d = new Dense(basis.transpose().times(d).getArray());
   }
 
-  public Dense solveLeft (Dense d) {
-    int row = 0, e = 0; 
-    Dense result_d = new Dense(d.getColumnDimension(), d.getRowDimension());
-    double[][] data = result_d.getArray();
-    while (row < d.getColumnDimension()) {
-      int row_new = row + elements[e].getColumnDimension() - 1;
-      Matrix m = elements[e].transpose().times(d.getMatrix(row, row_new, 0, d.getRowDimension() - 1));
-      for (int i = row; i <= row_new; i++) {
-        for (int j = 0; j < m.getColumnDimension(); j++)
-        { data[i][j] = m.get(i - row, j); }
+  public void applyRight (Dense d) {
+    d = new Dense(d.times(basis).getArray());
+  }
+
+  public Matrix toMatrix () {
+    if (children == null)
+    { return basis; }
+    else {
+      Matrix result_b = new Matrix(getRowDimension(), getColDimension());
+      int row = 0;
+      for (int i = 0; i < children.length; i++) { 
+        int rows = children[i].getRowDimension();
+        Matrix data = basis.times(children[i].toMatrix());
+        result_b.setMatrix(row, row + rows - 1, 0, getColDimension() - 1, data);
+        row += rows;
       }
-      row = row_new + 1; e++;
+      return result_b;
     }
-    return result_d;
   }
 
   public void print (int w, int d) {
-    for (int i = 0; i < elements.length; i++)
-    {
-      System.out.println("B"+i);
-      elements[i].print(w, d);
-    }
+    toMatrix().print(w, d);
   }
 
   public static Matrix[] checkerlize (Matrix m, Matrix ql, Matrix qr, int[] joints) {
