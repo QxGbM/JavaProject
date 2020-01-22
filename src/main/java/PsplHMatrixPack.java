@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 2, nleaf = 4, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level), admis = 1;
+    int level = 1, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level), admis = 1;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;
@@ -65,19 +65,8 @@ public class PsplHMatrixPack {
     if (integrity && (write_d || write_h))
     try {
       Dense d = Dense.generateDense(dim, dim, 0, 0, testFunc);
-      d.print(0, 3);
-      ClusterBasis bs[] = d.generateClusterBasis(8);
-      /*Dense d1 = bs[0].solveLeft(d);
-      d1.print(0, 3);
-      Dense d2 = bs[0].applyLeft(d1);
-      d2.print(0, 3);*/
-      int [] joints = {4};
-      Jama.Matrix[] list = ClusterBasis.checkerlize(d, bs[0].toMatrix(), bs[1].toMatrix().transpose(), joints);
-      list[0].print(0, 3);
-      list[1].print(0, 3);
-
-      Jama.Matrix m = ClusterBasis.uncheckerlize(list, bs[0].toMatrix(), bs[1].toMatrix().transpose());
-      m.print(0, 3);
+      //d.print(0, 3);
+      UniformBLR blr = new UniformBLR(16, 16, d, 16);
 
       if (write_h)
       {

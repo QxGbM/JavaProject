@@ -1,4 +1,5 @@
 import java.io.*;
+import Jama.Matrix;
 
 public interface Block {
 
@@ -17,6 +18,8 @@ public interface Block {
   abstract public Hierarchical toHierarchical (int m, int n);
 
   abstract public Hierarchical toHierarchical (int level, int m, int n);
+
+  abstract public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond);
 
   abstract public boolean equals (Block b);
 

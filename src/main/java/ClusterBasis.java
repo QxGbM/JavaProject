@@ -5,19 +5,16 @@ public class ClusterBasis {
 
   private Matrix basis;
   private ClusterBasis children[];
-  
-  public ClusterBasis (int m, int n) {
-    basis = new Matrix(m, n);
+
+  public ClusterBasis () {
+    basis = null;
     children = null;
   }
 
-  public ClusterBasis (int m, int n, int n_child) {
-    basis = new Matrix(m, n);
-    children = new ClusterBasis[n_child];
-  }
-
   public int getRowDimension () {
-    if (children == null)
+    if (basis == null)
+    return 0;
+    else if (children == null)
     return basis.getRowDimension();
     else { 
       int rows = 0; 
@@ -28,7 +25,9 @@ public class ClusterBasis {
   }
 
   public int getColDimension () {
-    if (children == null)
+    if (basis == null)
+    return 0;
+    else if (children == null)
     return basis.getRowDimension();
     else 
     return children[0].getColDimension();
@@ -38,24 +37,32 @@ public class ClusterBasis {
     basis = m.copy();
   }
 
-  public void setChildren (int index, ClusterBasis b) {
-    children[index] = b;
+  public void setChildren (ClusterBasis[] b) {
+    children = new ClusterBasis[b.length];
+    for (int i = 0; i < b.length; i++)
+    children[i] = b[i];
   }
 
   public void applyLeft (Dense d) {
-    d = new Dense(basis.times(d).getArray());
+    d = new Dense(toMatrix().times(d).getArray());
   }
 
   public void solveLeft (Dense d) {
-    d = new Dense(basis.transpose().times(d).getArray());
+    d = new Dense(toMatrix().transpose().times(d).getArray());
   }
 
   public void applyRight (Dense d) {
-    d = new Dense(d.times(basis).getArray());
+    d = new Dense(d.times(toMatrix()).getArray());
+  }
+
+  public void solveRight (Dense d) {
+    d = new Dense(d.times(toMatrix().transpose()).getArray());
   }
 
   public Matrix toMatrix () {
-    if (children == null)
+    if (basis == null)
+    { return null; }
+    else if (children == null)
     { return basis; }
     else {
       Matrix result_b = new Matrix(getRowDimension(), getColDimension());

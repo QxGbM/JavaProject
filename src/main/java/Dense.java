@@ -58,7 +58,7 @@ public class Dense extends Matrix implements Block
       Q = qr_.getQ();
       Y = transpose().times(Q);
       Matrix A = Q.times(Y.transpose()).minus(this);
-      double norm = A.normF() / (m * r);
+      double norm = A.normF() / (m * n);
       approx = norm <= PsplHMatrixPack.epi;
 
     } while (r < n && !approx);
@@ -75,6 +75,33 @@ public class Dense extends Matrix implements Block
     return lr;
   }
 
+  public Matrix[] rsvd (int rank) {
+    Matrix[] usv = new Matrix[3];
+
+    Matrix X = times(random(getColumnDimension(), rank));
+    QRDecomposition qr_ = X.qr();
+    Matrix Q = qr_.getQ();
+    Matrix Y = transpose().times(Q);
+
+    qr_ = Y.qr();
+    Matrix V = qr_.getQ(), R = qr_.getR();
+    SingularValueDecomposition svd_ = R.svd();
+
+    usv[0] = Q.times(svd_.getV());
+    usv[1] = svd_.getS();
+    usv[2] = V.times(svd_.getU());
+
+    return usv;
+  }
+
+  public double rsvd_norm (Matrix[] usv) {
+    return usv[0].times(usv[1]).times(usv[2].transpose()).minus(this).normF() / (double) (getRowDimension() * getColumnDimension());
+  }
+
+  public Dense transpose () {
+    return new Dense(super.transpose().getArray());
+  }
+
   @Override
   public Hierarchical toHierarchical (int m, int n) {
     Hierarchical h = new Hierarchical(m, n);
@@ -85,8 +112,7 @@ public class Dense extends Matrix implements Block
       int i1 = i0 + step_i >= getRowDimension() ? getRowDimension() - 1 : i0 + step_i, j0 = 0;
       for (int j = 0; j < n; j++) {
         int j1 = j0 + step_j >= getColumnDimension() ? getColumnDimension() - 1 : j0 + step_j;
-        Dense d = new Dense(i1 - i0 + 1, j1 - j0 + 1); 
-        d.plusEquals(getMatrix(i0, i1, j0, j1));
+        Dense d = new Dense(getMatrix(i0, i1, j0, j1).getArrayCopy());
         h.setElement(i, j, d);
         j0 = j1 + 1;
       }
@@ -108,6 +134,13 @@ public class Dense extends Matrix implements Block
       }
     }
     return h;
+  }
+
+  public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond) {
+    double row_err = row_basis.times(row_basis.transpose()).times(this).minus(this).normF();
+    double col_err = times(col_basis).times(col_basis.transpose()).minus(this).normF();
+    double admis_ref = admis_cond * getColumnDimension() * getRowDimension();
+    return row_err <= admis_ref && col_err <= admis_ref;
   }
 
   @Override
@@ -218,30 +251,60 @@ public class Dense extends Matrix implements Block
     return d;
   }
 
+  public Matrix[] projection (Matrix row_basis, Matrix col_basis) {
+    Matrix row_projection = row_basis.transpose().times(this);
+    Matrix row_nulled = minus(row_basis.times(row_projection));
+    Matrix col_projection = col_basis.transpose().times(transpose());
+    Matrix col_nulled = transpose().minus(col_basis.times(col_projection));
+
+    SingularValueDecomposition svd_0 = row_nulled.svd(), svd_1 = col_nulled.svd();
+    Matrix row_null_space = svd_0.getU().getMatrix(0, row_basis.getRowDimension() - 1, 0, getRowDimension() - row_basis.getColumnDimension() - 1);
+    Matrix col_null_space = svd_1.getU().getMatrix(0, col_basis.getRowDimension() - 1, 0, getColumnDimension() - col_basis.getColumnDimension() - 1);
+
+    Matrix list[] = projection(row_basis, row_null_space, col_basis, col_null_space);
+
+    return new Matrix[] {list[0], list[1], list[2], list[3], row_null_space, col_null_space};
+  }
+
+  public Matrix[] projection (Matrix row_basis, Matrix row_null_space, Matrix col_basis, Matrix col_null_space) {
+    Matrix list[] = new Matrix[4];
+    list[0] = row_basis.transpose().times(this).times(col_basis);
+    list[1] = row_null_space.transpose().times(this).times(col_basis);
+    list[2] = row_basis.transpose().times(this).times(col_null_space);
+    list[3] = row_null_space.transpose().times(this).times(col_null_space);
+    return list;
+  }
+
   public ClusterBasis[] generateClusterBasis (int dim) {
     int m = getRowDimension() / dim, n = getColumnDimension() / dim;
     ClusterBasis row_col[] = new ClusterBasis[2];
 
-    row_col[0] = new ClusterBasis(m, dim);
+    row_col[0] = new ClusterBasis();
+    row_col[1] = new ClusterBasis();
+
+    ClusterBasis list[] = new ClusterBasis[m];
     for (int i = 0; i < m; i++)
     {
       Matrix blocks = getMatrix(i * dim, (i + 1) * dim - 1, 0, getColumnDimension() - 1);
       //Matrix Q = blocks.times(random(getColumnDimension(), dim)).qr().getQ();
       Matrix Q = blocks.svd().getU();
-      row_col[0].setBasis(Q); 
+      list[i].setBasis(Q);
     }
+    row_col[0].setChildren(list);
 
-    row_col[1] = new ClusterBasis(n, dim);
+    list = new ClusterBasis[n];
     for (int i = 0; i < n; i++)
     {
       Matrix blocks = getMatrix(0, getRowDimension() - 1, i * dim, (i + 1) * dim - 1).transpose();
       //Matrix Q = blocks.times(random(getRowDimension(), dim)).qr().getQ();
       Matrix Q = blocks.svd().getU();
-      row_col[1].setBasis(Q); 
+      list[i].setBasis(Q);
     }
+    row_col[1].setChildren(list);
 
     return row_col;
   }
+
 
 
 }

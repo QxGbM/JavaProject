@@ -1,4 +1,5 @@
 import java.io.*;
+import Jama.Matrix;
 
 public class Hierarchical implements Block {
 
@@ -12,6 +13,9 @@ public class Hierarchical implements Block {
 
   public int getNColumnBlocks()
   { return e[0].length; }
+
+  public Block[][] getElements ()
+  { return e; }
 
   @Override
   public int getRowDimension() {
@@ -77,6 +81,11 @@ public class Hierarchical implements Block {
       }
     }
     return h;
+  }
+
+  @Override
+  public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond) {
+    return false;
   }
 
   @Override

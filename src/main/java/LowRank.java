@@ -14,6 +14,11 @@ public class LowRank implements Block {
     VT = new Matrix(n, r);
   }
 
+  public LowRank (Dense d, Matrix row_basis, Matrix col_basis) {
+    U = row_basis; VT = col_basis;
+    S = row_basis.transpose().times(d).times(col_basis);
+  }
+
   @Override
   public int getRowDimension() 
   { return U.getRowDimension(); }
@@ -77,6 +82,14 @@ public class LowRank implements Block {
       }
     }
     return h;
+  }
+
+  @Override
+  public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond) {
+    double row_err = row_basis.times(row_basis.transpose()).times(U).minus(U).normF();
+    double col_err = col_basis.times(col_basis.transpose()).times(VT).minus(VT).normF();
+    double admis_ref = admis_cond * getColumnDimension() * getRowDimension();
+    return row_err <= admis_ref && col_err <= admis_ref;
   }
 
   @Override
