@@ -16,6 +16,8 @@ dev_h_element::dev_h_element (void * element_in, const element_t type_in, const 
   type = type_in;
   block_x = nx > 0 ? nx : getNx();
   block_y = ny > 0 ? ny : getNy();
+  abs_x = 0;
+  abs_y = 0;
 }
 
 dev_h_element::~dev_h_element ()
@@ -637,18 +639,19 @@ void * dev_h_element::readStructureFromFile (FILE * stream, element_t * type, co
 }
 
 
-void dev_h_element::print (const h_index * index) const
+void dev_h_element::print (std :: vector <int> &indices) const
 {
-
   const dev_dense *d = getElementDense();
   const dev_low_rank *lr = getElementLowRank();
   const dev_hierarchical *h = getElementHierarchical();
 
-  index -> print();
+  std :: cout << "(" << abs_y << ", " << abs_x << ") ";
+  for (int i : indices) 
+  { std::cout << i << ' '; }
 
-  if (d != nullptr) { d -> print(0, 8, 0, 8); }
-  if (lr != nullptr) { lr -> print(0, 8, 0, 8, 8); }
-  if (h != nullptr) { h -> print(index); } 
+  if (d != nullptr) { d -> print(); }
+  if (lr != nullptr) { lr -> print(); }
+  if (h != nullptr) { h -> print(indices); } 
 }
 
 

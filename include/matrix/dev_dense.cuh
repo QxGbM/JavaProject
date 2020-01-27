@@ -111,7 +111,7 @@ public:
 
   static dev_dense * readFromFile (const char * file_name, const int shadow_rank = _SHADOW_RANK, const bool reverse_bytes = true);
    
-  void print (const int y_start = 0, const int ny_in = 0, const int x_start = 0, const int nx_in = 0) const;
+  void print (const int y_start = 0, const int ny_in = _PRINT_NUM_ROWS, const int x_start = 0, const int nx_in = _PRINT_NUMS_PER_ROW) const;
 
   real_t sqrSum() const;
 

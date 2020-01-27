@@ -1,5 +1,5 @@
 
-//#define RUN
+#define RUN
 #ifdef RUN
 
 #include <matrix/dev_dense.cuh>
@@ -22,8 +22,9 @@ int test0 (char test_name[], const int blocks, const int threads, const int kern
   cudaDeviceReset();
 
   dev_hierarchical * a = dev_hierarchical :: readFromFile(test_name, shadow_rank);
+  a->print();
 
-  cudaError_t error = hierarchical_GETRF (a, blocks, threads, kernel_size);
+  /*cudaError_t error = hierarchical_GETRF (a, blocks, threads, kernel_size);
 
   if (ref && error == cudaSuccess)
   {
@@ -42,7 +43,7 @@ int test0 (char test_name[], const int blocks, const int threads, const int kern
 
     delete b; b = nullptr;
     delete c; c = nullptr;
-  }
+  }*/
 
   delete a;
 

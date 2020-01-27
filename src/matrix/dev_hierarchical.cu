@@ -12,10 +12,10 @@
 dev_hierarchical::dev_hierarchical (const int nx_in, const int ny_in, const int abs_y, const int abs_x, element_t type, void ** elements_in)
 {
   nx = nx_in > 0 ? nx_in : 1;
-  x_offsets = new int [nx + 1];
+  x_offsets = new int [(size_t) nx + 1];
 
   ny = ny_in > 0 ? ny_in : 1;
-  y_offsets = new int [ny + 1];
+  y_offsets = new int [(size_t) ny + 1];
 
   elements = new dev_h_element [nx * ny];
   for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
@@ -53,9 +53,10 @@ bool dev_hierarchical::updateOffsets (const int abs_y, const int abs_x)
   accum = 0;
   for (int x = 0; x < nx; x++)
   { 
-    x_offsets[x] = accum; accum += elements[x].getNx();
+    x_offsets[x] = accum;
     for (int y = 0; y < ny; y++)
     { elements[y * nx + x].setAbs(y_offsets[y] + abs_y, accum + abs_x); }
+    accum += elements[x].getNx();
   }
   x_offsets[nx] = accum;
 
@@ -103,14 +104,14 @@ void dev_hierarchical::getElement_loc (int * offset_y, int * offset_x, int * blo
 
 void dev_hierarchical::getOffsets_x (int ** x) const
 {
-  *x = new int[nx + 1];
+  * x = new int[1 + (size_t) nx];
   for (int i = 0; i <= nx; i++)
   { (*x)[i] = x_offsets[i]; }
 }
 
 void dev_hierarchical::getOffsets_y (int ** y) const
 {
-  *y = new int [ny + 1];
+  * y = new int [1 + (size_t) ny];
   for (int i = 0; i <= ny; i++)
   { (*y)[i] = y_offsets[i]; }
 }
@@ -137,7 +138,7 @@ h_ops_tree * dev_hierarchical::generateOps_GETRF (const h_index * self, dev_temp
 {
   h_ops_tree * op = new h_ops_tree (getrf, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -188,7 +189,7 @@ h_ops_tree * dev_hierarchical::generateOps_TRSML (const h_index * self, const de
 {
   h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -221,7 +222,7 @@ h_ops_tree * dev_hierarchical::generateOps_TRSML (const h_index * self, const de
 {
   h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -259,7 +260,7 @@ h_ops_tree * dev_hierarchical::generateOps_TRSML (const h_index * self, const de
 
   h_ops_tree * op = new h_ops_tree (trsml, index_b, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -314,7 +315,7 @@ h_ops_tree * dev_hierarchical::generateOps_TRSMR (const h_index * self, const de
 {
   h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -347,7 +348,7 @@ h_ops_tree * dev_hierarchical::generateOps_TRSMR (const h_index * self, const de
 {
   h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -385,7 +386,7 @@ h_ops_tree * dev_hierarchical::generateOps_TRSMR (const h_index * self, const de
 
   h_ops_tree * op = new h_ops_tree (trsmr, index_b, self);
 
-  int n = nx > ny ? ny : nx, * child_offset = new int[n + 1];
+  int n = nx > ny ? ny : nx, * child_offset = new int[(size_t) n + 1];
   child_offset[0] = 0;
 
   for (int i = 1; i <= n; i++)
@@ -880,31 +881,20 @@ dev_hierarchical * dev_hierarchical::readFromFile (const char * file_name, const
   return a;
 }
 
-void dev_hierarchical::print(const h_index * index_in) const
+void dev_hierarchical::print (std :: vector <int> &indices) const
 {
-  for (int i = 0; i < ny * nx; i++)
+  for (int i = 0; i < nx * ny; i++)
   {
-    const int row = i / nx, col = i - row * nx;
-    const h_index * i_index = new h_index(this, index_in, row, col);
-    elements[i].print(i_index);
-    delete i_index;
+    indices.push_back(i);
+    elements[i].print(indices);
+    indices.pop_back();
   }
-}
-
-void dev_hierarchical::print(const int level, const int * indexes) const
-{
-  const int i = indexes[0];
-  if (level > 1)
-  { elements[i].getElementHierarchical() -> print(level - 1, &indexes[1]); }
-  else
-  { const h_index * root = getRootIndex(); elements[i].print(root); delete root; }
 }
 
 void dev_hierarchical::print() const
 {
-  const h_index * root = getRootIndex();
-  print(root);
-  delete root;
+  std :: vector <int> indices = std :: vector <int>();
+  print(indices);
 }
 
 

@@ -218,19 +218,19 @@ void matrix_painter::print () const
 
 }
 
-int main()
+/*int main()
 {
   matrix_painter test = matrix_painter(4, 4);
   test.update(1, 0, 0);
   test.update(2, 0, 1, 1, 3);
   test.update(4, 1, 1, 3, 3);
   test.update(3, 1, 0, 3, 2);
-  /*test.update(5, 1, 2);
+  test.update(5, 1, 2);
   test.update(6, 2, 1);
   test.update(7, 2, 2);
   test.update(8, 2, 3);
   test.update(9, 3, 2);
-  test.update(10, 3, 3);*/
+  test.update(10, 3, 3);
 
   test.print_internal();
   test.print();
@@ -243,4 +243,4 @@ int main()
   delete vec;
 
   return 0;
-}
+}*/

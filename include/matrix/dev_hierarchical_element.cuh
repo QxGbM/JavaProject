@@ -106,7 +106,7 @@ public:
 
   static void * readStructureFromFile (FILE * stream, element_t * type, const int shadow_rank = _SHADOW_RANK);
 
-  void print(const h_index* index) const;
+  void print(std :: vector <int> &indices) const;
 
 };
 

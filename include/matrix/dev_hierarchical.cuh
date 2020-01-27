@@ -107,11 +107,9 @@ public:
 
   static dev_hierarchical * readFromFile (const char * file_name, const int shadow_rank = _SHADOW_RANK, const bool reverse_bytes = true);
 
-  void print(const h_index * index_in) const;
+  void print (std :: vector <int> &indices) const;
 
-  void print(const int level, const int * indexes) const;
-
-  void print() const;
+  void print () const;
 
 
 };

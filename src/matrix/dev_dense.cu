@@ -20,8 +20,8 @@ dev_dense::dev_dense (const int nx_in, const int ny_in, const int ld_in, const i
   { 
     device_id = device_id_in;
 
-    if (cudaMallocManaged(&elements, ld * ny * real_bits, cudaMemAttachGlobal) == cudaSuccess)
-    { cudaMemset(elements, 0, ld * ny * real_bits); }
+    if (cudaMallocManaged(&elements, (size_t) ld * ny * real_bits, cudaMemAttachGlobal) == cudaSuccess)
+    { cudaMemset(elements, 0, (size_t) ld * ny * real_bits); }
     else
     { elements = nullptr; }
     
@@ -31,12 +31,12 @@ dev_dense::dev_dense (const int nx_in, const int ny_in, const int ld_in, const i
     { pivot = nullptr; pivoted = false; }
 
     if (shadow_rank_in > 0 && 
-      cudaMallocManaged(&shadow_u, ny * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess &&
-      cudaMallocManaged(&shadow_vt, nx * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess)
+      cudaMallocManaged(&shadow_u, (size_t) ny * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess &&
+      cudaMallocManaged(&shadow_vt, (size_t) nx * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess)
     { 
       shadow_rank = shadow_rank_in;
-      cudaMemset(shadow_u, 0, ny * shadow_rank_in * real_bits);
-      cudaMemset(shadow_vt, 0, nx * shadow_rank_in * real_bits);
+      cudaMemset(shadow_u, 0, (size_t) ny * shadow_rank_in * real_bits);
+      cudaMemset(shadow_vt, 0, (size_t) nx * shadow_rank_in * real_bits);
     }
     else
     { shadow_rank = 0; shadow_u = nullptr; shadow_vt = nullptr; }
@@ -99,7 +99,7 @@ cudaError_t dev_dense::resizeColumn (const int ld_in)
   if (ld_in > 0 && ld_in != ld)
   {
     real_t * e = nullptr;
-    cudaError_t error = cudaMallocManaged (&e, ld_in * ny * real_bits, cudaMemAttachGlobal);
+    cudaError_t error = cudaMallocManaged (&e, (size_t) ld_in * ny * real_bits, cudaMemAttachGlobal);
     if (error != cudaSuccess) { return error; }
 
     for (int y = 0; y < ny; y++) for (int x = 0; x < nx && x < ld_in; x++)
@@ -118,7 +118,7 @@ cudaError_t dev_dense::resizeRow (const int ny_in)
   if (ny_in > 0 && ny_in != ny)
   {
     real_t * e = nullptr;
-    cudaError_t error = cudaMallocManaged (&e, ld * ny_in * real_bits, cudaMemAttachGlobal);
+    cudaError_t error = cudaMallocManaged (&e, (size_t) ld * ny_in * real_bits, cudaMemAttachGlobal);
     if (error != cudaSuccess) { return error; }
 
     for (int y = 0; y < ny_in && y < ny; y++) for (int x = 0; x < nx; x++)
@@ -156,12 +156,12 @@ cudaError_t dev_dense::resizeShadow (const int shadow_rank_in)
     }
 
     if (shadow_rank_in > 0 && 
-      cudaMallocManaged(&shadow_u, ny * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess &&
-      cudaMallocManaged(&shadow_vt, nx * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess)
+      cudaMallocManaged(&shadow_u, (size_t) ny * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess &&
+      cudaMallocManaged(&shadow_vt, (size_t) nx * shadow_rank_in * real_bits, cudaMemAttachGlobal) == cudaSuccess)
     { 
       shadow_rank = shadow_rank_in;
-      cudaMemset(shadow_u, 0, ny * shadow_rank_in * real_bits);
-      cudaMemset(shadow_vt, 0, nx * shadow_rank_in * real_bits);
+      cudaMemset(shadow_u, 0, (size_t) ny * shadow_rank_in * real_bits);
+      cudaMemset(shadow_vt, 0, (size_t) nx * shadow_rank_in * real_bits);
     }
     else
     { shadow_rank = 0; shadow_u = nullptr; shadow_vt = nullptr; }
@@ -614,7 +614,7 @@ cudaError_t dev_dense::loadBinary (FILE * stream, const bool reverse_bytes)
   {
     real_t * elements_row = &elements[i0 * lines * ld];
 
-    if (fread(buf, real_bits, nx * lines, stream) > 0)
+    if (fread(buf, real_bits, (size_t) nx * lines, stream) > 0)
     {
 
       if (reverse_bytes)
@@ -632,13 +632,13 @@ cudaError_t dev_dense::loadBinary (FILE * stream, const bool reverse_bytes)
       if (ld > nx)
       {
         for (int i = lines - 1; i >= 0; i--)
-        { memmove(&buf[i * ld], &buf[i * nx], nx * real_l); }
+        { memmove(&buf[i * ld], &buf[i * nx], (size_t) real_l * nx); }
 
         for (int i = 0; i < lines; i++)
-        { memset(&buf[i * nx], 0, (ld - nx) * real_l); }
+        { memset(&buf[i * nx], 0, (size_t) real_l * ((size_t) ld - nx)); }
       }
 
-      cudaMemcpy (elements_row, buf, lines * ld * real_l, cudaMemcpyDefault);
+      cudaMemcpy (elements_row, buf, (size_t) lines * ld * real_l, cudaMemcpyDefault);
     }
 
   }
@@ -647,7 +647,7 @@ cudaError_t dev_dense::loadBinary (FILE * stream, const bool reverse_bytes)
   {
     real_t * elements_row = &elements[iters * lines * ld];
 
-    if (fread(buf, real_bits, nx * last_lines, stream) > 0)
+    if (fread(buf, real_bits, (size_t) nx * last_lines, stream) > 0)
     {
 
       if (reverse_bytes)
@@ -665,13 +665,13 @@ cudaError_t dev_dense::loadBinary (FILE * stream, const bool reverse_bytes)
       if (ld > nx)
       {
         for (int i = last_lines - 1; i >= 0; i--)
-        { memmove(&buf[i * ld], &buf[i * nx], nx * real_l); }
+        { memmove(&buf[i * ld], &buf[i * nx], (size_t) real_l * nx); }
 
         for (int i = 0; i < last_lines; i++)
-        { memset(&buf[i * nx], 0, (ld - nx) * real_l); }
+        { memset(&buf[i * nx], 0, (size_t) real_l * ((size_t) ld - nx)); }
       }
 
-      cudaMemcpy (elements_row, buf, last_lines * ld * real_l, cudaMemcpyDefault);
+      cudaMemcpy (elements_row, buf, (size_t) last_lines * ld * real_l, cudaMemcpyDefault);
     }
   }
 

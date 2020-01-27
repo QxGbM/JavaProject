@@ -36,6 +36,8 @@
 #ifndef _DEF_CUH
 #define _DEF_CUH
 
+#define abs(x) ((x)<0 ? -(x) : (x))
+
 #ifdef _PSPL_USE_SINGLE
 typedef float real_t;
 typedef float4 vec_t;
@@ -55,22 +57,22 @@ const int real_bits = 8;
 #define DEVICE __device__
 #endif
 
-#define _SHM_SIZE 12288
-#define _MAX_INST_LENGTH 32
-#define _MIN_INST_FLOPS 1000000
-#define _SHADOW_RANK 16
-#define _PTRS_LENGTH 1024
-#define _INSTS_LENGTH 1024
-#define _COMM_LENGTH 1024
-#define _COMPRESSOR_LENGTH 1024
-#define _BLOCK_M 64
-#define _BLOCK_K 16
-#define _CLOCK_MULTIPLIER 1.e-3
-#define _SEED 200
-#define _TICKS 500000
-#define _ROW_BLOCKS 80
-
-#define abs(x) ((x)<0 ? -(x) : (x))
+const int _SHM_SIZE = 12288;
+const int _MAX_INST_LENGTH = 32;
+const int _MIN_INST_FLOPS = 1000000;
+const int _SHADOW_RANK = 16;
+const int _PTRS_LENGTH = 1024;
+const int _INSTS_LENGTH = 1024;
+const int _COMM_LENGTH = 1024;
+const int _COMPRESSOR_LENGTH = 1024;
+const int _BLOCK_M = 64;
+const int _BLOCK_K = 16;
+const double _CLOCK_MULTIPLIER = 1.e-3;
+const int _SEED = 200;
+const int _TICKS = 500000;
+const int _ROW_BLOCKS = 80;
+const int _PRINT_NUMS_PER_ROW = 8;
+const int _PRINT_NUM_ROWS = 8;
 
 enum mark_t { start, end };
 
