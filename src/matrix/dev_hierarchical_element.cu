@@ -103,10 +103,12 @@ int dev_h_element::getRank() const
   return 0;
 }
 
-void dev_h_element::setElement (void * element_in, element_t type_in)
+void dev_h_element::setElement (void * element_in, element_t type_in, const int abs_x_in, const int abs_y_in)
 {
   element = element_in;
   type = type_in;
+  abs_x = abs_x_in;
+  abs_y = abs_y_in;
 }
 
 real_t dev_h_element::getElement (const int y_in, const int x_in) const
@@ -581,6 +583,11 @@ cudaError_t dev_h_element::loadBinary (FILE * stream, const bool reverse_bytes)
 }
 
 void * dev_h_element::readStructureFromFile (FILE * stream, element_t * type, const int shadow_rank)
+{ 
+  int x = 0, y = 0; return readStructureFromFile (stream, type, &x, &y, shadow_rank);
+}
+
+void * dev_h_element::readStructureFromFile (FILE * stream, element_t * type, int * x, int * y, const int shadow_rank)
 {
   char * buf = new char[32];
   if (stream != nullptr && fgets(buf, 32, stream) > 0)
@@ -595,14 +602,24 @@ void * dev_h_element::readStructureFromFile (FILE * stream, element_t * type, co
 
       dev_hierarchical* h = new dev_hierarchical(nx, ny);
 
-      for (int i = 0; i < ny; i++) for (int j = 0; j < nx; j++)
+      const int x_init = *x, y_init = *y;
+      int curr_x, next_x = x_init, curr_y = 0, next_y = y_init;
+      for (int i = 0; i < ny; i++)
       {
-        element_t type;
-        void * element = readStructureFromFile (stream, &type, shadow_rank);
-        h -> setElement(element, type, j, i);
+        curr_x = x_init; curr_y += next_y;
+        for (int j = 0; j < nx; j++)
+        {
+          element_t type;
+          next_x = curr_x; next_y = curr_y;
+          void * element = readStructureFromFile(stream, &type, &next_x, &next_y, shadow_rank);
+          h -> setElement(element, type, j, i, curr_x, curr_y);
+          curr_x += next_x;
+        }
       }
 
-      h -> updateOffsets();
+      h -> updateOffsets(x_init, y_init);
+      *x = h -> getNx_abs();
+      *y = h -> getNy_abs();
       return h;
     }
     else if (buf[0] == 'D')
@@ -648,6 +665,7 @@ void dev_h_element::print (std :: vector <int> &indices) const
   std :: cout << "(" << abs_y << ", " << abs_x << ") ";
   for (int i : indices) 
   { std::cout << i << ' '; }
+  std :: cout << std::endl;
 
   if (d != nullptr) { d -> print(); }
   if (lr != nullptr) { lr -> print(); }

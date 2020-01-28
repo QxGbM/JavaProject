@@ -40,7 +40,7 @@ public:
 
   int getRank() const;
 
-  void setElement (void * element_in, element_t type_in);
+  void setElement (void * element_in, element_t type_in, const int abs_x_in, const int abs_y_in);
 
   real_t getElement (const int y_in, const int x_in) const;
 
@@ -105,6 +105,8 @@ public:
   cudaError_t loadBinary (FILE * stream, const bool reverse_bytes = true);
 
   static void * readStructureFromFile (FILE * stream, element_t * type, const int shadow_rank = _SHADOW_RANK);
+
+  static void * readStructureFromFile (FILE * stream, element_t * type, int * x, int * y, const int shadow_rank = _SHADOW_RANK);
 
   void print(std :: vector <int> &indices) const;
 
