@@ -18,7 +18,7 @@ private:
 
   void update_entry (const int entry_in, const int y, const int x);
 
-  void clear_entries(const int y, const int x, const int ny = 1, const int nx = 1);
+  void clear_entries (const int y, const int x, const int ny = 1, const int nx = 1);
 
 public:
 

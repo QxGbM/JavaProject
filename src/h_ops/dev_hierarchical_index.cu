@@ -14,6 +14,7 @@ h_index::h_index()
   type = empty;
   nx = ny = ld_x = ld_y = 0;
   offset_x = offset_y = rank = 0;
+  abs_x = abs_y = 0;
   n_ptrs = 0;
   data_ptrs = nullptr;
   tmp_id = -1;
@@ -31,6 +32,8 @@ h_index::h_index (const h_index * index)
   offset_x = index -> offset_x;
   offset_y = index -> offset_y;
   rank = index -> rank;
+  abs_x = index -> abs_x;
+  abs_y = index -> abs_y;
 
   n_ptrs = index -> n_ptrs;
   tmp_id = index -> tmp_id;
@@ -45,7 +48,7 @@ h_index::h_index (const h_index * index)
   { data_ptrs[i] = (index -> data_ptrs)[i]; }
 }
 
-h_index::h_index (const dev_hierarchical * h)
+h_index::h_index (const dev_hierarchical * h, const int abs_y_in, const int abs_x_in)
 {
   index_lvls = 0;
   indexs = nullptr;
@@ -55,6 +58,8 @@ h_index::h_index (const dev_hierarchical * h)
   ny = h -> getNy_abs();
   ld_x = ld_y = 0;
   offset_x = offset_y = rank = 0;
+  abs_x = abs_x_in;
+  abs_y = abs_y_in;
 
   n_ptrs = 0;
   data_ptrs = nullptr;
@@ -79,6 +84,7 @@ h_index::h_index (const dev_hierarchical * h, const h_index * index, const int y
   ny = element -> getNy();
 
   offset_x = offset_y = 0;
+  element -> getAbs(&abs_x, &abs_y);
 
   if (type == hierarchical)
   {
@@ -135,6 +141,9 @@ h_index::h_index (const h_index * index, const int y_start, const int x_start, c
   offset_y = index -> offset_y + y_start;
   rank = index -> rank;
 
+  abs_x = index -> abs_x + x_start;
+  abs_y = index -> abs_y + y_start;
+
   n_ptrs = index -> n_ptrs;
   data_ptrs = (n_ptrs > 0) ? new void * [n_ptrs] : nullptr;
   tmp_id = index -> tmp_id;
@@ -143,44 +152,6 @@ h_index::h_index (const h_index * index, const int y_start, const int x_start, c
   { data_ptrs[i] = (index -> data_ptrs)[i]; }
 
   root_ptr = index -> root_ptr;
-}
-
-h_index::h_index (const dev_dense * d)
-{
-  index_lvls = 0;
-  indexs = nullptr;
-  type = dense;
-  nx = d -> getNx();
-  ny = d -> getNy();
-  ld_x = d -> getLd();
-  ld_y = 0;
-  offset_x = offset_y = rank = 0;
-  n_ptrs = 3;
-  data_ptrs = new void * [1];
-  data_ptrs[0] = d -> getElements();
-  data_ptrs[1] = d -> getShadow_U();
-  data_ptrs[2] = d -> getShadow_VT();
-  tmp_id = -1;
-  root_ptr = d;
-}
-
-h_index::h_index (const dev_low_rank * lr)
-{
-  index_lvls = 0;
-  indexs = nullptr;
-  type = low_rank;
-  nx = lr -> getNx();
-  ny = lr -> getNy();
-  ld_x = lr -> getVT() -> getLd();
-  ld_y = lr -> getUxS() -> getLd();
-  offset_x = offset_y = 0;
-  rank = lr -> getRank();
-  n_ptrs = 2;
-  data_ptrs = new void * [2];
-  data_ptrs[0] = lr -> getElements();
-  data_ptrs[1] = lr -> getElements(ny * rank);
-  tmp_id = -1;
-  root_ptr = nullptr;
 }
 
 h_index::~h_index ()
@@ -280,6 +251,8 @@ h_index * h_index::clone (h_index * addr) const
     addr -> offset_x = offset_x;
     addr -> offset_y = offset_y;
     addr -> rank = rank;
+    addr -> abs_x = abs_x;
+    addr -> abs_y = abs_y;
 
     addr -> n_ptrs = n_ptrs;
     addr -> tmp_id = tmp_id;
@@ -424,6 +397,11 @@ int h_index::getDataPointers (void ** data_ptrs_in, void ** tmp_ptrs) const
   }
 
   return iters;
+}
+
+void h_index::getAbs (int * abs_x_out, int * abs_y_out, int * nx_out, int * ny_out)
+{ 
+  * abs_x_out = abs_x; * abs_y_out = abs_y; * nx_out = nx; * ny_out = ny; 
 }
 
 bool h_index::isDense () const

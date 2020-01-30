@@ -55,7 +55,7 @@ bool dev_hierarchical::updateOffsets (const int abs_x, const int abs_y)
   { 
     x_offsets[x] = accum;
     for (int y = 0; y < ny; y++)
-    { elements[y * nx + x].setAbs(y_offsets[y] + abs_y, accum + abs_x); }
+    { elements[y * nx + x].setAbs(accum + abs_x, y_offsets[y] + abs_y); }
     accum += elements[x].getNx();
   }
   x_offsets[nx] = accum;
@@ -132,7 +132,7 @@ dev_dense * dev_hierarchical::convertToDense() const
 }
 
 h_index * dev_hierarchical::getRootIndex () const
-{ return new h_index (this); }
+{ return new h_index (this, 0, 0); }
 
 h_ops_tree * dev_hierarchical::generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr) const
 {

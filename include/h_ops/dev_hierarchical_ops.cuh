@@ -43,6 +43,10 @@ public:
 
   long long int getFlops (long long int * trim);
 
+  void getAbs_rw (const int index, int * abs_x_out, int * abs_y_out, int * nx_out, int * ny_out);
+
+  void getAbs_ro (const int index, int * abs_x_out, int * abs_y_out, int * nx_out, int * ny_out);
+
   static int getTmpSize_ACCM_LR (int * offset1, int * offset2, const int nx, const int ny, const int rank1);
 
   static int getControl_GEMM_3x (int * t_size, const int m, const int n, const int k, const int l);

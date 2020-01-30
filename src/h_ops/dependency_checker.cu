@@ -82,7 +82,7 @@ void matrix_painter::clear_entries (const int y, const int x, const int ny, cons
 int matrix_painter::lookup_one (const int y, const int x) const
 {
   if (y >= ny || x >= nx || y < 0 || x < 0) 
-  { std :: cout << "Invalid Input at Matrix-Painter Lookup @" << y << ", " << x << "." << std ::endl; return -1; }
+  { return -1; }
   else if (entry.size() == 0)
   { return -1; }
 
@@ -104,7 +104,7 @@ int matrix_painter::lookup_one (const int y, const int x) const
 std :: vector <int> * matrix_painter::lookup (const int y, const int x, const int ny, const int nx) const
 {
   if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0) 
-  { std :: cout << "Invalid Input at Matrix-Painter Lookup @" << y << ", " << x << "." << std ::endl; return nullptr; }
+  { return nullptr; }
   else if (entry.size() == 0)
   { return nullptr; }
 
@@ -121,7 +121,7 @@ std :: vector <int> * matrix_painter::lookup (const int y, const int x, const in
     if (n > 0)
     for (int j = 0; j < nx && j < (this -> nx - x); j++)
     {
-      if (count < n && * (std :: next(iter_col)) <= j + x)
+      while (count < n && * (std :: next(iter_col)) <= j + x)
       { iter_col++; iter_entry++; count++; }
 
       if (j + x >= * iter_col)
@@ -129,7 +129,7 @@ std :: vector <int> * matrix_painter::lookup (const int y, const int x, const in
     }
 
     for (int j : tmp)
-    { if (j > 0) { set.insert(j); } }
+    { if (j >= 0) { set.insert(j); } }
   }
 
   return set.size() > 0  ? new std :: vector <int> (set.begin(), set.end()) : nullptr; 
@@ -140,7 +140,7 @@ std :: vector <int> * matrix_painter::lookup (const int y, const int x, const in
 void matrix_painter::update (const int entry, const int y, const int x, const int ny, const int nx)
 {
   if (y >= this -> ny || x >= this -> nx || y < 0 || x < 0) 
-  { std :: cout << "Invalid Input at Matrix-Painter Update." << std ::endl; return; }
+  { return; }
 
   std::vector <int> inst_y = std::vector <int> (ny, -1);
   std::vector <int> inst_x = std::vector <int> (nx, -1);

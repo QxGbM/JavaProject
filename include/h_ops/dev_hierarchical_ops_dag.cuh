@@ -19,6 +19,8 @@ private:
   dependency_linked_list ** deps_graph_from;
   dependency_linked_list ** deps_graph_to;
 
+  void build(const int nx, const int ny);
+
 public:
 
   h_ops_dag (const h_ops_tree * ops, const int start_index = 0, const int length_max = 0);
@@ -44,6 +46,8 @@ public:
   long long int getFlops_Trim (const int index = -1) const;
 
   void print() const;
+
+  double dag_density() const;
   
 };
 

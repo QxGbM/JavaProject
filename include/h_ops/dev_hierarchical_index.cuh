@@ -20,6 +20,8 @@ private:
   int offset_x;
   int offset_y;
   int rank;
+  int abs_x;
+  int abs_y;
 
   int n_ptrs;
   void ** data_ptrs;
@@ -33,15 +35,11 @@ public:
 
   h_index(const h_index * index);
 
-  h_index(const dev_hierarchical * h);
+  h_index(const dev_hierarchical * h, const int abs_y_in, const int abs_x_in);
 
   h_index(const dev_hierarchical * h, const h_index * index, const int y, const int x);
 
   h_index(const h_index * index, const int y_start, const int x_start, const int ny_block, const int nx_block);
-
-  h_index(const dev_dense * d);
-
-  h_index(const dev_low_rank * lr);
 
   ~h_index();
 
@@ -96,6 +94,8 @@ public:
   int getMinRank (const h_index * index, bool * a = nullptr) const;
 
   int getDataPointers (void ** data_ptrs_in, void ** tmp_ptrs) const;
+
+  void getAbs (int * abs_x_out, int * abs_y_out, int * nx_out, int * ny_out);
 
   bool isDense () const;
 

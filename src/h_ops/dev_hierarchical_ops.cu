@@ -888,6 +888,22 @@ long long int h_ops::getFlops (long long int * trim)
   }
 }
 
+void h_ops::getAbs_rw (const int index, int * abs_x_out, int * abs_y_out, int * nx_out, int * ny_out)
+{
+  if (index < n_rw)
+  { read_and_write[index].getAbs(abs_x_out, abs_y_out, nx_out, ny_out); }
+  else
+  { * abs_x_out = -1; * abs_y_out = -1; * nx_out = 0; * ny_out = 0; }
+}
+
+void h_ops::getAbs_ro (const int index, int * abs_x_out, int * abs_y_out, int * nx_out, int * ny_out)
+{
+  if (index < n_ro)
+  { read_only[index].getAbs(abs_x_out, abs_y_out, nx_out, ny_out); }
+  else
+  { * abs_x_out = -1; * abs_y_out = -1; * nx_out = 0; * ny_out = 0; }
+}
+
 int h_ops::getTmpSize_ACCM_LR (int * offset1, int * offset2, const int nx, const int ny, const int rank1)
 {
   const int size_1 = ny * rank1, size_2 = nx * rank1, size_3 = ny * rank1;

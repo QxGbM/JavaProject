@@ -53,7 +53,7 @@ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, in
   clock_end = omp_get_wtime();
   clock_lapse = clock_end - clock_start;
   clock_total += clock_lapse;
-  printf("DAG Created in %f ms.\n", 1000. * clock_lapse); //dag.print();
+  printf("DAG Created in %f ms.\n", 1000. * clock_lapse); dag.print(); std::cout << "Density: " << dag.dag_density() << std::endl;
 
   clock_start = omp_get_wtime();
   * schedule_addr = new instructions_scheduler (&dag, workers);
@@ -168,7 +168,7 @@ cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, cons
     error = launchKernelWithArgs (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, clocks, workers, num_threads, main_stream);
     myTimer.newEvent(event_name, end, main_stream);
 
-    schedule -> analyzeClocks(clocks);
+    //schedule -> analyzeClocks(clocks);
     delete schedule;
   }
 
