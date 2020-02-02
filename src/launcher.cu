@@ -53,7 +53,8 @@ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, in
   clock_end = omp_get_wtime();
   clock_lapse = clock_end - clock_start;
   clock_total += clock_lapse;
-  printf("DAG Created in %f ms.\n", 1000. * clock_lapse); dag.print(); std::cout << "Density: " << dag.dag_density() << std::endl;
+  printf("DAG Created in %f ms.\n", 1000. * clock_lapse); //dag.print(); 
+  std::cout << "Density: " << dag.dag_density() << std::endl;
 
   clock_start = omp_get_wtime();
   * schedule_addr = new instructions_scheduler (&dag, workers);
