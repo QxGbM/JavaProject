@@ -11,6 +11,27 @@ public class ClusterBasis {
     children = null;
   }
 
+  public ClusterBasis (Matrix m) {
+    basis = m.copy();
+    children = null;
+  }
+
+  public ClusterBasis (Dense d, int sample_rank) {
+    Matrix[] rsv = d.rsvd(sample_rank);
+    basis = rsv[0];
+    children = null;
+  }
+
+  public ClusterBasis (Hierarchical h, int sample_rank) {
+    basis = null;
+    children = new ClusterBasis[h.getNRowBlocks()];
+
+    children[0] = new ClusterBasis (h.getElement(0, 1).toDense(), sample_rank);
+
+    for (int i = 1; i < h.getNRowBlocks(); i++)
+    { children[1] = new ClusterBasis (h.getElement(i, 0).toDense(), sample_rank); }
+  }
+
   public int getRowDimension () {
     if (basis == null)
     return 0;
@@ -33,6 +54,14 @@ public class ClusterBasis {
     return children[0].getColDimension();
   }
 
+  public boolean hasChildren () {
+    return children != null;
+  }
+
+  public ClusterBasis[] getChildren() {
+    return children;
+  }
+
   public void setBasis (Matrix m) {
     basis = m.copy();
   }
@@ -41,22 +70,6 @@ public class ClusterBasis {
     children = new ClusterBasis[b.length];
     for (int i = 0; i < b.length; i++)
     children[i] = b[i];
-  }
-
-  public void applyLeft (Dense d) {
-    d = new Dense(toMatrix().times(d).getArray());
-  }
-
-  public void solveLeft (Dense d) {
-    d = new Dense(toMatrix().transpose().times(d).getArray());
-  }
-
-  public void applyRight (Dense d) {
-    d = new Dense(d.times(toMatrix()).getArray());
-  }
-
-  public void solveRight (Dense d) {
-    d = new Dense(d.times(toMatrix().transpose()).getArray());
   }
 
   public Matrix toMatrix () {
@@ -79,31 +92,6 @@ public class ClusterBasis {
 
   public void print (int w, int d) {
     toMatrix().print(w, d);
-  }
-
-  public static Matrix[] checkerlize (Matrix m, Matrix ql, Matrix qr, int[] joints) {
-    Matrix[] list = new Matrix[joints.length + 1];
-    Matrix temp = m.copy();
-    for (int i = 0; i <= joints.length; i++) {
-      int start = i == 0 ? 0 : joints[i - 1], end = i == joints.length ? m.getRowDimension() - 1 : joints[i] - 1;
-      Matrix left = ql.getMatrix(0, ql.getRowDimension() - 1, start, end), right = qr.getMatrix(start, end, 0, qr.getColumnDimension() - 1);
-      list[i] = left.transpose().times(temp).times(right.transpose());
-      temp.minusEquals(left.times(list[i]).times(right));
-      System.out.println("rank" + temp.rank());
-    }
-    return list;
-  }
-
-  public static Matrix uncheckerlize (Matrix[] checkers, Matrix ql, Matrix qr) {
-    Matrix result_m = new Matrix(ql.getRowDimension(), qr.getColumnDimension());
-    int start = 0, end;
-    for (int i = 0; i < checkers.length; i++) {
-      end = start + checkers[i].getRowDimension() - 1;
-      Matrix left = ql.getMatrix(0, ql.getRowDimension() - 1, start, end), right = qr.getMatrix(start, end, 0, qr.getColumnDimension() - 1);
-      result_m.plusEquals(left.times(checkers[i]).times(right));
-      start = end + 1;
-    }
-    return result_m;
   }
 
 }

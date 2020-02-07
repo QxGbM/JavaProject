@@ -14,9 +14,9 @@ public class LowRank implements Block {
     VT = new Matrix(n, r);
   }
 
-  public LowRank (Dense d, Matrix row_basis, Matrix col_basis) {
-    U = row_basis; VT = col_basis;
-    S = row_basis.transpose().times(d).times(col_basis);
+  public LowRank (Matrix row_basis, Matrix d) {
+    U = row_basis; VT = d;
+    S = Matrix.identity(row_basis.getColumnDimension(), d.getColumnDimension());
   }
 
   @Override

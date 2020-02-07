@@ -136,6 +136,7 @@ public class Dense extends Matrix implements Block
     return h;
   }
 
+  @Override
   public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond) {
     double row_err = row_basis.times(row_basis.transpose()).times(this).minus(this).normF();
     double col_err = times(col_basis).times(col_basis.transpose()).minus(this).normF();
@@ -274,37 +275,6 @@ public class Dense extends Matrix implements Block
     list[3] = row_null_space.transpose().times(this).times(col_null_space);
     return list;
   }
-
-  public ClusterBasis[] generateClusterBasis (int dim) {
-    int m = getRowDimension() / dim, n = getColumnDimension() / dim;
-    ClusterBasis row_col[] = new ClusterBasis[2];
-
-    row_col[0] = new ClusterBasis();
-    row_col[1] = new ClusterBasis();
-
-    ClusterBasis list[] = new ClusterBasis[m];
-    for (int i = 0; i < m; i++)
-    {
-      Matrix blocks = getMatrix(i * dim, (i + 1) * dim - 1, 0, getColumnDimension() - 1);
-      //Matrix Q = blocks.times(random(getColumnDimension(), dim)).qr().getQ();
-      Matrix Q = blocks.svd().getU();
-      list[i].setBasis(Q);
-    }
-    row_col[0].setChildren(list);
-
-    list = new ClusterBasis[n];
-    for (int i = 0; i < n; i++)
-    {
-      Matrix blocks = getMatrix(0, getRowDimension() - 1, i * dim, (i + 1) * dim - 1).transpose();
-      //Matrix Q = blocks.times(random(getRowDimension(), dim)).qr().getQ();
-      Matrix Q = blocks.svd().getU();
-      list[i].setBasis(Q);
-    }
-    row_col[1].setChildren(list);
-
-    return row_col;
-  }
-
 
 
 }

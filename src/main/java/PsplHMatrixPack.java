@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 4, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level), admis = 1;
+    int level = 2, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level), admis = 1;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;
@@ -65,6 +65,11 @@ public class PsplHMatrixPack {
     if (integrity && (write_d || write_h))
     try {
       Dense d = Dense.generateDense(dim, dim, 0, 0, testFunc);
+
+      UniformHierarchical uh = new UniformHierarchical(d, 2, 2, 16, 64);
+
+
+      System.out.println(uh.toDense().minus(d).normF());
 
       if (write_h)
       {
