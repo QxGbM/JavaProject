@@ -36,7 +36,7 @@ public class UniformHierarchical implements Block {
         Matrix t = basis_m.transpose().times(d_ij);
         double err = basis_m.times(t).minus(d_ij).normF() / d_ij.getRowDimension() / d_ij.getColumnDimension();
 
-        if (err <= 1.e-10) {
+        if (err <= 1.e-12) {
           e[i][j] = new LowRank(basis_m, t.transpose());
         }
         else if (d_ij.getRowDimension() <= min_block_size && d_ij.getColumnDimension() <= min_block_size) {
@@ -59,6 +59,7 @@ public class UniformHierarchical implements Block {
 
   public UniformHierarchical (Dense d, int m, int n, int sample_rank, int min_block_size) {
     this(d, new ClusterBasis(), m, n, sample_rank, min_block_size);
+    row_basis.convertTrans_children();
   }
 
   public int getNRowBlocks()

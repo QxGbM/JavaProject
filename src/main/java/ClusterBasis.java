@@ -22,36 +22,26 @@ public class ClusterBasis {
     children = null;
   }
 
-  public ClusterBasis (Hierarchical h, int sample_rank) {
-    basis = null;
-    children = new ClusterBasis[h.getNRowBlocks()];
-
-    children[0] = new ClusterBasis (h.getElement(0, 1).toDense(), sample_rank);
-
-    for (int i = 1; i < h.getNRowBlocks(); i++)
-    { children[1] = new ClusterBasis (h.getElement(i, 0).toDense(), sample_rank); }
-  }
-
   public int getRowDimension () {
-    if (basis == null)
-    return 0;
-    else if (children == null)
-    return basis.getRowDimension();
-    else { 
+    if (children != null) {
       int rows = 0; 
       for (int i = 0; i < children.length; i++)
       rows += children[i].getRowDimension();
       return rows;
     }
+    else if (basis == null)
+    return 0;
+    else
+    return basis.getRowDimension();
   }
 
   public int getColDimension () {
-    if (basis == null)
-    return 0;
-    else if (children == null)
-    return basis.getRowDimension();
-    else 
+    if (children != null)
     return children[0].getColDimension();
+    else if (basis == null)
+    return 0;
+    else
+    return basis.getColumnDimension();
   }
 
   public boolean hasChildren () {
@@ -69,7 +59,33 @@ public class ClusterBasis {
   public void setChildren (ClusterBasis[] b) {
     children = new ClusterBasis[b.length];
     for (int i = 0; i < b.length; i++)
-    children[i] = b[i];
+    { children[i] = b[i]; }
+  }
+
+  public Matrix convertTrans() {
+    if (children != null && basis != null && getRowDimension() == basis.getRowDimension() && getColDimension() == basis.getColumnDimension()) {
+      Matrix result_b = new Matrix (basis.getRowDimension(), basis.getColumnDimension());
+      int row = 0;
+      for (int i = 0; i < children.length; i++) { 
+        int rows = children[i].getRowDimension();
+        Matrix c_i = children[i].convertTrans();
+        result_b.setMatrix(row, row + rows - 1, 0, basis.getColumnDimension() - 1, c_i);
+        row += rows;
+      }
+      Matrix old = basis.copy();
+      basis = old.transpose().times(result_b);
+      return old;
+    }
+    else {
+      return basis;
+    }
+  }
+
+  public Matrix[] convertTrans_children() {
+    Matrix[] list = new Matrix[children.length];
+    for (int i = 0; i < children.length; i++)
+    { list[i] = children[i].convertTrans(); }
+    return list;
   }
 
   public Matrix toMatrix () {
