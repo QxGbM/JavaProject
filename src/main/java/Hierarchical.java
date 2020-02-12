@@ -160,6 +160,21 @@ public class Hierarchical implements Block {
     }
   }
 
+  @Override
+  public void LU () {
+    
+  }
+
+  @Override
+  public void triangularSolve (Block b, boolean up_low) {
+
+  }
+
+  @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
+
+  }
+
   public Block getElement (int m, int n)
   { return e[m][n]; }
 

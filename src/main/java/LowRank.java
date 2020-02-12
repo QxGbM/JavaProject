@@ -177,14 +177,38 @@ public class LowRank implements Block {
   public void print (int w, int d)
   { U.print(w, d); S.print(w, d); VT.print(w, d); }
 
+  @Override
+  public void LU () {
+    System.out.println("error LU on LR");
+  }
+
+  @Override
+  public void triangularSolve (Block b, boolean up_low) {
+
+  }
+
+  @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
+
+  }
+
   public void setU (Matrix U)
-  { this.U.setMatrix(0, getRowDimension() - 1, 0, getRank() - 1, U); }
+  { this.U = new Matrix(U.getArray()); }
 
   public void setS (Matrix S)
-  { this.S.setMatrix(0, getRank() - 1, 0, getRank() - 1, S); }
+  { this.S = new Matrix(S.getArray()); }
 
   public void setVT (Matrix VT)
-  { this.VT.setMatrix(0, getColumnDimension() - 1, 0, getRank() - 1, VT); }
+  { this.VT = new Matrix(VT.getArray()); }
+
+  public Matrix getU ()
+  { return U; }
+
+  public Matrix getS ()
+  { return S; }
+  
+  public Matrix getVT ()
+  { return VT; }
 
   public static LowRank readFromFile (String name) throws IOException {
     BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));

@@ -2,6 +2,7 @@
 import java.io.*;
 import java.nio.ByteBuffer;
 
+import Jama.LUDecomposition;
 import Jama.Matrix;
 import Jama.QRDecomposition;
 import Jama.SingularValueDecomposition;
@@ -237,6 +238,27 @@ public class Dense extends Matrix implements Block
     else
     { return null; }
 
+
+  }
+
+  @Override
+  public void LU () {
+    LUDecomposition lu_ = lu();
+    Matrix L = lu_.getL(), U = lu_.getU();
+    for (int i = 0; i < getRowDimension(); i++) {
+      for (int j = 0; j < getColumnDimension(); j++) {
+        set(i, j, i > j ? L.get(i, j) : U.get(i, j));
+      }
+    }
+  }
+
+  @Override
+  public void triangularSolve (Block b, boolean up_low) {
+
+  }
+
+  @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
 
   }
 

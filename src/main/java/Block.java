@@ -35,6 +35,12 @@ public interface Block {
 
   abstract public void print (int w, int d);
 
+  abstract public void LU ();
+
+  abstract public void triangularSolve (Block b, boolean up_low);
+  
+  abstract public void GEMatrixMult (Block a, Block b, double alpha, double beta);
+
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();
     String[] args = str.split("\\s+");
