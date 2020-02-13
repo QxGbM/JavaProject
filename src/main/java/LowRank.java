@@ -184,12 +184,20 @@ public class LowRank implements Block {
 
   @Override
   public void triangularSolve (Block b, boolean up_low) {
-
+    if (up_low)
+    { setU(U.solve(b.toDense().getL())); }
+    else
+    { setVT(VT.transpose().solveTranspose(b.toDense().getU())); }
   }
 
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
-
+    Dense d = toDense();
+    d.GEMatrixMult(a, b, alpha, beta);
+    LowRank lr = d.toLowRank();
+    setU(lr.getU());
+    setS(lr.getS());
+    setVT(lr.getVT());
   }
 
   public void setU (Matrix U)
