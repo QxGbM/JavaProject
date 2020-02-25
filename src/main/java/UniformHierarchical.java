@@ -4,8 +4,10 @@ import java.io.*;
 
 public class UniformHierarchical implements Block {
 
-  ClusterBasis row_basis;
-  Block e[][];
+  private ClusterBasis row_basis;
+  private Block e[][];
+  private int x_start = 0;
+  private int y_start = 0;
 
   public UniformHierarchical (int m, int n) {
     e = new Block[m][n];
@@ -60,6 +62,22 @@ public class UniformHierarchical implements Block {
   public UniformHierarchical (Dense d, int m, int n, int sample_rank, int min_block_size) {
     this(d, new ClusterBasis(), m, n, sample_rank, min_block_size);
     row_basis.convertTrans_children();
+  }
+
+  @Override
+  public int getXCenter() {
+    return x_start + getRowDimension() / 2;
+  }
+
+  @Override
+  public int getYCenter() {
+    return y_start + getColumnDimension() / 2;
+  }
+
+  @Override
+  public void setClusterStart (int x_start, int y_start) {
+    this.x_start = x_start;
+    this.y_start = y_start;
   }
 
   public int getNRowBlocks()

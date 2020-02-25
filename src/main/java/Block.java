@@ -5,6 +5,12 @@ public interface Block {
 
   enum Block_t { DENSE, LOW_RANK, HIERARCHICAL }
 
+  abstract public int getXCenter();
+
+  abstract public int getYCenter();
+
+  abstract public void setClusterStart(int x_start, int y_start);
+
   abstract public int getRowDimension();
 
   abstract public int getColumnDimension();

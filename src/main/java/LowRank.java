@@ -7,6 +7,8 @@ import Jama.Matrix;
 public class LowRank implements Block {
 		
   private Matrix U, S, VT;
+  private int x_start = 0;
+  private int y_start = 0;
 
   public LowRank (int m, int n, int r) {
     U = new Matrix(m, r);
@@ -18,6 +20,23 @@ public class LowRank implements Block {
     U = row_basis; VT = d;
     S = Matrix.identity(row_basis.getColumnDimension(), d.getColumnDimension());
   }
+
+  @Override
+  public int getXCenter() {
+    return x_start + getRowDimension() / 2;
+  }
+
+  @Override
+  public int getYCenter() {
+    return y_start + getColumnDimension() / 2;
+  }
+
+  @Override
+  public void setClusterStart (int x_start, int y_start) {
+    this.x_start = x_start;
+    this.y_start = y_start;
+  }
+
 
   @Override
   public int getRowDimension() 
@@ -37,6 +56,7 @@ public class LowRank implements Block {
   @Override
   public Dense toDense() {
     Dense d = new Dense(getRowDimension(), getColumnDimension());
+    d.setClusterStart(x_start, y_start);
     d.plusEquals(U.times(S).times(VT.transpose()));
     return d;
   }
@@ -48,6 +68,7 @@ public class LowRank implements Block {
   @Override
   public Hierarchical toHierarchical (int m, int n) {
     Hierarchical h = new Hierarchical(m, n);
+    h.setClusterStart(x_start, y_start);
     int i0 = 0, r = getRank();
     int step_i = (getRowDimension() - m + 1) / m, step_j = (getColumnDimension() - n + 1) / n;
 
@@ -74,6 +95,7 @@ public class LowRank implements Block {
   public Hierarchical toHierarchical (int level, int m, int n)
   {
     Hierarchical h = toHierarchical(m, n);
+    h.setClusterStart(x_start, y_start);
     if (level > 1) {
       for (int i = 0; i < h.getNRowBlocks(); i++) {
         for (int j = 0; j < h.getNColumnBlocks(); j++) {

@@ -4,9 +4,38 @@ import Jama.Matrix;
 public class Hierarchical implements Block {
 
   private Block e[][];
+  private int x_start = 0;
+  private int y_start = 0;
 
   public Hierarchical (int m, int n)
   { e = new Block[m][n]; }
+
+  public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
+    int m_block = m / part_strat, n_block = n / part_strat;
+    int m_remain = m - (part_strat - 1) * m_block, n_remain = n - (part_strat - 1) * n_block;
+
+    e = new Block[part_strat][part_strat];
+
+    for (int i = 0; i < part_strat; i++) {
+      int m_e = i == part_strat - 1 ? m_remain : m_block;
+      int y_e = y_start + m_block * i;
+
+      for (int j = 0; j < part_strat; j++) {
+        int n_e = j == part_strat - 1 ? n_remain : n_block;
+        int x_e = x_start + n_block * j;
+
+        boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
+
+        if (admisible)
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank(); }
+        else if (m_e <= nleaf || n_e <= nleaf)
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
+        else
+        { e[i][j] = new Hierarchical(m_e, n_e, nleaf, part_strat, admis, y_e, x_e, func); }
+
+      }
+    }
+  }
 
   public int getNRowBlocks()
   { return e.length; }
@@ -16,6 +45,22 @@ public class Hierarchical implements Block {
 
   public Block[][] getElements ()
   { return e; }
+
+  @Override
+  public int getXCenter() {
+    return x_start + getRowDimension() / 2;
+  }
+
+  @Override
+  public int getYCenter() {
+    return y_start + getColumnDimension() / 2;
+  }
+
+  @Override
+  public void setClusterStart (int x_start, int y_start) {
+    this.x_start = x_start;
+    this.y_start = y_start;
+  }
 
   @Override
   public int getRowDimension() {
@@ -40,6 +85,7 @@ public class Hierarchical implements Block {
   @Override
   public Dense toDense() {
     Dense d = new Dense(getRowDimension(), getColumnDimension());
+    d.setClusterStart(x_start, y_start);
     int i0 = 0;
 
     for (int i = 0; i < getNRowBlocks(); i++) {
@@ -73,6 +119,7 @@ public class Hierarchical implements Block {
   public Hierarchical toHierarchical (int level, int m, int n)
   {
     Hierarchical h = toHierarchical(m, n);
+    h.setClusterStart(x_start, y_start);
     if (level > 1) {
       for (int i = 0; i < h.getNRowBlocks(); i++) {
         for (int j = 0; j < h.getNColumnBlocks(); j++) {
@@ -225,6 +272,7 @@ public class Hierarchical implements Block {
 
   public static Hierarchical buildHMatrix (int level, int nblocks, int nleaf, int nleaf_max, int admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
     Hierarchical h = new Hierarchical(nblocks, nblocks);
+    h.setClusterStart(x_start, y_start);
     int old_x_start = x_start, blockSize = nleaf * (int) Math.pow(nblocks, level);
 
     for (int i = 0; i < nblocks; i++) {
@@ -237,10 +285,10 @@ public class Hierarchical implements Block {
           h.e[i][j] = buildHMatrix (level - 1, nblocks, nleaf, nleaf_max, admis, y_start, x_start, func); 
         }
         else if (level <= 0 && admisLeaf) { 
-          h.e[i][j] = Dense.generateDense (nleaf, nleaf, y_start, x_start, func); 
+          h.e[i][j] = new Dense (nleaf, nleaf, y_start, x_start, func); 
         }
         else {
-          Dense d = Dense.generateDense (blockSize, blockSize, y_start, x_start, func);
+          Dense d = new Dense (blockSize, blockSize, y_start, x_start, func);
           LowRank lr = d.toLowRank();
 
           int e_level = 0, e_block = blockSize;

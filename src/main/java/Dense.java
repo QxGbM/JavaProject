@@ -10,6 +10,8 @@ import Jama.SingularValueDecomposition;
 public class Dense extends Matrix implements Block 
 {
   private static final long serialVersionUID = 1;
+  private int x_start = 0;
+  private int y_start = 0;
 
   public Dense (double[][] A)
   { super(A); }
@@ -23,8 +25,38 @@ public class Dense extends Matrix implements Block
   public Dense (int m, int n)
   { super(m, n); }
 
+  public Dense (int m, int n, int y_start, int x_start, PsplHMatrixPack.dataFunction func)
+  {
+    super(m, n);
+    this.x_start = x_start;
+    this.y_start = y_start;
+    double data[][] = getArray();
+
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++)
+      { data[i][j] = func.body(i, j, y_start, x_start); }
+    }
+
+  }
+
   public Dense (int m, int n, double s)
   { super(m, n, s); }
+
+  @Override
+  public int getXCenter() {
+    return x_start + getRowDimension() / 2;
+  }
+
+  @Override
+  public int getYCenter() {
+    return y_start + getColumnDimension() / 2;
+  }
+
+  @Override
+  public void setClusterStart (int x_start, int y_start) {
+    this.x_start = x_start;
+    this.y_start = y_start;
+  }
 
   @Override
   public int getRowDimension() 
@@ -69,6 +101,7 @@ public class Dense extends Matrix implements Block
     SingularValueDecomposition svd_ = R.svd();
 
     LowRank lr = new LowRank (m, n, r);
+    lr.setClusterStart(x_start, y_start);
     lr.setU(Q.times(svd_.getV()));
     lr.setS(svd_.getS());
     lr.setVT(V.times(svd_.getU()));
@@ -106,6 +139,7 @@ public class Dense extends Matrix implements Block
   @Override
   public Hierarchical toHierarchical (int m, int n) {
     Hierarchical h = new Hierarchical(m, n);
+    h.setClusterStart(x_start, y_start);
     int i0 = 0;
     int step_i = (getRowDimension() - m + 1) / m, step_j = (getColumnDimension() - n + 1) / n;
 
@@ -127,6 +161,7 @@ public class Dense extends Matrix implements Block
   public Hierarchical toHierarchical (int level, int m, int n)
   {
     Hierarchical h = toHierarchical(m, n);
+    h.setClusterStart(x_start, y_start);
     if (level > 1) {
       for (int i = 0; i < h.getNRowBlocks(); i++) {
         for (int j = 0; j < h.getNColumnBlocks(); j++) {
@@ -260,18 +295,6 @@ public class Dense extends Matrix implements Block
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
 
-  }
-
-  public static Dense generateDense (int m, int n, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
-    Dense d = new Dense(m, n);
-    double data[][] = d.getArray();
-
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < n; j++)
-      { data[i][j] = func.body(i, j, y_start, x_start); }
-    }
-
-    return d;
   }
 
   public Matrix[] projection (Matrix row_basis, Matrix col_basis) {
