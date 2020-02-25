@@ -287,14 +287,41 @@ public class Dense extends Matrix implements Block
     }
   }
 
+  public Matrix getL() {
+    Matrix L = new Matrix(getArray());
+    for (int i = 0; i < getRowDimension(); i++) {
+      L.set(i, i, 1);
+      for (int j = i + 1; j < getColumnDimension(); j++) {
+        L.set(i, j, 0);
+      }
+    }
+    return L;
+  }
+
+  public Matrix getU() {
+    Matrix U = new Matrix(getArray());
+    for (int i = 0; i < getRowDimension(); i++) {
+      for (int j = 0; j < i; j++) {
+        U.set(i, j, 0);
+      }
+    }
+    return U;
+  }
+
   @Override
   public void triangularSolve (Block b, boolean up_low) {
-
+    Matrix m;
+    if (up_low)
+    { m = solve(b.toDense().getL()); }
+    else
+    { m = solveTranspose(b.toDense().getU()); }
+    setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
   }
 
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
-
+    Matrix result = a.toDense().times(alpha).times(b.toDense());
+    times(beta).plusEquals(result);
   }
 
   public Matrix[] projection (Matrix row_basis, Matrix col_basis) {
