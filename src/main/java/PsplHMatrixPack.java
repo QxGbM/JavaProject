@@ -16,7 +16,8 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 2, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level), admis = 1;
+    int level = 2, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
+    double admis = 0.9;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;
@@ -55,7 +56,7 @@ public class PsplHMatrixPack {
     System.out.println("nleaf: " + Integer.toString(nleaf));
     System.out.println("nleaf_max: " + Integer.toString(nleaf_max));
     System.out.println("dim: " + Integer.toString(dim));
-    System.out.println("admis: " + Integer.toString(admis));
+    System.out.println("admis: " + Double.toString(admis));
     System.out.println("rank: " + Integer.toString(rank));
 
     boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
@@ -66,6 +67,14 @@ public class PsplHMatrixPack {
     try {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
+      Dense d2 = new Dense (64, 64, 0, 2048, testFunc);
+      LowRank lr1 = d2.toLowRank();
+      Jama.Matrix u = Dense.getBasisU(0, 64, 16, 0.9, testFunc);
+      Jama.Matrix vt = Dense.getBasisVT(2048, 64, 16, 0.9, testFunc);
+      lr1.useBasis(u, vt);
+      Dense d3 = lr1.toDense();
+      System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);
+
       /*UniformHierarchical uh = new UniformHierarchical(d, 2, 2, 16, 64);
       uh.print(0,3);
 
@@ -73,7 +82,8 @@ public class PsplHMatrixPack {
 
       if (write_h)
       {
-        Hierarchical h = Hierarchical.buildHMatrix(level - 1, nblocks, nleaf, nleaf_max, admis, 0, 0, testFunc);
+        Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
+        //Hierarchical.buildHMatrix(level - 1, nblocks, nleaf, nleaf_max, admis, 0, 0, testFunc);
         double compress = h.getCompressionRatio();
         System.out.println("Storage Compression Ratio: " + Double.toString(compress));
 

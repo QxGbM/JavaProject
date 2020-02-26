@@ -222,6 +222,14 @@ public class LowRank implements Block {
     setVT(lr.getVT());
   }
 
+  public void useBasis (Matrix u, Matrix vt) {
+    Matrix left = u.transpose().times(U);
+    Matrix right_t = vt.transpose().times(VT);
+    S = left.times(S).times(right_t.transpose());
+    U = u;
+    VT = vt;
+  }
+
   public void setU (Matrix U)
   { this.U = new Matrix(U.getArray()); }
 

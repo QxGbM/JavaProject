@@ -324,6 +324,20 @@ public class Dense extends Matrix implements Block
     times(beta).plusEquals(result);
   }
 
+  public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+    int minimal_sep = (int) (2 * admis * m); 
+    Dense d = new Dense(m, rank, y_start, y_start + minimal_sep, func);
+    QRDecomposition qr_ = d.qr();
+    return qr_.getQ();
+  }
+
+  public static Matrix getBasisVT (int x_start, int n, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+    int minimal_sep = (int) (2 * admis * n); 
+    Dense d = new Dense(rank, n, x_start + minimal_sep, x_start, func);
+    QRDecomposition qr_ = d.transpose().qr();
+    return qr_.getQ();
+  }
+
   public Matrix[] projection (Matrix row_basis, Matrix col_basis) {
     Matrix row_projection = row_basis.transpose().times(this);
     Matrix row_nulled = minus(row_basis.times(row_projection));
