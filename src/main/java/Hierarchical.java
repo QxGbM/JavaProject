@@ -270,42 +270,5 @@ public class Hierarchical implements Block {
     return h;
   }
 
-  public static Hierarchical buildHMatrix (int level, int nblocks, int nleaf, int nleaf_max, int admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
-    Hierarchical h = new Hierarchical(nblocks, nblocks);
-    h.setClusterStart(x_start, y_start);
-    int old_x_start = x_start, blockSize = nleaf * (int) Math.pow(nblocks, level);
-
-    for (int i = 0; i < nblocks; i++) {
-      x_start = old_x_start;
-      for (int j = 0; j < nblocks; j++) {
-        int loc = Math.abs(y_start - x_start);
-        boolean admisBlock = loc < admis + blockSize, admisLeaf = loc < (admis + 1) * nleaf;
-
-        if (level > 0 && admisBlock) { 
-          h.e[i][j] = buildHMatrix (level - 1, nblocks, nleaf, nleaf_max, admis, y_start, x_start, func); 
-        }
-        else if (level <= 0 && admisLeaf) { 
-          h.e[i][j] = new Dense (nleaf, nleaf, y_start, x_start, func); 
-        }
-        else {
-          Dense d = new Dense (blockSize, blockSize, y_start, x_start, func);
-          LowRank lr = d.toLowRank();
-
-          int e_level = 0, e_block = blockSize;
-          while (e_block > nleaf_max)
-          { e_level++; e_block /= nblocks; }
-
-          if (e_level > 0)
-          { h.e[i][j] = lr.toHierarchical(e_level, nblocks, nblocks); }
-          else
-          { h.e[i][j] = lr; }
-        }
-        x_start += blockSize;
-      }
-      y_start += blockSize;
-    }
-
-    return h;
-  }
 
 }

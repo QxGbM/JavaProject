@@ -34,7 +34,7 @@ public class Dense extends Matrix implements Block
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++)
-      { data[i][j] = func.body(i, j, y_start, x_start); }
+      { data[i][j] = func.body(y_start + i, x_start + j); }
     }
 
   }

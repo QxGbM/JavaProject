@@ -9,15 +9,15 @@ public class PsplHMatrixPack {
 
   @FunctionalInterface
   public interface dataFunction
-  { public double body (int i, int j, int y_start, int x_start); }
+  { public double body (int i, int j); }
 
-  static final dataFunction testFunc = (int i, int j, int y_start, int x_start) -> 
-  { return 1. / (1. + Math.abs((y_start + i) - (x_start + j))); };
+  static final dataFunction testFunc = (int i, int j) -> 
+  { return 1. / (1. + Math.abs(i - j)); };
   
   public static void main (String args[]) {
 
     int level = 2, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
-    double admis = 0.9;
+    double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
     boolean write_h = true, write_d = true;
@@ -67,13 +67,13 @@ public class PsplHMatrixPack {
     try {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
-      Dense d2 = new Dense (64, 64, 0, 2048, testFunc);
+      /*Dense d2 = new Dense (64, 64, 0, 2048, testFunc);
       LowRank lr1 = d2.toLowRank();
       Jama.Matrix u = Dense.getBasisU(0, 64, 16, 0.9, testFunc);
       Jama.Matrix vt = Dense.getBasisVT(2048, 64, 16, 0.9, testFunc);
       lr1.useBasis(u, vt);
       Dense d3 = lr1.toDense();
-      System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);
+      System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);*/
 
       /*UniformHierarchical uh = new UniformHierarchical(d, 2, 2, 16, 64);
       uh.print(0,3);
@@ -83,7 +83,6 @@ public class PsplHMatrixPack {
       if (write_h)
       {
         Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
-        //Hierarchical.buildHMatrix(level - 1, nblocks, nleaf, nleaf_max, admis, 0, 0, testFunc);
         double compress = h.getCompressionRatio();
         System.out.println("Storage Compression Ratio: " + Double.toString(compress));
 

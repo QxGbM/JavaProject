@@ -1,22 +1,22 @@
 
 import Jama.Matrix;
 
-public class ClusterBasis {
+public class ClusterBasisU {
 
   private Matrix basis;
-  private ClusterBasis children[];
+  private ClusterBasisU children[];
 
-  public ClusterBasis () {
+  public ClusterBasisU () {
     basis = null;
     children = null;
   }
 
-  public ClusterBasis (Matrix m) {
+  public ClusterBasisU (Matrix m) {
     basis = m.copy();
     children = null;
   }
 
-  public ClusterBasis (Dense d, int sample_rank) {
+  public ClusterBasisU (Dense d, int sample_rank) {
     Matrix[] rsv = d.rsvd(sample_rank);
     basis = rsv[0];
     children = null;
@@ -48,7 +48,7 @@ public class ClusterBasis {
     return children != null;
   }
 
-  public ClusterBasis[] getChildren() {
+  public ClusterBasisU[] getChildren() {
     return children;
   }
 
@@ -56,8 +56,8 @@ public class ClusterBasis {
     basis = m.copy();
   }
 
-  public void setChildren (ClusterBasis[] b) {
-    children = new ClusterBasis[b.length];
+  public void setChildren (ClusterBasisU[] b) {
+    children = new ClusterBasisU[b.length];
     for (int i = 0; i < b.length; i++)
     { children[i] = b[i]; }
   }
