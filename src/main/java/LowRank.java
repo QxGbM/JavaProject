@@ -16,10 +16,12 @@ public class LowRank implements Block {
     VT = new Matrix(n, r);
   }
 
-  public LowRank (Matrix row_basis, Matrix d) {
-    U = row_basis; VT = d;
-    S = Matrix.identity(row_basis.getColumnDimension(), d.getColumnDimension());
+  public LowRank (Matrix U, Matrix S, Matrix VT) {
+    this.U = U;
+    this.S = S;
+    this.VT = VT;
   }
+
 
   @Override
   public int getXCenter() {

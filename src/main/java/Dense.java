@@ -109,6 +109,11 @@ public class Dense extends Matrix implements Block
     return lr;
   }
 
+  public LowRank toLowRank_fromBasis (Matrix row_basis, Matrix col_basis_t) {
+    Matrix S = row_basis.transpose().times(this).times(col_basis_t);
+    return new LowRank(row_basis, S, col_basis_t);
+  }
+
   public Matrix[] rsvd (int rank) {
     Matrix[] usv = new Matrix[3];
 
@@ -326,15 +331,21 @@ public class Dense extends Matrix implements Block
 
   public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {
     int minimal_sep = (int) (2 * admis * m); 
-    Dense d = new Dense(m, rank, y_start, y_start + minimal_sep, func);
-    QRDecomposition qr_ = d.qr();
+    //Dense d = new Dense(m, rank, y_start, y_start + minimal_sep, func);
+    //QRDecomposition qr_ = d.qr();
+    Dense d1 = new Dense(m, m, y_start, y_start + minimal_sep, func);
+    Dense d2 = new Dense(d1.times(Matrix.random(m, rank)).getArray());
+    QRDecomposition qr_ = d2.qr();
     return qr_.getQ();
   }
 
   public static Matrix getBasisVT (int x_start, int n, int rank, double admis, PsplHMatrixPack.dataFunction func) {
     int minimal_sep = (int) (2 * admis * n); 
-    Dense d = new Dense(rank, n, x_start + minimal_sep, x_start, func);
-    QRDecomposition qr_ = d.transpose().qr();
+    //Dense d = new Dense(rank, n, x_start + minimal_sep, x_start, func);
+    //QRDecomposition qr_ = d.transpose().qr();
+    Dense d1 = new Dense(n, n, x_start + minimal_sep, x_start, func);
+    Dense d2 = new Dense(Matrix.random(rank, n).times(d1).getArray());
+    QRDecomposition qr_ = d2.transpose().qr();
     return qr_.getQ();
   }
 

@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 2, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 4, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -75,10 +75,9 @@ public class PsplHMatrixPack {
       Dense d3 = lr1.toDense();
       System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);*/
 
-      /*UniformHierarchical uh = new UniformHierarchical(d, 2, 2, 16, 64);
-      uh.print(0,3);
+      UniformBLR blr = new UniformBLR(dim, dim, nleaf, 0, 0, rank, admis, testFunc);
 
-      System.out.println(uh.toDense().minus(d).normF() / dim / dim);*/
+      System.out.println(blr.toDense().minus(d).normF() / dim / dim);
 
       if (write_h)
       {

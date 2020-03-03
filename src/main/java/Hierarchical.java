@@ -11,8 +11,8 @@ public class Hierarchical implements Block {
   { e = new Block[m][n]; }
 
   public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
-    int m_block = m / part_strat, n_block = n / part_strat;
-    int m_remain = m - (part_strat - 1) * m_block, n_remain = n - (part_strat - 1) * n_block;
+    int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
+    int n_block = n / part_strat, n_remain = n - (part_strat - 1) * n_block;
 
     e = new Block[part_strat][part_strat];
 
