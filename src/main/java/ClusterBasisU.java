@@ -5,43 +5,46 @@ public class ClusterBasisU {
 
   private Matrix basis;
   private ClusterBasisU children[];
+  private int y_start;
+  private boolean reducedStorageForm;
 
-  public ClusterBasisU () {
-    basis = null;
-    children = null;
+  public ClusterBasisU (int y_start, int m, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+
+    basis = Dense.getBasisU(y_start, m, rank, admis, func);
+
+    if (m > nleaf) {
+      int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
+      children = new ClusterBasisU[part_strat];
+  
+      for (int i = 0; i < part_strat; i++) {
+        int m_e = i == part_strat - 1 ? m_remain : m_block;
+        int y_e = y_start + m_block * i;
+        children[i] = new ClusterBasisU (y_e, m_e, nleaf, part_strat, rank, admis, func);
+      }
+    }
+    else
+    { children = null; }
+
+    this.y_start = y_start;
+    reducedStorageForm = false;
   }
 
-  public ClusterBasisU (Matrix m) {
-    basis = m.copy();
-    children = null;
-  }
-
-  public ClusterBasisU (Dense d, int sample_rank) {
-    Matrix[] rsv = d.rsvd(sample_rank);
-    basis = rsv[0];
-    children = null;
-  }
-
-  public int getRowDimension () {
+  public int getDimension () {
     if (children != null) {
       int rows = 0; 
       for (int i = 0; i < children.length; i++)
-      rows += children[i].getRowDimension();
+      rows += children[i].getDimension();
       return rows;
     }
-    else if (basis == null)
-    return 0;
     else
-    return basis.getRowDimension();
+    { return basis.getRowDimension(); }
   }
 
-  public int getColDimension () {
+  public int getRank () {
     if (children != null)
-    return children[0].getColDimension();
-    else if (basis == null)
-    return 0;
+    { return children[0].getRank(); }
     else
-    return basis.getColumnDimension();
+    { return basis.getColumnDimension(); }
   }
 
   public boolean hasChildren () {
@@ -52,62 +55,28 @@ public class ClusterBasisU {
     return children;
   }
 
-  public void setBasis (Matrix m) {
-    basis = m.copy();
+  public Matrix toMatrix() {
+    System.out.println("x");
+    return basis;
   }
 
-  public void setChildren (ClusterBasisU[] b) {
-    children = new ClusterBasisU[b.length];
-    for (int i = 0; i < b.length; i++)
-    { children[i] = b[i]; }
-  }
-
-  public Matrix convertTrans() {
-    if (children != null && basis != null && getRowDimension() == basis.getRowDimension() && getColDimension() == basis.getColumnDimension()) {
-      Matrix result_b = new Matrix (basis.getRowDimension(), basis.getColumnDimension());
-      int row = 0;
-      for (int i = 0; i < children.length; i++) { 
-        int rows = children[i].getRowDimension();
-        Matrix c_i = children[i].convertTrans();
-        result_b.setMatrix(row, row + rows - 1, 0, basis.getColumnDimension() - 1, c_i);
-        row += rows;
-      }
-      Matrix old = basis.copy();
-      basis = old.transpose().times(result_b);
-      return old;
-    }
+  public Matrix convertReducedStorageForm() {
+    if (children == null)
+    { reducedStorageForm = true; return basis; }
+    else if (reducedStorageForm)
+    { return toMatrix(); }
     else {
-      return basis;
+      int dim = 0; Matrix children_basis[] = new Matrix[children.length];
+      for (int i = 0; i < children.length; i++) 
+      { children_basis[i] = children[i].convertReducedStorageForm(); dim += children_basis[i].getRowDimension(); }
+
+      int start = 0; Matrix lower = new Matrix(dim, basis.getColumnDimension());
+      for (int i = 0; i < children.length; i++)
+      { lower.setMatrix(start, start += children_basis[i].getRowDimension() - 1, 0, lower.getColumnDimension() - 1, children_basis[i]); start++; }
+      Matrix temp = basis; basis = temp.transpose().times(lower);
+      return temp;
     }
   }
 
-  public Matrix[] convertTrans_children() {
-    Matrix[] list = new Matrix[children.length];
-    for (int i = 0; i < children.length; i++)
-    { list[i] = children[i].convertTrans(); }
-    return list;
-  }
-
-  public Matrix toMatrix () {
-    if (basis == null)
-    { return null; }
-    else if (children == null)
-    { return basis; }
-    else {
-      Matrix result_b = new Matrix(getRowDimension(), getColDimension());
-      int row = 0;
-      for (int i = 0; i < children.length; i++) { 
-        int rows = children[i].getRowDimension();
-        Matrix data = basis.times(children[i].toMatrix());
-        result_b.setMatrix(row, row + rows - 1, 0, getColDimension() - 1, data);
-        row += rows;
-      }
-      return result_b;
-    }
-  }
-
-  public void print (int w, int d) {
-    toMatrix().print(w, d);
-  }
 
 }

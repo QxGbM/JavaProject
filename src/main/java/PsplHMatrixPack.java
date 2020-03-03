@@ -16,11 +16,11 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 4, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 4, nblocks = 2, nleaf = 128, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
-    boolean write_h = true, write_d = true;
+    boolean write_h = false, write_d = false;
 
     for (int i = 0; i < args.length; i++)
     {
@@ -63,7 +63,7 @@ public class PsplHMatrixPack {
     if (nleaf_max < nleaf)
     { nleaf_max = dim; }
 
-    if (integrity && (write_d || write_h))
+    if (integrity)
     try {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
@@ -76,6 +76,8 @@ public class PsplHMatrixPack {
       System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);*/
 
       UniformBLR blr = new UniformBLR(dim, dim, nleaf, 0, 0, rank, admis, testFunc);
+      ClusterBasisU cbu = new ClusterBasisU(0, dim, nleaf, nblocks, rank, admis, testFunc);
+      cbu.convertReducedStorageForm();
 
       System.out.println(blr.toDense().minus(d).normF() / dim / dim);
 
