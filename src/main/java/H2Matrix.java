@@ -1,41 +1,85 @@
+
 import java.io.*;
 
-public class Hierarchical implements Block {
+public class H2Matrix implements Block {
 
+  private ClusterBasis row_basis;
+  private ClusterBasis col_basis;
   private Block e[][];
   private int x_start = 0;
   private int y_start = 0;
 
-  public Hierarchical (int m, int n)
-  { e = new Block[m][n]; }
 
-  public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
+  public H2Matrix (int m, int n, int nleaf, int part_strat, int rank, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
+    row_basis = new ClusterBasis(y_start, m, true, nleaf, part_strat, rank, admis, func);
+    col_basis = new ClusterBasis(x_start, n, false, nleaf, part_strat, rank, admis, func);
+    e = new Block[part_strat][part_strat];
+
+    ClusterBasis[] row_basis_lower = row_basis.getChildren(), col_basis_lower = col_basis.getChildren();
+
     int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
     int n_block = n / part_strat, n_remain = n - (part_strat - 1) * n_block;
-
-    e = new Block[part_strat][part_strat];
 
     for (int i = 0; i < part_strat; i++) {
       int m_e = i == part_strat - 1 ? m_remain : m_block;
       int y_e = y_start + m_block * i;
+      ClusterBasis b_i = row_basis_lower[i];
 
       for (int j = 0; j < part_strat; j++) {
         int n_e = j == part_strat - 1 ? n_remain : n_block;
         int x_e = x_start + n_block * j;
+        ClusterBasis b_j = col_basis_lower[j];
 
         boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
 
         if (admisible)
-        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank(); }
-        else if (m_e <= nleaf || n_e <= nleaf)
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i.toMatrix(), b_j.toMatrix()); }
+        else if (b_i.noChildren() || b_j.noChildren())
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
         else
-        { e[i][j] = new Hierarchical(m_e, n_e, nleaf, part_strat, admis, y_e, x_e, func); }
+        { e[i][j] = new H2Matrix(b_i, b_j, admis, func); }
 
       }
     }
   }
 
+  public H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.dataFunction func) {
+    this.row_basis = row_basis;
+    this.col_basis = col_basis;
+    int y_start = row_basis.getStart(), x_start = col_basis.getStart();
+    int m = row_basis.getDimension(), n = col_basis.getDimension();
+    int part_strat = row_basis.getPartStrat();
+    e = new Block[part_strat][part_strat];
+
+    ClusterBasis[] row_basis_lower = row_basis.getChildren(), col_basis_lower = col_basis.getChildren();
+
+    int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
+    int n_block = n / part_strat, n_remain = n - (part_strat - 1) * n_block;
+
+    for (int i = 0; i < part_strat; i++) {
+      int m_e = i == part_strat - 1 ? m_remain : m_block;
+      int y_e = y_start + m_block * i;
+      ClusterBasis b_i = row_basis_lower[i];
+
+      for (int j = 0; j < part_strat; j++) {
+        int n_e = j == part_strat - 1 ? n_remain : n_block;
+        int x_e = x_start + n_block * j;
+        ClusterBasis b_j = col_basis_lower[j];
+
+        boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
+
+        if (admisible)
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i.toMatrix(), b_j.toMatrix()); }
+        else if (b_i.noChildren() || b_j.noChildren())
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
+        else
+        { e[i][j] = new H2Matrix(b_i, b_j, admis, func); }
+
+      }
+    }
+  }
+
+  
   public int getNRowBlocks()
   { return e.length; }
 
@@ -108,25 +152,12 @@ public class Hierarchical implements Block {
 
   @Override
   public Hierarchical toHierarchical (int m, int n) {
-    if (m == getNRowBlocks() && n == getNColumnBlocks())
-    { return this; }
-    else
-    { return toDense().toHierarchical(m, n); }
+    return null;
   }
 
   @Override
-  public Hierarchical toHierarchical (int level, int m, int n)
-  {
-    Hierarchical h = toHierarchical(m, n);
-    h.setClusterStart(x_start, y_start);
-    if (level > 1) {
-      for (int i = 0; i < h.getNRowBlocks(); i++) {
-        for (int j = 0; j < h.getNColumnBlocks(); j++) {
-          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
-        }
-      }
-    }
-    return h;
+  public Hierarchical toHierarchical (int level, int m, int n) {
+    return null;
   }
 
   @Override
@@ -224,45 +255,6 @@ public class Hierarchical implements Block {
     { e[m][n] = b; }
   }
 
-  public static Hierarchical readStructureFromFile (BufferedReader reader) throws IOException {
-    String str = reader.readLine();
-    String[] args = str.split("\\s+");
-    int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
-
-    if (str.startsWith("D")) {
-      reader.close();
-      Dense d = new Dense(m, n);
-      return d.toHierarchical(1, 1);
-    }
-    else if (str.startsWith("LR")) {
-      reader.close();
-      int r = Integer.parseInt(args[3]);
-      LowRank lr = new LowRank(m, n, r);
-      return lr.toHierarchical(1, 1);
-    }
-    else if (str.startsWith("H")) {
-      Hierarchical h = new Hierarchical(m, n);
-
-      for (int i = 0; i < m; i++) {
-        for (int j = 0; j < n; j++)
-        { h.e[i][j] = Block.readStructureFromFile(reader); }
-      }
-      return h;
-    }
-    else
-    { return null; }  
-  }
-
-  public static Hierarchical readFromFile (String name) throws IOException {
-    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
-    Hierarchical h = readStructureFromFile(reader);
-    reader.close();
-
-    BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
-    h.loadBinary(stream);
-    stream.close();
-    return h;
-  }
 
 
 }

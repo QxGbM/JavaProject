@@ -178,14 +178,6 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond) {
-    double row_err = row_basis.times(row_basis.transpose()).times(this).minus(this).normF();
-    double col_err = times(col_basis).times(col_basis.transpose()).minus(this).normF();
-    double admis_ref = admis_cond * getColumnDimension() * getRowDimension();
-    return row_err <= admis_ref && col_err <= admis_ref;
-  }
-
-  @Override
   public boolean equals (Block b) {
     double norm = this.minus(b.toDense()).normF() / getColumnDimension() / getRowDimension();
     return norm <= PsplHMatrixPack.epi; 

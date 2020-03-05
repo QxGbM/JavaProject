@@ -109,14 +109,6 @@ public class LowRank implements Block {
   }
 
   @Override
-  public boolean testAdmis (Matrix row_basis, Matrix col_basis, double admis_cond) {
-    double row_err = row_basis.times(row_basis.transpose()).times(U).minus(U).normF();
-    double col_err = col_basis.times(col_basis.transpose()).times(VT).minus(VT).normF();
-    double admis_ref = admis_cond * getColumnDimension() * getRowDimension();
-    return row_err <= admis_ref && col_err <= admis_ref;
-  }
-
-  @Override
   public boolean equals (Block b) {
     double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
     return norm < PsplHMatrixPack.epi;

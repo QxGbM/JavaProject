@@ -1,31 +1,36 @@
 
 import Jama.Matrix;
 
-public class ClusterBasisU {
+public class ClusterBasis {
 
   private Matrix basis;
-  private ClusterBasisU children[];
-  private int y_start;
+  private ClusterBasis children[];
+  private int xy_start;
+  private boolean row_col;
   private boolean reducedStorageForm;
 
-  public ClusterBasisU (int y_start, int m, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+  public ClusterBasis (int xy_start, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
 
-    basis = Dense.getBasisU(y_start, m, rank, admis, func);
+    if (row_col)
+    { basis = Dense.getBasisU(xy_start, mn, rank, admis, func); }
+    else
+    { basis = Dense.getBasisVT(xy_start, mn, rank, admis, func); }
 
-    if (m > nleaf) {
-      int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
-      children = new ClusterBasisU[part_strat];
+    if (mn > nleaf) {
+      int mn_block = mn / part_strat, mn_remain = mn - (part_strat - 1) * mn_block;
+      children = new ClusterBasis[part_strat];
   
       for (int i = 0; i < part_strat; i++) {
-        int m_e = i == part_strat - 1 ? m_remain : m_block;
-        int y_e = y_start + m_block * i;
-        children[i] = new ClusterBasisU (y_e, m_e, nleaf, part_strat, rank, admis, func);
+        int mn_e = i == part_strat - 1 ? mn_remain : mn_block;
+        int xy_e = xy_start + mn_block * i;
+        children[i] = new ClusterBasis (xy_e, mn_e, row_col, nleaf, part_strat, rank, admis, func);
       }
     }
     else
     { children = null; }
 
-    this.y_start = y_start;
+    this.xy_start = xy_start;
+    this.row_col = row_col;
     reducedStorageForm = false;
   }
 
@@ -40,23 +45,27 @@ public class ClusterBasisU {
     { return basis.getRowDimension(); }
   }
 
-  public int getRank () {
-    if (children != null)
-    { return children[0].getRank(); }
-    else
-    { return basis.getColumnDimension(); }
+  public int getStart () {
+    return xy_start;
   }
 
-  public boolean hasChildren () {
-    return children != null;
+  public boolean noChildren () {
+    return children == null;
   }
 
-  public ClusterBasisU[] getChildren() {
+  public int getPartStrat () {
+    return children.length;
+  }
+
+  public ClusterBasis[] getChildren () {
     return children;
   }
 
+  public boolean getRow_Col () {
+    return row_col;
+  }
+
   public Matrix toMatrix() {
-    System.out.println("x");
     return basis;
   }
 

@@ -76,10 +76,15 @@ public class PsplHMatrixPack {
       System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);*/
 
       UniformBLR blr = new UniformBLR(dim, dim, nleaf, 0, 0, rank, admis, testFunc);
-      ClusterBasisU cbu = new ClusterBasisU(0, dim, nleaf, nblocks, rank, admis, testFunc);
+      ClusterBasis cbu = new ClusterBasis(0, dim, true, nleaf, nblocks, rank, admis, testFunc);
       cbu.convertReducedStorageForm();
 
       System.out.println(blr.toDense().minus(d).normF() / dim / dim);
+
+      H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+
+      System.out.println(h2.toDense().minus(d).normF() / dim / dim);
+
 
       if (write_h)
       {
