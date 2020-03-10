@@ -106,7 +106,7 @@ public class ClusterBasis {
       for (int i = 0; i < children.length; i++)
       { lower.setMatrix(start, start += children_basis[i].getRowDimension() - 1, 0, lower.getColumnDimension() - 1, children_basis[i]); start++; }
       
-      return lower.times(basis.inverse());
+      return lower.times(basis);
     }
   }
 
@@ -124,7 +124,8 @@ public class ClusterBasis {
       for (int i = 0; i < children.length; i++)
       { lower.setMatrix(start, start += children_basis[i].getRowDimension() - 1, 0, lower.getColumnDimension() - 1, children_basis[i]); start++; }
 
-      Matrix temp = basis; basis = temp.transpose().times(lower);
+      Matrix temp = basis; basis = lower.inverse().times(temp);
+      reducedStorageForm = true;
       return temp;
     }
   }

@@ -290,7 +290,7 @@ public class Dense extends Matrix implements Block
   }
 
   public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {
-    int minimal_sep = (int) (2 * admis * m); 
+    int minimal_sep = (int) (4 * admis * m); 
     //Dense d = new Dense(m, rank, y_start, y_start + minimal_sep, func);
     //QRDecomposition qr_ = d.qr();
     Dense d1 = new Dense(m, m, y_start, y_start + minimal_sep, func);
@@ -300,7 +300,7 @@ public class Dense extends Matrix implements Block
   }
 
   public static Matrix getBasisVT (int x_start, int n, int rank, double admis, PsplHMatrixPack.dataFunction func) {
-    int minimal_sep = (int) (2 * admis * n); 
+    int minimal_sep = (int) (4 * admis * n); 
     //Dense d = new Dense(rank, n, x_start + minimal_sep, x_start, func);
     //QRDecomposition qr_ = d.transpose().qr();
     Dense d1 = new Dense(n, n, x_start + minimal_sep, x_start, func);
