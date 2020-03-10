@@ -20,7 +20,7 @@ public class PsplHMatrixPack {
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
-    boolean write_h = false, write_d = false;
+    boolean write_h = true, write_d = false;
 
     for (int i = 0; i < args.length; i++)
     {
@@ -67,30 +67,17 @@ public class PsplHMatrixPack {
     try {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
-      /*Dense d2 = new Dense (64, 64, 0, 2048, testFunc);
-      LowRank lr1 = d2.toLowRank();
-      Jama.Matrix u = Dense.getBasisU(0, 64, 16, 0.9, testFunc);
-      Jama.Matrix vt = Dense.getBasisVT(2048, 64, 16, 0.9, testFunc);
-      lr1.useBasis(u, vt);
-      Dense d3 = lr1.toDense();
-      System.out.println("error:" + d3.minusEquals(d2).normF() / 64 / 64);*/
-
-      UniformBLR blr = new UniformBLR(dim, dim, nleaf, 0, 0, rank, admis, testFunc);
-      ClusterBasis cbu = new ClusterBasis(0, dim, true, nleaf, nblocks, rank, admis, testFunc);
-      cbu.convertReducedStorageForm();
-
-      System.out.println(blr.toDense().minus(d).normF() / dim / dim);
-
       H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
 
       System.out.println(h2.toDense().minus(d).normF() / dim / dim);
+      System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
 
 
       if (write_h)
       {
         Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
         double compress = h.getCompressionRatio();
-        System.out.println("Storage Compression Ratio: " + Double.toString(compress));
+        System.out.println("h Storage Compression Ratio: " + Double.toString(compress));
 
         System.out.print("Writing H... ");
         h.writeToFile(h_name);

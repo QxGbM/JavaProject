@@ -33,7 +33,7 @@ public class H2Matrix implements Block {
         boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
 
         if (admisible)
-        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i.toMatrix(), b_j.toMatrix()); }
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i, b_j); }
         else if (b_i.noChildren() || b_j.noChildren())
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
         else
@@ -41,6 +41,9 @@ public class H2Matrix implements Block {
 
       }
     }
+
+    //row_basis.convertReducedStorageForm();
+    //col_basis.convertReducedStorageForm();
   }
 
   public H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.dataFunction func) {
@@ -69,7 +72,7 @@ public class H2Matrix implements Block {
         boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
 
         if (admisible)
-        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i.toMatrix(), b_j.toMatrix()); }
+        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i, b_j); }
         else if (b_i.noChildren() || b_j.noChildren())
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
         else
@@ -151,16 +154,6 @@ public class H2Matrix implements Block {
   { return toDense().toLowRank(); }
 
   @Override
-  public Hierarchical toHierarchical (int m, int n) {
-    return null;
-  }
-
-  @Override
-  public Hierarchical toHierarchical (int level, int m, int n) {
-    return null;
-  }
-
-  @Override
   public boolean equals (Block b) {
     double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
     return norm < PsplHMatrixPack.epi;
@@ -172,7 +165,20 @@ public class H2Matrix implements Block {
 
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++)
-      { compress += e[i][j].getCompressionRatio() * e[i][j].getRowDimension() * e[i][j].getColumnDimension(); }
+      { compress += e[i][j].getCompressionRatio_NoBasis() * e[i][j].getRowDimension() * e[i][j].getColumnDimension(); }
+    }
+
+    compress += row_basis.size() + col_basis.size();
+    return compress / getColumnDimension() / getRowDimension();
+  }
+
+  @Override
+  public double getCompressionRatio_NoBasis () {
+    double compress = 0.;
+
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++)
+      { compress += e[i][j].getCompressionRatio_NoBasis() * e[i][j].getRowDimension() * e[i][j].getColumnDimension(); }
     }
 
     return compress / getColumnDimension() / getRowDimension();

@@ -31,7 +31,7 @@ public class UniformBLR {
         boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
 
         if (admisible)
-        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(row_basis[i], col_basis[j]); }
+        { e[i][j] = new LowRank(row_basis[i], new Dense(m_e, n_e, y_e, x_e, func), col_basis[j]); }
         else
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
       }

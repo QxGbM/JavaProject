@@ -20,13 +20,11 @@ public interface Block {
 
   abstract public LowRank toLowRank();
 
-  abstract public Hierarchical toHierarchical (int m, int n);
-
-  abstract public Hierarchical toHierarchical (int level, int m, int n);
-
   abstract public boolean equals (Block b);
 
   abstract public double getCompressionRatio ();
+
+  abstract public double getCompressionRatio_NoBasis ();
 
   abstract public String structure ();
 

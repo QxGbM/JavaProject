@@ -106,7 +106,7 @@ public class Hierarchical implements Block {
   public LowRank toLowRank() 
   { return toDense().toLowRank(); }
 
-  @Override
+  /*@Override
   public Hierarchical toHierarchical (int m, int n) {
     if (m == getNRowBlocks() && n == getNColumnBlocks())
     { return this; }
@@ -127,7 +127,7 @@ public class Hierarchical implements Block {
       }
     }
     return h;
-  }
+  }*/
 
   @Override
   public boolean equals (Block b) {
@@ -145,6 +145,12 @@ public class Hierarchical implements Block {
     }
 
     return compress / getColumnDimension() / getRowDimension();
+  }
+
+  @Override
+  public double getCompressionRatio_NoBasis () {
+    System.out.println("This method shouldn't be used in non-shared H-matrix.");
+    return -1;
   }
 
   @Override
@@ -231,14 +237,11 @@ public class Hierarchical implements Block {
 
     if (str.startsWith("D")) {
       reader.close();
-      Dense d = new Dense(m, n);
-      return d.toHierarchical(1, 1);
+      return null;
     }
     else if (str.startsWith("LR")) {
       reader.close();
-      int r = Integer.parseInt(args[3]);
-      LowRank lr = new LowRank(m, n, r);
-      return lr.toHierarchical(1, 1);
+      return null;
     }
     else if (str.startsWith("H")) {
       Hierarchical h = new Hierarchical(m, n);
@@ -249,8 +252,10 @@ public class Hierarchical implements Block {
       }
       return h;
     }
-    else
-    { return null; }  
+    else { 
+      reader.close();
+      return null;
+    }  
   }
 
   public static Hierarchical readFromFile (String name) throws IOException {

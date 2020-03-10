@@ -100,17 +100,17 @@ public class Dense extends Matrix implements Block
     Matrix V = qr_.getQ(), R = qr_.getR();
     SingularValueDecomposition svd_ = R.svd();
 
-    LowRank lr = new LowRank (m, n, r);
+    ClusterBasis row_b = new ClusterBasis(Q.times(svd_.getV()), true);
+    ClusterBasis col_b = new ClusterBasis(V.times(svd_.getU()), false);
+
+    LowRank lr = new LowRank (row_b, svd_.getS(), col_b);
     lr.setClusterStart(x_start, y_start);
-    lr.setU(Q.times(svd_.getV()));
-    lr.setS(svd_.getS());
-    lr.setVT(V.times(svd_.getU()));
 
     return lr;
   }
 
-  public LowRank toLowRank_fromBasis (Matrix row_basis, Matrix col_basis_t) {
-    Matrix S = row_basis.transpose().times(this).times(col_basis_t);
+  public LowRank toLowRank_fromBasis (ClusterBasis row_basis, ClusterBasis col_basis_t) {
+    Matrix S = row_basis.toMatrix().transpose().times(this).times(col_basis_t.toMatrix());
     return new LowRank(row_basis, S, col_basis_t);
   }
 
@@ -142,49 +142,17 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public Hierarchical toHierarchical (int m, int n) {
-    Hierarchical h = new Hierarchical(m, n);
-    h.setClusterStart(x_start, y_start);
-    int i0 = 0;
-    int step_i = (getRowDimension() - m + 1) / m, step_j = (getColumnDimension() - n + 1) / n;
-
-    for (int i = 0; i < m; i++) {
-      int i1 = i0 + step_i >= getRowDimension() ? getRowDimension() - 1 : i0 + step_i, j0 = 0;
-      for (int j = 0; j < n; j++) {
-        int j1 = j0 + step_j >= getColumnDimension() ? getColumnDimension() - 1 : j0 + step_j;
-        Dense d = new Dense(getMatrix(i0, i1, j0, j1).getArrayCopy());
-        h.setElement(i, j, d);
-        j0 = j1 + 1;
-      }
-      i0 = i1 + 1;
-    }
-
-    return h;
-  }
-
-  @Override
-  public Hierarchical toHierarchical (int level, int m, int n)
-  {
-    Hierarchical h = toHierarchical(m, n);
-    h.setClusterStart(x_start, y_start);
-    if (level > 1) {
-      for (int i = 0; i < h.getNRowBlocks(); i++) {
-        for (int j = 0; j < h.getNColumnBlocks(); j++) {
-          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
-        }
-      }
-    }
-    return h;
-  }
-
-  @Override
   public boolean equals (Block b) {
     double norm = this.minus(b.toDense()).normF() / getColumnDimension() / getRowDimension();
     return norm <= PsplHMatrixPack.epi; 
   }
 
   @Override
-  public double getCompressionRatio() 
+  public double getCompressionRatio () 
+  { return 1.; }
+
+  @Override
+  public double getCompressionRatio_NoBasis () 
   { return 1.; }
 
   @Override
@@ -339,30 +307,6 @@ public class Dense extends Matrix implements Block
     Dense d2 = new Dense(Matrix.random(rank, n).times(d1).getArray());
     QRDecomposition qr_ = d2.transpose().qr();
     return qr_.getQ();
-  }
-
-  public Matrix[] projection (Matrix row_basis, Matrix col_basis) {
-    Matrix row_projection = row_basis.transpose().times(this);
-    Matrix row_nulled = minus(row_basis.times(row_projection));
-    Matrix col_projection = col_basis.transpose().times(transpose());
-    Matrix col_nulled = transpose().minus(col_basis.times(col_projection));
-
-    SingularValueDecomposition svd_0 = row_nulled.svd(), svd_1 = col_nulled.svd();
-    Matrix row_null_space = svd_0.getU().getMatrix(0, row_basis.getRowDimension() - 1, 0, getRowDimension() - row_basis.getColumnDimension() - 1);
-    Matrix col_null_space = svd_1.getU().getMatrix(0, col_basis.getRowDimension() - 1, 0, getColumnDimension() - col_basis.getColumnDimension() - 1);
-
-    Matrix list[] = projection(row_basis, row_null_space, col_basis, col_null_space);
-
-    return new Matrix[] {list[0], list[1], list[2], list[3], row_null_space, col_null_space};
-  }
-
-  public Matrix[] projection (Matrix row_basis, Matrix row_null_space, Matrix col_basis, Matrix col_null_space) {
-    Matrix list[] = new Matrix[4];
-    list[0] = row_basis.transpose().times(this).times(col_basis);
-    list[1] = row_null_space.transpose().times(this).times(col_basis);
-    list[2] = row_basis.transpose().times(this).times(col_null_space);
-    list[3] = row_null_space.transpose().times(this).times(col_null_space);
-    return list;
   }
 
 

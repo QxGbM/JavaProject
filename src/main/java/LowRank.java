@@ -6,20 +6,42 @@ import Jama.Matrix;
 
 public class LowRank implements Block {
 		
-  private Matrix U, S, VT;
+  private Matrix S;
+  private ClusterBasis U, VT;
   private int x_start = 0;
   private int y_start = 0;
 
   public LowRank (int m, int n, int r) {
-    U = new Matrix(m, r);
+    U = new ClusterBasis(m, r, true);
     S = new Matrix(r, r);
-    VT = new Matrix(n, r);
+    VT = new ClusterBasis(n, r, false);
+  }
+
+  public LowRank (ClusterBasis U, Matrix S, ClusterBasis VT) {
+    this.U = U;
+    this.VT = VT;
+
+    if (U.getDimension() == S.getRowDimension() && VT.getDimension() == S.getColumnDimension())
+    { this.S = U.toMatrix().transpose().times(S).times(VT.toMatrix()); }
+    else if (U.getRank() == S.getRowDimension() && VT.getRank() == S.getColumnDimension())
+    { this.S = S; }
+    else
+    { System.out.print("Invalid Low-Rank Construction."); System.exit(-1); }
   }
 
   public LowRank (Matrix U, Matrix S, Matrix VT) {
-    this.U = U;
-    this.S = S;
-    this.VT = VT;
+    ClusterBasis row_b = new ClusterBasis(U, true);
+    ClusterBasis col_b = new ClusterBasis(VT, false);
+
+    this.U = row_b;
+    this.VT = col_b;
+
+    if (U.getRowDimension() == S.getRowDimension() && VT.getRowDimension() == S.getColumnDimension())
+    { this.S = U.transpose().times(S).times(VT); }
+    else if (U.getColumnDimension() == S.getRowDimension() && VT.getColumnDimension() == S.getColumnDimension())
+    { this.S = S; }
+    else
+    { System.out.print("Invalid Low-Rank Construction."); System.exit(-1); }
   }
 
 
@@ -42,11 +64,11 @@ public class LowRank implements Block {
 
   @Override
   public int getRowDimension() 
-  { return U.getRowDimension(); }
+  { return U.getDimension(); }
 
   @Override
   public int getColumnDimension() 
-  { return VT.getRowDimension(); }
+  { return VT.getDimension(); }
 
   public int getRank()
   { return S.getRowDimension(); }
@@ -57,56 +79,13 @@ public class LowRank implements Block {
 
   @Override
   public Dense toDense() {
-    Dense d = new Dense(getRowDimension(), getColumnDimension());
-    d.setClusterStart(x_start, y_start);
-    d.plusEquals(U.times(S).times(VT.transpose()));
-    return d;
+    Matrix m = U.toMatrix().times(S).times(VT.toMatrix().transpose());
+    return new Dense(m.getArray());
   }
 
   @Override
   public LowRank toLowRank() 
   { return this; }
-
-  @Override
-  public Hierarchical toHierarchical (int m, int n) {
-    Hierarchical h = new Hierarchical(m, n);
-    h.setClusterStart(x_start, y_start);
-    int i0 = 0, r = getRank();
-    int step_i = (getRowDimension() - m + 1) / m, step_j = (getColumnDimension() - n + 1) / n;
-
-    for (int i = 0; i < m; i++) {
-      int i1 = i0 + step_i >= getRowDimension() ? getRowDimension() - 1 : i0 + step_i, j0 = 0;
-      for (int j = 0; j < n; j++) {
-        int j1 = j0 + step_j >= getColumnDimension() ? getColumnDimension() - 1 : j0 + step_j;
-
-        LowRank lr = new LowRank(i1 - i0 + 1, j1 - j0 + 1, r);
-        lr.setS(S);
-        lr.setU(U.getMatrix(i0, i1, 0, getRank() - 1));
-        lr.setVT(VT.getMatrix(j0, j1, 0, getRank() - 1));
-
-        h.setElement(i, j, lr);
-        j0 = j1 + 1;
-      }
-      i0 = i1 + 1;
-    }
-
-    return h;
-  }
-
-  @Override
-  public Hierarchical toHierarchical (int level, int m, int n)
-  {
-    Hierarchical h = toHierarchical(m, n);
-    h.setClusterStart(x_start, y_start);
-    if (level > 1) {
-      for (int i = 0; i < h.getNRowBlocks(); i++) {
-        for (int j = 0; j < h.getNColumnBlocks(); j++) {
-          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
-        }
-      }
-    }
-    return h;
-  }
 
   @Override
   public boolean equals (Block b) {
@@ -115,8 +94,14 @@ public class LowRank implements Block {
   }
 
   @Override
-  public double getCompressionRatio ()
-  { return (double) getRank() * (getColumnDimension() + getRowDimension()) / (getColumnDimension() * getRowDimension()); }
+  public double getCompressionRatio () {
+    return (double) getRank() * (getColumnDimension() + getRowDimension()) / (getColumnDimension() * getRowDimension());
+  }
+
+  @Override
+  public double getCompressionRatio_NoBasis () {
+    return (double) getRank() * getRank() / (getColumnDimension() * getRowDimension());
+  }
 
   @Override
   public String structure ()
@@ -126,7 +111,7 @@ public class LowRank implements Block {
   public void loadBinary (InputStream stream) throws IOException {
     int m = getRowDimension(), n = getColumnDimension(), r = getRank();
     byte data[];
-    double data_ptr[][] = U.getArray();
+    double data_ptr[][] = U.toMatrix().getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
@@ -137,7 +122,7 @@ public class LowRank implements Block {
 
     S = Matrix.identity(r, r);
 
-    data_ptr = VT.getArray();
+    data_ptr = VT.toMatrix().getArray();
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < r; j++) {
@@ -151,7 +136,7 @@ public class LowRank implements Block {
   public void writeBinary (OutputStream stream) throws IOException {
     int m = getRowDimension(), n = getColumnDimension(), r = getRank();
     byte data[] = new byte[8];
-    double data_ptr[][] = U.getArray();
+    double data_ptr[][] = U.toMatrix().getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
@@ -160,7 +145,7 @@ public class LowRank implements Block {
       }
     }
 
-    data_ptr = VT.getArray();
+    data_ptr = VT.toMatrix().getArray();
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < r; j++) {
@@ -191,7 +176,7 @@ public class LowRank implements Block {
 
   @Override
   public void print (int w, int d)
-  { U.print(w, d); S.print(w, d); VT.print(w, d); }
+  { U.toMatrix().print(w, d); S.print(w, d); VT.toMatrix().print(w, d); }
 
   @Override
   public void LU () {
@@ -200,46 +185,21 @@ public class LowRank implements Block {
 
   @Override
   public void triangularSolve (Block b, boolean up_low) {
-    if (up_low)
-    { setU(U.solve(b.toDense().getL())); }
-    else
-    { setVT(VT.transpose().solveTranspose(b.toDense().getU())); }
+
   }
 
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    Dense d = toDense();
-    d.GEMatrixMult(a, b, alpha, beta);
-    LowRank lr = d.toLowRank();
-    setU(lr.getU());
-    setS(lr.getS());
-    setVT(lr.getVT());
+
   }
 
-  public void useBasis (Matrix u, Matrix vt) {
-    Matrix left = u.transpose().times(U);
-    Matrix right_t = vt.transpose().times(VT);
-    S = left.times(S).times(right_t.transpose());
-    U = u;
-    VT = vt;
-  }
-
-  public void setU (Matrix U)
-  { this.U = new Matrix(U.getArray()); }
-
-  public void setS (Matrix S)
-  { this.S = new Matrix(S.getArray()); }
-
-  public void setVT (Matrix VT)
-  { this.VT = new Matrix(VT.getArray()); }
-
-  public Matrix getU ()
+  public ClusterBasis getU ()
   { return U; }
 
   public Matrix getS ()
   { return S; }
   
-  public Matrix getVT ()
+  public ClusterBasis getVT ()
   { return VT; }
 
   public static LowRank readFromFile (String name) throws IOException {
