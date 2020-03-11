@@ -102,9 +102,14 @@ public class ClusterBasis {
       for (int i = 0; i < children.length; i++) 
       { children_basis[i] = children[i].toMatrix(); dim += children_basis[i].getRowDimension(); }
 
-      int start = 0; Matrix lower = new Matrix(dim, basis.getColumnDimension());
+      int start_x = 0, start_y = 0; 
+      Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
       for (int i = 0; i < children.length; i++)
-      { lower.setMatrix(start, start += children_basis[i].getRowDimension() - 1, 0, lower.getColumnDimension() - 1, children_basis[i]); start++; }
+      {
+        int end_x = start_x + children_basis[i].getRowDimension() - 1, end_y = start_y + children_basis[i].getColumnDimension() - 1;
+        lower.setMatrix(start_x, end_x, start_y, end_y, children_basis[i]);
+        start_x = end_x + 1; start_y = end_y + 1;
+      }
       
       return lower.times(basis);
     }
@@ -120,11 +125,16 @@ public class ClusterBasis {
       for (int i = 0; i < children.length; i++) 
       { children_basis[i] = children[i].convertReducedStorageForm(); dim += children_basis[i].getRowDimension(); }
 
-      int start = 0; Matrix lower = new Matrix(dim, basis.getColumnDimension());
+      int start_x = 0, start_y = 0; 
+      Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
       for (int i = 0; i < children.length; i++)
-      { lower.setMatrix(start, start += children_basis[i].getRowDimension() - 1, 0, lower.getColumnDimension() - 1, children_basis[i]); start++; }
+      {
+        int end_x = start_x + children_basis[i].getRowDimension() - 1, end_y = start_y + children_basis[i].getColumnDimension() - 1;
+        lower.setMatrix(start_x, end_x, start_y, end_y, children_basis[i]);
+        start_x = end_x + 1; start_y = end_y + 1;
+      }
 
-      Matrix temp = basis; basis = lower.inverse().times(temp);
+      Matrix temp = basis; basis = lower.transpose().times(temp);
       reducedStorageForm = true;
       return temp;
     }
