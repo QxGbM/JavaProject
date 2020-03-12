@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 4, nblocks = 2, nleaf = 256, nleaf_max = 0, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 3, nblocks = 2, nleaf = 256, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -30,8 +30,6 @@ public class PsplHMatrixPack {
       { nblocks = Integer.parseInt(args[i].substring(9)); }
       else if (args[i].startsWith("-nleaf="))
       { nleaf = Integer.parseInt(args[i].substring(7)); dim = nleaf * (int) Math.pow (nblocks, level); }
-      else if (args[i].startsWith("-nleaf_max="))
-      { nleaf_max = Integer.parseInt(args[i].substring(11)); }
       else if (args[i].startsWith("-dim="))
       { dim = Integer.parseInt(args[i].substring(5)); nleaf = dim / (int) Math.pow (nblocks, level); }
       else if (args[i].startsWith("-admis="))
@@ -54,14 +52,11 @@ public class PsplHMatrixPack {
     System.out.println("level: " + Integer.toString(level));
     System.out.println("nblocks: " + Integer.toString(nblocks));
     System.out.println("nleaf: " + Integer.toString(nleaf));
-    System.out.println("nleaf_max: " + Integer.toString(nleaf_max));
     System.out.println("dim: " + Integer.toString(dim));
     System.out.println("admis: " + Double.toString(admis));
     System.out.println("rank: " + Integer.toString(rank));
 
     boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
-    if (nleaf_max < nleaf)
-    { nleaf_max = dim; }
 
     if (integrity)
     try {

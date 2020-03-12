@@ -7,7 +7,7 @@
       "mainClass": "PsplHMatrixPack",
       "projectName": "Pastel-Palettes",
       "args": "",
-      "vmArgs": ["-Xmx4g"]
+      "vmArgs": ["-Xmx16g"]
     }
   ]
 }
