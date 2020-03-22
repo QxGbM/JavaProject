@@ -26,7 +26,11 @@ public class LowRank implements Block {
     else if (U.getRank() == S.getRowDimension() && VT.getRank() == S.getColumnDimension())
     { this.S = S; }
     else
-    { System.out.print("Invalid Low-Rank Construction."); System.exit(-1); }
+    { 
+      System.out.println("Invalid Low-Rank Construction.");
+      System.out.println("Dims: (" + U.getDimension() + ", " + U.getRank() + ") (" + S.getRowDimension() + ", " + S.getColumnDimension() + ") (" + VT.getDimension() + ", " + VT.getRank() + ").");
+      System.exit(-1); 
+    }
   }
 
   public LowRank (Matrix U, Matrix S, Matrix VT) {
@@ -86,6 +90,16 @@ public class LowRank implements Block {
   @Override
   public LowRank toLowRank() 
   { return this; }
+
+  @Override
+  public Hierarchical castHierarchical() {
+    return null;
+  }
+
+  @Override
+  public H2Matrix castH2Matrix() {
+    return null;
+  }
 
   @Override
   public boolean equals (Block b) {
@@ -191,6 +205,19 @@ public class LowRank implements Block {
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
 
+  }
+
+  public LowRank plusEquals (LowRank lr) {
+    if (lr.U.compare(U) && lr.VT.compare(VT)) 
+    { S.plusEquals(lr.S); }
+    else
+    { System.out.println("unmatched cb"); }
+    return this;
+  }
+
+  @Override
+  public Block plusEquals (Block b) {
+    return plusEquals(b.toLowRank());
   }
 
   public ClusterBasis getU ()

@@ -78,8 +78,8 @@ public class ClusterBasis {
     return xy_start;
   }
 
-  public boolean noChildren () {
-    return children == null;
+  public int childrenLength () {
+    return children == null ? 0 : children.length;
   }
 
   public int getPartStrat () {
@@ -92,6 +92,34 @@ public class ClusterBasis {
 
   public boolean getRow_Col () {
     return row_col;
+  }
+
+  public boolean compare (ClusterBasis cb) {
+    if (cb.childrenLength() == 0 && childrenLength() == 0)
+    { return cb.basis.minus(basis).normF() <= PsplHMatrixPack.epi; }
+    else if (cb.childrenLength() > 0 && childrenLength() > 0 && cb.childrenLength() == childrenLength())
+    {
+      boolean equal = true;
+      for (int i = 0; i < childrenLength(); i++)
+      { equal &= children[i].compare(cb.children[i]); }
+      return equal;
+    }
+    else
+    { return cb.toMatrix().minus(toMatrix()).normF() <= PsplHMatrixPack.epi; }
+  }
+
+  public Matrix getTrans (int children_i) {
+    if (reducedStorageForm && children_i >= 0 && children_i < childrenLength()) {
+      int start_y = 0;
+      for (int i = 0; i < children_i; i++)
+      { start_y += children[i].getRank(); }
+      int end_y = start_y + children[children_i].getRank() - 1;
+      return basis.getMatrix(start_y, end_y, 0, basis.getColumnDimension() - 1);
+    }
+    else if (!reducedStorageForm)
+    { System.out.println("Not in reduced storage form when retrieving Trans."); return null; }
+    else
+    { System.out.println("No children or invalid children index when retrieving Trans."); return null; }
   }
 
   public Matrix toMatrix() {

@@ -20,6 +20,10 @@ public interface Block {
 
   abstract public LowRank toLowRank();
 
+  abstract public Hierarchical castHierarchical();
+
+  abstract public H2Matrix castH2Matrix();
+
   abstract public boolean equals (Block b);
 
   abstract public double getCompressionRatio ();
@@ -41,6 +45,8 @@ public interface Block {
   abstract public void triangularSolve (Block b, boolean up_low);
   
   abstract public void GEMatrixMult (Block a, Block b, double alpha, double beta);
+
+  abstract public Block plusEquals (Block b);
 
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();

@@ -106,28 +106,15 @@ public class Hierarchical implements Block {
   public LowRank toLowRank() 
   { return toDense().toLowRank(); }
 
-  /*@Override
-  public Hierarchical toHierarchical (int m, int n) {
-    if (m == getNRowBlocks() && n == getNColumnBlocks())
-    { return this; }
-    else
-    { return toDense().toHierarchical(m, n); }
+  @Override
+  public Hierarchical castHierarchical() {
+    return this;
   }
 
   @Override
-  public Hierarchical toHierarchical (int level, int m, int n)
-  {
-    Hierarchical h = toHierarchical(m, n);
-    h.setClusterStart(x_start, y_start);
-    if (level > 1) {
-      for (int i = 0; i < h.getNRowBlocks(); i++) {
-        for (int j = 0; j < h.getNColumnBlocks(); j++) {
-          h.setElement(i, j, h.getElement(i, j).toHierarchical(level - 1, m, n));
-        }
-      }
-    }
-    return h;
-  }*/
+  public H2Matrix castH2Matrix() {
+    return null;
+  }
 
   @Override
   public boolean equals (Block b) {
@@ -220,6 +207,12 @@ public class Hierarchical implements Block {
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
 
+  }
+
+  @Override
+  public Block plusEquals (Block b) {
+    System.exit(1);
+    return null;
   }
 
   public Block getElement (int m, int n)

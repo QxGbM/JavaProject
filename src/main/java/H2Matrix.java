@@ -1,5 +1,6 @@
 
 import java.io.*;
+import Jama.Matrix;
 
 public class H2Matrix implements Block {
 
@@ -13,6 +14,7 @@ public class H2Matrix implements Block {
   public H2Matrix (int m, int n, int nleaf, int part_strat, int rank, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
     row_basis = new ClusterBasis(y_start, m, true, nleaf, part_strat, rank, admis, func);
     col_basis = new ClusterBasis(x_start, n, false, nleaf, part_strat, rank, admis, func);
+    this.x_start = x_start; this.y_start = y_start;
     e = new Block[part_strat][part_strat];
 
     ClusterBasis[] row_basis_lower = row_basis.getChildren(), col_basis_lower = col_basis.getChildren();
@@ -34,7 +36,7 @@ public class H2Matrix implements Block {
 
         if (admisible)
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i, b_j); }
-        else if (b_i.noChildren() || b_j.noChildren())
+        else if (b_i.childrenLength() == 0 || b_j.childrenLength() == 0)
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
         else
         { e[i][j] = new H2Matrix(b_i, b_j, admis, func); }
@@ -49,7 +51,7 @@ public class H2Matrix implements Block {
   public H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.dataFunction func) {
     this.row_basis = row_basis;
     this.col_basis = col_basis;
-    int y_start = row_basis.getStart(), x_start = col_basis.getStart();
+    y_start = row_basis.getStart(); x_start = col_basis.getStart();
     int m = row_basis.getDimension(), n = col_basis.getDimension();
     int part_strat = row_basis.getPartStrat();
     e = new Block[part_strat][part_strat];
@@ -73,7 +75,7 @@ public class H2Matrix implements Block {
 
         if (admisible)
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank_fromBasis(b_i, b_j); }
-        else if (b_i.noChildren() || b_j.noChildren())
+        else if (b_i.childrenLength() == 0 || b_j.childrenLength() == 0)
         { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
         else
         { e[i][j] = new H2Matrix(b_i, b_j, admis, func); }
@@ -82,6 +84,23 @@ public class H2Matrix implements Block {
     }
   }
 
+  public H2Matrix (LowRank lr) {
+    row_basis = lr.getU(); col_basis = lr.getVT();
+    int m = row_basis.childrenLength() > 0 ? row_basis.childrenLength() : 1;
+    int n = col_basis.childrenLength() > 0 ? col_basis.childrenLength() : 1;
+    e = new Block[m][n];
+    Matrix S = lr.getS();
+
+    for (int i = 0; i < m; i++) {
+      Matrix Ss = m > 1 ? row_basis.getTrans(i).times(S) : S;
+      ClusterBasis row_i = m > 1 ? row_basis.getChildren()[i] : row_basis;
+      for (int j = 0; j < n; j++) {
+        Matrix Sss = n > 1 ? Ss.times(col_basis.getTrans(j).transpose()) : Ss;
+        ClusterBasis col_j = n > 1 ? col_basis.getChildren()[j] : col_basis;
+        e[i][j] = new LowRank(row_i, Sss, col_j);
+      }
+    }
+  }
   
   public int getNRowBlocks()
   { return e.length; }
@@ -151,7 +170,39 @@ public class H2Matrix implements Block {
 
   @Override
   public LowRank toLowRank() 
-  { return toDense().toLowRank(); }
+  { 
+    Matrix approx[][] = new Matrix[getNRowBlocks()][getNColumnBlocks()];
+
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        if (e[i][j].getType() == Block_t.DENSE)
+        { approx[i][j] = e[i][j].toDense().toLowRank_fromBasis(row_basis.getChildren()[i], col_basis.getChildren()[j]).getS(); }
+        else
+        { approx[i][j] = e[i][j].toLowRank().getS(); }
+      }
+    }
+
+    Matrix S = new Matrix (row_basis.getRank(), col_basis.getRank());
+
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        Matrix Ss = row_basis.getTrans(i).transpose().times(approx[i][j]).times(col_basis.getTrans(j));
+        S.plusEquals(Ss);
+      }
+    }
+
+    return new LowRank(row_basis, S, col_basis);
+  }
+
+  @Override
+  public Hierarchical castHierarchical() {
+    return null;
+  }
+
+  @Override
+  public H2Matrix castH2Matrix() {
+    return this;
+  }
 
   @Override
   public boolean equals (Block b) {
@@ -251,6 +302,23 @@ public class H2Matrix implements Block {
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
 
+  }
+
+  public H2Matrix plusEquals (H2Matrix h) {
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        e[i][j].plusEquals(h.e[i][j]);
+      }
+    }
+    return this;
+  }
+
+  @Override
+  public Block plusEquals (Block b) {
+    if (b.castH2Matrix() != null)
+    { return plusEquals(b.castH2Matrix()); }
+    else
+    { return plusEquals(new H2Matrix(b.toLowRank())); }
   }
 
   public Block getElement (int m, int n)

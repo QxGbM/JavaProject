@@ -109,6 +109,16 @@ public class Dense extends Matrix implements Block
     return lr;
   }
 
+  @Override
+  public Hierarchical castHierarchical() {
+    return null;
+  }
+
+  @Override
+  public H2Matrix castH2Matrix() {
+    return null;
+  }
+
   public LowRank toLowRank_fromBasis (ClusterBasis row_basis, ClusterBasis col_basis_t) {
     Matrix S = row_basis.toMatrix().transpose().times(this).times(col_basis_t.toMatrix());
     return new LowRank(row_basis, S, col_basis_t);
@@ -287,6 +297,16 @@ public class Dense extends Matrix implements Block
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
     Matrix result = a.toDense().times(alpha).times(b.toDense());
     times(beta).plusEquals(result);
+  }
+
+  public Dense plusEquals (Dense d) {
+    super.plusEquals(d);
+    return this;
+  }
+
+  @Override
+  public Block plusEquals (Block b) {
+    return plusEquals(b.toDense());
   }
 
   public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {
