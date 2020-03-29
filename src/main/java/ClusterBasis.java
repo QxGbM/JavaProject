@@ -25,6 +25,14 @@ public class ClusterBasis {
     reducedStorageForm = false;
   }
 
+  public ClusterBasis (ClusterBasis cb, Matrix m) {
+    basis = cb.basis.times(m);
+    children = cb.children;
+    xy_start = cb.xy_start;
+    row_col = cb.row_col;
+    reducedStorageForm = cb.reducedStorageForm;
+  }
+
   public ClusterBasis (int xy_start, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
 
     if (row_col)

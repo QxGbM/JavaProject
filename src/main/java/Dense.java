@@ -295,8 +295,40 @@ public class Dense extends Matrix implements Block
 
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    Matrix result = a.toDense().times(alpha).times(b.toDense());
-    times(beta).plusEquals(result);
+    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
+      System.out.println("bad partition"); System.exit(-1);
+    }
+    else if (a.getType() == Block_t.DENSE) {
+      scalarEquals(beta);
+      Block c = a.toDense().times(b);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
+    else if (a.getType() == Block_t.LOW_RANK) {
+      scalarEquals(beta);
+      Block c = a.toLowRank().times(b);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
+  }
+
+  @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
+    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
+      System.out.println("bad partition"); System.exit(-1);
+    }
+    else if (a.getType() == Block_t.DENSE) {
+      scalarEquals(beta);
+      Block c = a.toDense().times(b, prod);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
+    else if (a.getType() == Block_t.LOW_RANK) {
+      scalarEquals(beta);
+      Block c = a.toLowRank().times(b, prod);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
   }
 
   public Dense plusEquals (Dense d) {
@@ -304,9 +336,43 @@ public class Dense extends Matrix implements Block
     return this;
   }
 
+  public Dense plusEquals (Dense d, double alpha, double beta) {
+    super.timesEquals(beta).plusEquals(d.times(alpha));
+    return this;
+  }
+
   @Override
   public Block plusEquals (Block b) {
     return plusEquals(b.toDense());
+  }
+
+  @Override
+  public Block scalarEquals (double s) {
+    super.timesEquals(s);
+    return this;
+  }
+
+  public Dense times (Dense d) {
+    Matrix R = super.times(d);
+    return new Dense (R.getArray());
+  }
+
+  public LowRank times (LowRank lr) {
+    ClusterBasis cb = new ClusterBasis(times(lr.getU().toMatrix()), true);
+    return new LowRank(cb, lr.getS(), lr.getVT());
+  }
+
+  public Block times (Block b) {
+    if (b.getType() == Block_t.LOW_RANK)
+    { return times(b.toLowRank()); }
+    else if (b.getType() == Block_t.DENSE)
+    { return times(b.toDense()); }
+    else
+    { System.out.println("Error partition."); System.exit(-1); return null; }
+  }
+
+  public Block times (Block b, ClusterBasisProduct prod) {
+    return times(b);
   }
 
   public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {

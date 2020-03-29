@@ -46,7 +46,11 @@ public interface Block {
   
   abstract public void GEMatrixMult (Block a, Block b, double alpha, double beta);
 
+  abstract public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod);
+
   abstract public Block plusEquals (Block b);
+
+  abstract public Block scalarEquals (double s);
 
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();

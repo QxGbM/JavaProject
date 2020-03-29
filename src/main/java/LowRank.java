@@ -204,20 +204,95 @@ public class LowRank implements Block {
 
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
+    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
+      H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta);
+      LowRank lr = h.toLowRank(); U = lr.U; S = lr.S; VT = lr.VT;
+    }
+    else if (a.getType() == Block_t.DENSE) {
+      scalarEquals(beta);
+      Block c = a.toDense().times(b);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
+    else if (a.getType() == Block_t.LOW_RANK) {
+      scalarEquals(beta);
+      Block c = a.toLowRank().times(b);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
+  }
 
+  @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
+    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
+      H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta, prod);
+      LowRank lr = h.toLowRank(); U = lr.U; S = lr.S; VT = lr.VT;
+    }
+    else if (a.getType() == Block_t.DENSE) {
+      scalarEquals(beta);
+      Block c = a.toDense().times(b, prod);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
+    else if (a.getType() == Block_t.LOW_RANK) {
+      scalarEquals(beta);
+      Block c = a.toLowRank().times(b, prod);
+      c.scalarEquals(alpha);
+      plusEquals(c);
+    }
   }
 
   public LowRank plusEquals (LowRank lr) {
     if (lr.U.compare(U) && lr.VT.compare(VT)) 
     { S.plusEquals(lr.S); }
     else
-    { System.out.println("unmatched cb"); }
+    { System.out.println("unmatched basis, U: " + lr.U.compare(U) + " V: " + lr.VT.compare(VT)); }
     return this;
   }
 
   @Override
   public Block plusEquals (Block b) {
     return plusEquals(b.toLowRank());
+  }
+
+  @Override
+  public Block scalarEquals (double s) {
+    S.timesEquals(s);
+    return this;
+  }
+
+  public LowRank times (Dense d) {
+    ClusterBasis cb = new ClusterBasis(d.times(getVT().toMatrix()), true);
+    return new LowRank (getU(), getS(), cb);
+  }
+
+  public LowRank times (LowRank lr) {
+    ClusterBasisProduct prod = new ClusterBasisProduct(getVT(), lr.getU());
+    return times(lr, prod);
+  }
+
+  public LowRank times (LowRank lr, ClusterBasisProduct prod) {
+    Matrix Sa = getS(), Sb = lr.getS();
+    Matrix S = Sa.times(prod.getProduct()).times(Sb);
+    return new LowRank (getU(), S, lr.getVT());
+  }
+
+  public Block times (Block b) {
+    if (b.getType() == Block_t.LOW_RANK)
+    { return times(b.toLowRank()); }
+    else if (b.getType() == Block_t.DENSE)
+    { return times(b.toDense()); }
+    else
+    { System.out.println("Error partition."); System.exit(-1); return null; }
+  }
+
+  public Block times (Block b, ClusterBasisProduct prod) {
+    if (b.getType() == Block_t.LOW_RANK)
+    { return times(b.toLowRank(), prod); }
+    else if (b.getType() == Block_t.DENSE)
+    { return times(b.toDense()); }
+    else
+    { System.out.println("Error partition."); System.exit(-1); return null; }
   }
 
   public ClusterBasis getU ()

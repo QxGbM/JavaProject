@@ -67,23 +67,8 @@ public class PsplHMatrixPack {
       System.out.println(h2.toDense().minus(d).normF() / dim / dim);
       System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
 
-      ClusterBasis cb0 = new ClusterBasis(2048, 64, true, 32, 2, rank, admis, testFunc);
-      cb0.convertReducedStorageForm();
-      ClusterBasis cb1 = new ClusterBasis(0, 64, false, 32, 2, rank, admis, testFunc);
-      cb1.convertReducedStorageForm();
-      LowRank test1 = new Dense (64, 64, 2048, 0, testFunc).toLowRank_fromBasis(cb0, cb1);
-      H2Matrix test2 = new H2Matrix(test1);
-      LowRank test3 = test2.toLowRank();
-
-      H2Matrix test4 = new H2Matrix(test1);
-      test4.plusEquals(test2);
-
-      Dense ver1 = test1.toDense().plusEquals(test1.toDense());
-
-      System.out.println(test3.toDense().minus(test2.toDense()).normF() / 64 / 64);
-      System.out.println(test4.toDense().minus(ver1).normF() / 64 / 64);
-
-
+      Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
+      c.GEMatrixMult(a, b, -1, 1);
 
       if (write_h)
       {

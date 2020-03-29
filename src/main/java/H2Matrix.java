@@ -101,6 +101,7 @@ public class H2Matrix implements Block {
       }
     }
   }
+
   
   public int getNRowBlocks()
   { return e.length; }
@@ -301,7 +302,30 @@ public class H2Matrix implements Block {
 
   @Override
   public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
+    H2Matrix h_a = a.castH2Matrix() == null ? new H2Matrix(a.toLowRank()) : a.castH2Matrix();
+    H2Matrix h_b = b.castH2Matrix() == null ? new H2Matrix(b.toLowRank()) : b.castH2Matrix();
+    ClusterBasisProduct prod = new ClusterBasisProduct(h_a.col_basis, h_b.row_basis);
+    GEMatrixMult(h_a, h_b, alpha, beta, prod);
+  }
 
+  @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
+    H2Matrix h_a = a.castH2Matrix() == null ? new H2Matrix(a.toLowRank()) : a.castH2Matrix();
+    H2Matrix h_b = b.castH2Matrix() == null ? new H2Matrix(b.toLowRank()) : b.castH2Matrix();
+    GEMatrixMult(h_a, h_b, alpha, beta, prod);
+  }
+
+  public void GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct prod) {
+    int m = getNRowBlocks(), n = getNColumnBlocks(), k = a.getNColumnBlocks();
+
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        if (beta != 1.) { e[i][j].scalarEquals(beta); }
+        for (int kk = 0; kk < k; kk++) {
+          e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., prod.getChildren(i, j));
+        }
+      }
+    }
   }
 
   public H2Matrix plusEquals (H2Matrix h) {
@@ -313,6 +337,7 @@ public class H2Matrix implements Block {
     return this;
   }
 
+
   @Override
   public Block plusEquals (Block b) {
     if (b.castH2Matrix() != null)
@@ -320,6 +345,17 @@ public class H2Matrix implements Block {
     else
     { return plusEquals(new H2Matrix(b.toLowRank())); }
   }
+
+  @Override
+  public Block scalarEquals (double s) {
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        e[i][j].scalarEquals(s);
+      }
+    }
+    return this;
+  }
+
 
   public Block getElement (int m, int n)
   { return e[m][n]; }

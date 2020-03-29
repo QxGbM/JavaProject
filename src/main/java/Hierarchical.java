@@ -210,7 +210,18 @@ public class Hierarchical implements Block {
   }
 
   @Override
+  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
+
+  }
+
+  @Override
   public Block plusEquals (Block b) {
+    System.exit(1);
+    return null;
+  }
+
+  @Override
+  public Block scalarEquals (double s) {
     System.exit(1);
     return null;
   }
