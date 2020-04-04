@@ -67,8 +67,18 @@ public class PsplHMatrixPack {
       System.out.println(h2.toDense().minus(d).normF() / dim / dim);
       System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
 
-      Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
-      c.GEMatrixMult(a, b, -1, 1);
+      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf / 2, nblocks, rank, admis, 0, 0, testFunc);
+
+      System.out.println(h2_.toDense().minus(d).normF() / dim / dim);
+
+
+      h2_.plusEquals(h2);
+      Jama.Matrix ref = d.plus(d);
+      System.out.println(h2_.toDense().minus(ref).normF() / dim / dim);
+
+
+      //Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
+      //c.GEMatrixMult(a, b, -1, 1);
 
       if (write_h)
       {

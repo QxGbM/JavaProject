@@ -151,6 +151,10 @@ public class ClusterBasis {
     }
   }
 
+  public Matrix toMatrix (int i) {
+    return children[i].toMatrix();
+  }
+
   public Matrix convertReducedStorageForm() {
     if (children == null)
     { reducedStorageForm = true; return basis; }
