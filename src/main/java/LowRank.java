@@ -244,7 +244,7 @@ public class LowRank implements Block {
 
   public LowRank plusEquals (LowRank lr) {
     boolean U_equal = lr.U.compare(U), VT_equal = lr.VT.compare(VT);
-    ClusterBasisProduct X = U_equal ? null : new ClusterBasisProduct(lr.U, U);
+    ClusterBasisProduct X = U_equal ? null : new ClusterBasisProduct(U, lr.U);
     ClusterBasisProduct Y = VT_equal ? null : new ClusterBasisProduct(lr.VT, VT);
     return plusEquals(X, Y, lr.S);
   }

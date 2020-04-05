@@ -88,7 +88,7 @@ public class ClusterBasisProduct {
   }
 
   public Matrix getProduct (int i, int j) {
-    return children[i][j].product;
+    return getChildren(i, j) == null ? null : children[i][j].product;
   }
 
   public void accumProduct (int i, int j, Matrix product) {
@@ -118,7 +118,7 @@ public class ClusterBasisProduct {
   }
 
   public ClusterBasisProduct getChildren (int i, int j) {
-    return children[i][j];
+    return children == null ? null : children[i][j];
   }
 
 

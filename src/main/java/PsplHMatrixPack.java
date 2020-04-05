@@ -3,7 +3,7 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
-  static final double epi = 1.e-10;
+  static final double epi = 1.e-8;
 
   static int rank = 16;
 
@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 3, nblocks = 2, nleaf = 256, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 2, nblocks = 2, nleaf = 256, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -67,18 +67,26 @@ public class PsplHMatrixPack {
       System.out.println(h2.toDense().minus(d).normF() / dim / dim);
       System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
 
-      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf / 2, nblocks, rank, admis, 0, 0, testFunc);
+      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
 
       System.out.println(h2_.toDense().minus(d).normF() / dim / dim);
 
-
       h2_.plusEquals(h2);
-      Jama.Matrix ref = d.plus(d);
+      Jama.Matrix ref = d.times(2);
       System.out.println(h2_.toDense().minus(ref).normF() / dim / dim);
+      //System.out.println(h2_.structure());
 
 
       //Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
       //c.GEMatrixMult(a, b, -1, 1);
+
+      /*LowRank lr = new Dense (256, 256, 2048, 0, testFunc).toLowRank();
+      LowRank lr2 = (new Dense (256, 256, 2048, 0, testFunc).scalarEquals(2)).toLowRank();
+
+      Jama.Matrix ref2 = lr.toDense().times(3);
+      lr.plusEquals(lr2);
+
+      System.out.println(lr.toDense().minus(ref2).normF() / 256 / 256);*/
 
       if (write_h)
       {
