@@ -109,7 +109,7 @@ public class ClusterBasisProduct {
   }
 
   public void splitProduct (ClusterBasis left, ClusterBasis right) {
-    if (product != null)
+    if (product != null && children != null)
     for (int i = 0; i < getNRowBlocks(); i++) {
       Matrix E_i = left.getTrans(i).times(product);
       for (int j = 0; j < getNColumnBlocks(); j++) {

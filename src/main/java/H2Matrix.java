@@ -362,15 +362,12 @@ public class H2Matrix implements Block {
   public H2Matrix plusEquals (H2Matrix h, ClusterBasisProduct Sa, ClusterBasisProduct Sb) {
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++) {
-        /*Matrix ref = e[i][j].toDense().times(2);
-        e[i][j].plusEquals(h.e[i][j]);
-        System.out.println(i + " " + j + ": " + e[i][j].getRowDimension() + " " + e[i][j].getColumnDimension() + " " + e[i][j].toDense().minus(ref).normF() / e[i][j].getRowDimension() / e[i][j].getColumnDimension());*/
+        //e[i][j].plusEquals(h.e[i][j]);
         if (h.e[i][j].getType() == Block_t.LOW_RANK || h.e[i][j].getType() == Block_t.DENSE) {
           if (h.e[i][j].getType() == Block_t.LOW_RANK)
           { Sb.accumProduct(i, j, h.e[i][j].toLowRank().getS()); }
           else if (e[i][j].getType() == Block_t.LOW_RANK)
           { e[i][j].toLowRank().getS().plusEquals(Sa.getProduct(i, j)); }
-          //{ e[i][j].plusEquals(h.e[i][j]); }
           else
           { e[i][j] = e[i][j].toDense().plusEquals(h.e[i][j].toDense()); }          
         }
