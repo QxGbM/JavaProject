@@ -63,20 +63,6 @@ public class ClusterBasisProduct {
     }
   }
 
-  public ClusterBasisProduct (ClusterBasis left, ClusterBasis right, Matrix product_upper) {
-    product = product_upper;
-    int m = left.childrenLength(), n = right.childrenLength();
-    children = new ClusterBasisProduct[m][n];
-
-    for (int i = 0; i < m; i++) {
-      Matrix E_i = left.getTrans(i).times(product_upper);
-      for (int j = 0; j < n; j++) {
-        Matrix Et_j = right.getTrans(j).transpose();
-        children[i][j] = new ClusterBasisProduct(E_i.times(Et_j));
-      }
-    }
-  }
-
   public int getNRowBlocks()
   { return children.length; }
 
@@ -91,16 +77,26 @@ public class ClusterBasisProduct {
     return getChildren(i, j) == null ? null : children[i][j].product;
   }
 
-  public void accumProduct (int i, int j, Matrix product) {
+  public void accumProduct (Matrix product) {
     if (this.product == null)
     { this.product = new Matrix(product.getArray()); }
     else 
     { this.product.plusEquals(product); }
   }
 
-  public void expandChildren (int i, int j, int m, int n) {
+  public void accumProduct (int i, int j, Matrix product) {
+    if (children[i][j] != null)
+    { children[i][j].accumProduct(product); }
+    else
+    { children[i][j] = new ClusterBasisProduct(product); }
+  }
+
+  public ClusterBasisProduct expandChildren (int i, int j, int m, int n) {
     if (children[i][j] == null)
     { children[i][j] = new ClusterBasisProduct(m, n); }
+    else
+    { children[i][j].children = new ClusterBasisProduct[m][n]; }
+    return children[i][j];
   }
 
   public Matrix collectProduct (ClusterBasis left, ClusterBasis right) {
@@ -117,8 +113,36 @@ public class ClusterBasisProduct {
     return product;
   }
 
+  public void splitProduct (ClusterBasis left, ClusterBasis right) {
+    if (product != null)
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      Matrix E_i = left.getTrans(i).times(product);
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        Matrix Et_j = right.getTrans(j).transpose();
+        accumProduct(i, j, E_i.times(Et_j));
+      }
+    }
+    product = null;
+  }
+
   public ClusterBasisProduct getChildren (int i, int j) {
     return children == null ? null : children[i][j];
+  }
+
+  public void printStr () {
+    if (children != null)
+    System.out.print(getNRowBlocks() + " " + getNColumnBlocks());
+    if (product != null)
+    System.out.println(" " + product.getRowDimension() + "x" + product.getColumnDimension());
+    else
+    System.out.println(" 0x0");
+    if (children != null)
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        if (children[i][j] != null)
+        children[i][j].printStr();
+      }
+    }
   }
 
 
