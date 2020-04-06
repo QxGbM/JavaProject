@@ -3,7 +3,7 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
-  static final double epi = 1.e-8;
+  static final double epi = 1.e-10;
 
   static int rank = 16;
 
@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 2, nblocks = 2, nleaf = 256, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 3, nblocks = 2, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -72,7 +72,6 @@ public class PsplHMatrixPack {
       h2.plusEquals(h2_);
       Jama.Matrix ref = d.times(2);
       System.out.println("add: " + h2.toDense().minus(ref).normF() / dim / dim);
-      //System.out.println(h2_.structure());
 
 
       //Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);

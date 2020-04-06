@@ -336,17 +336,12 @@ public class H2Matrix implements Block {
       for (int j = 0; j < n; j++) {
         if (S.getChildren(i, j) != null) {
           Block b = getElement(i, j);
-          if (b.getType() == Block.Block_t.LOW_RANK) {
-            LowRank lr = b.toLowRank();
-            lr.plusEquals(X.getChildren(i, i), Y.getChildren(j, j), S.getProduct(i, j));
-          } 
-          else if (b.getType() == Block.Block_t.DENSE) {
-            Dense d = b.toDense();
-            d.plusEquals(left_prime.toMatrix(i).times(S.getProduct(i, j)).times(right_prime.toMatrix(j).transpose()));
-          }
-          else {
-            b.castH2Matrix().matrixBack(left_prime.getChildren()[i], right_prime.getChildren()[j], X.getChildren(i, i), Y.getChildren(j, j), S.getChildren(i, j));
-          }
+          if (b.getType() == Block.Block_t.LOW_RANK) 
+          { b.toLowRank().plusEquals(X.getChildren(i, i), Y.getChildren(j, j), S.getProduct(i, j)); } 
+          else if (b.getType() == Block.Block_t.DENSE) 
+          { b.toDense().plusEquals(left_prime.toMatrix(i).times(S.getProduct(i, j)).times(right_prime.toMatrix(j).transpose())); }
+          else 
+          { b.castH2Matrix().matrixBack(left_prime.getChildren()[i], right_prime.getChildren()[j], X.getChildren(i, i), Y.getChildren(j, j), S.getChildren(i, j)); }
         }
       }
     }
@@ -367,12 +362,15 @@ public class H2Matrix implements Block {
   public H2Matrix plusEquals (H2Matrix h, ClusterBasisProduct Sa, ClusterBasisProduct Sb) {
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++) {
+        /*Matrix ref = e[i][j].toDense().times(2);
+        e[i][j].plusEquals(h.e[i][j]);
+        System.out.println(i + " " + j + ": " + e[i][j].getRowDimension() + " " + e[i][j].getColumnDimension() + " " + e[i][j].toDense().minus(ref).normF() / e[i][j].getRowDimension() / e[i][j].getColumnDimension());*/
         if (h.e[i][j].getType() == Block_t.LOW_RANK || h.e[i][j].getType() == Block_t.DENSE) {
           if (h.e[i][j].getType() == Block_t.LOW_RANK)
           { Sb.accumProduct(i, j, h.e[i][j].toLowRank().getS()); }
-          //{ e[i][j].plusEquals(h.e[i][j]); }
           else if (e[i][j].getType() == Block_t.LOW_RANK)
           { e[i][j].toLowRank().getS().plusEquals(Sa.getProduct(i, j)); }
+          //{ e[i][j].plusEquals(h.e[i][j]); }
           else
           { e[i][j] = e[i][j].toDense().plusEquals(h.e[i][j].toDense()); }          
         }

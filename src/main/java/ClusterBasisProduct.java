@@ -18,18 +18,15 @@ public class ClusterBasisProduct {
 
   public ClusterBasisProduct (ClusterBasis left, ClusterBasis right) {
     int left_child = left.childrenLength(), right_child = right.childrenLength();
-
     if (left_child == 0 || right_child == 0) 
     { children = null; product = left.toMatrix().transpose().times(right.toMatrix()); }
     else {
       children = new ClusterBasisProduct[left_child][right_child];
-
       for (int i = 0; i < left_child; i++) {
         for (int j = 0; j < right_child; j++) {
           children[i][j] = new ClusterBasisProduct(left.getChildren()[i], right.getChildren()[j]);
         }
       }
-
       product = collectProduct(left, right);
     }
   }
@@ -101,15 +98,13 @@ public class ClusterBasisProduct {
 
   public Matrix collectProduct (ClusterBasis left, ClusterBasis right) {
     Matrix product = new Matrix (left.getRank(), right.getRank());
-
     for (int i = 0; i < getNRowBlocks(); i++) {
       Matrix Et_i = left.getTrans(i).transpose();
-      for (int j = 0; j < getNColumnBlocks(); j++) {
-        Matrix E_j = right.getTrans(j);
-        product.plusEquals(Et_i.times(children[i][j].product).times(E_j));
-      }
+      //for (int j = 0; j < getNColumnBlocks(); j++) {
+        Matrix E_j = right.getTrans(i);
+        product.plusEquals(Et_i.times(children[i][i].product).times(E_j));
+      //}
     }
-
     return product;
   }
 
