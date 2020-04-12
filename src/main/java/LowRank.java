@@ -258,7 +258,8 @@ public class LowRank implements Block {
 
   @Override
   public Block plusEquals (Block b) {
-    return plusEquals(b.toLowRank());
+    LowRank lr = b.toLowRank();
+    return plusEquals(lr);
   }
 
   @Override

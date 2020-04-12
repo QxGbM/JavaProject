@@ -322,13 +322,14 @@ public class H2Matrix implements Block {
       for (int j = 0; j < n; j++) {
         if (beta != 1.) { e[i][j].scalarEquals(beta); }
         for (int kk = 0; kk < k; kk++) {
-          e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., prod.getChildren(i, j));
+          // TODO
+          //e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., prod.getChildren(i, j));
         }
       }
     }
   }
 
-  public H2Matrix matrixBack (ClusterBasis left_prime, ClusterBasis right_prime, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct S) {
+  public H2Matrix matrixBack (ClusterBasis left_prime, ClusterBasis right_prime, ClusterBasisProduct X, ClusterBasisProduct Y, H2Approx S) {
     int m = getNRowBlocks(), n = getNColumnBlocks();
     S.splitProduct(left_prime, right_prime);
 
@@ -337,11 +338,11 @@ public class H2Matrix implements Block {
         if (S.getChildren(i, j) != null) {
           Block b = getElement(i, j);
           if (b.getType() == Block.Block_t.LOW_RANK) 
-          { b.toLowRank().plusEquals(X.getChildren(i, i), Y.getChildren(j, j), S.getProduct(i, j)); } 
+          { b.toLowRank().plusEquals(X.getChildren(i), Y.getChildren(j), S.getProduct(i, j)); } 
           else if (b.getType() == Block.Block_t.DENSE) 
           { b.toDense().plusEquals(left_prime.toMatrix(i).times(S.getProduct(i, j)).times(right_prime.toMatrix(j).transpose())); }
           else 
-          { b.castH2Matrix().matrixBack(left_prime.getChildren()[i], right_prime.getChildren()[j], X.getChildren(i, i), Y.getChildren(j, j), S.getChildren(i, j)); }
+          { b.castH2Matrix().matrixBack(left_prime.getChildren()[i], right_prime.getChildren()[j], X.getChildren(i), Y.getChildren(j), S.getChildren(i, j)); }
         }
       }
     }
@@ -352,24 +353,24 @@ public class H2Matrix implements Block {
   public H2Matrix plusEquals (H2Matrix h) {
     ClusterBasisProduct X = new ClusterBasisProduct(row_basis, h.row_basis);
     ClusterBasisProduct Y = new ClusterBasisProduct(h.col_basis, col_basis);
-    ClusterBasisProduct Sa = new ClusterBasisProduct(row_basis, col_basis, X, Y, h);
-    ClusterBasisProduct Sb = new ClusterBasisProduct(getNRowBlocks(), getNColumnBlocks());
+    H2Approx Sa = new H2Approx(row_basis, col_basis, X, Y, h);
+    H2Approx Sb = new H2Approx(getNRowBlocks(), getNColumnBlocks());
     plusEquals(h, Sa, Sb);
     matrixBack(h.row_basis, h.col_basis, X, Y, Sb);
     return this;
   }
 
-  public H2Matrix plusEquals (H2Matrix h, ClusterBasisProduct Sa, ClusterBasisProduct Sb) {
+  public H2Matrix plusEquals (H2Matrix h, H2Approx Sa, H2Approx Sb) {
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++) {
-        //e[i][j].plusEquals(h.e[i][j]);
+
         if (h.e[i][j].getType() == Block_t.LOW_RANK || h.e[i][j].getType() == Block_t.DENSE) {
           if (h.e[i][j].getType() == Block_t.LOW_RANK)
           { Sb.accumProduct(i, j, h.e[i][j].toLowRank().getS()); }
           else if (e[i][j].getType() == Block_t.LOW_RANK)
           { e[i][j].toLowRank().getS().plusEquals(Sa.getProduct(i, j)); }
           else
-          { e[i][j] = e[i][j].toDense().plusEquals(h.e[i][j].toDense()); }          
+          { e[i][j] = e[i][j].toDense().plusEquals(h.e[i][j].toDense()); }
         }
         else if (e[i][j].getType() == Block_t.LOW_RANK)
         { e[i][j].toLowRank().getS().plusEquals(Sa.getProduct(i, j)); }
@@ -377,9 +378,10 @@ public class H2Matrix implements Block {
         { e[i][j].toDense().plusEquals(h.e[i][j].toDense()); }
         else {
           H2Matrix h_e = e[i][j].castH2Matrix();
-          ClusterBasisProduct Sb_prime = Sb.expandChildren(i, j, h_e.getNRowBlocks(), h_e.getNColumnBlocks());
-          h_e.plusEquals(h.e[i][j].castH2Matrix(), Sa.getChildren(i, j), Sb_prime); 
+          H2Approx Sb_prime = Sb.expandChildren(i, j, h_e.getNRowBlocks(), h_e.getNColumnBlocks());
+          h_e.plusEquals(h.e[i][j].castH2Matrix(), Sa.getChildren(i, j), Sb_prime);
         }
+        
       }
     }
     return this;

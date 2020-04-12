@@ -3,8 +3,8 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
-  static final double epi = 1.e-10;
-
+  static final double epi = 1.e-8;
+  static final int minimal_sep = 512;
   static int rank = 16;
 
   @FunctionalInterface
@@ -67,7 +67,9 @@ public class PsplHMatrixPack {
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
 
-      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf * 2, nblocks, rank, admis, 0, 0, testFunc);
+      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf * 2, nblocks, rank, 0, 0, 0, testFunc);
+
+      System.out.println("compress: " + h2_.toDense().minus(d).normF() / dim / dim);
 
       h2.plusEquals(h2_);
       Jama.Matrix ref = d.times(2);
