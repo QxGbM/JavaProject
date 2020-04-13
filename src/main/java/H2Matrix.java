@@ -333,8 +333,18 @@ public class H2Matrix implements Block {
 
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-
-
+    if (a.getType() == Block_t.LOW_RANK) {
+      if (b.getType() == Block_t.LOW_RANK) 
+      { GEMatrixMult(a.toLowRank(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else
+      { GEMatrixMult(new H2Matrix(a.toLowRank()), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+    }
+    else {
+      if (b.getType() == Block_t.LOW_RANK) 
+      { GEMatrixMult(a.castH2Matrix(), new H2Matrix(b.toLowRank()), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else
+      { GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+    }
     return this;
   }
 
@@ -348,7 +358,7 @@ public class H2Matrix implements Block {
     H2Approx Sc = new H2Approx(getNRowBlocks(), getNColumnBlocks());
 
     GEMatrixMult (a, b, alpha, beta, X, Y, Z, Sa, Sb, Sc);
-    matrixBack(a.row_basis, b.col_basis, X, Z, Sb);
+    matrixBack(a.row_basis, b.col_basis, X, Z, Sc);
     return this;
   }
 
@@ -367,7 +377,7 @@ public class H2Matrix implements Block {
         if (beta != 1.) 
         { e[i][j].scalarEquals(beta); }
         for (int kk = 0; kk < k; kk++) 
-        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X, Y, Z, Sa, Sb, Sc); }
+        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X.getChildren(i), Y.getChildren(kk), Z.getChildren(j), Sa.getChildren(i, kk), Sb.getChildren(kk, j), Sc.getChildren(i, j)); }
       }
     }
 

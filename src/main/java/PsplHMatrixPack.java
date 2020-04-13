@@ -76,8 +76,8 @@ public class PsplHMatrixPack {
       System.out.println("add: " + h2.toDense().minus(ref).normF() / dim / dim);
 
 
-      //Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
-      //c.GEMatrixMult(a, b, -1, 1);
+      Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
+      c.GEMatrixMult(a, b, -1, 1);
 
       /*LowRank lr = new Dense (256, 256, 2048, 0, testFunc).toLowRank();
       LowRank lr2 = (new Dense (256, 256, 2048, 0, testFunc).scalarEquals(2)).toLowRank();
