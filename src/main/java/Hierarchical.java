@@ -205,13 +205,15 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
-
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
+    System.exit(1);
+    return null;
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
-
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    System.exit(1);
+    return null;
   }
 
   @Override

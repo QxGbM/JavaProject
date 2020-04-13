@@ -102,6 +102,31 @@ public class H2Matrix implements Block {
     }
   }
 
+  public H2Matrix (Dense d, ClusterBasis row_basis, ClusterBasis col_basis) {
+    this.row_basis = row_basis; this.col_basis = col_basis;
+    int m = row_basis.childrenLength() > 0 ? row_basis.childrenLength() : 1;
+    int n = col_basis.childrenLength() > 0 ? col_basis.childrenLength() : 1;
+    e = new Block[m][n];
+
+    int y_start = 0;
+    for (int i = 0; i < m; i++) {
+      int y_length = row_basis.getChildren()[i].getDimension();
+      int x_start = 0;
+      for (int j = 0; j < n; j++) {
+        int x_length = col_basis.getChildren()[j].getDimension();
+        Matrix part = d.getMatrix(y_start, y_start + y_length - 1, x_start, x_start + x_length - 1);
+        e[i][j] = new Dense(part.getArray());
+        x_start += x_length;
+      }
+      y_start += y_length;
+    }
+  }
+
+  public ClusterBasis getRowBasis() 
+  { return row_basis; }
+
+  public ClusterBasis getColBasis()
+  { return col_basis; }
   
   public int getNRowBlocks()
   { return e.length; }
@@ -301,32 +326,52 @@ public class H2Matrix implements Block {
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    H2Matrix h_a = a.castH2Matrix() == null ? new H2Matrix(a.toLowRank()) : a.castH2Matrix();
-    H2Matrix h_b = b.castH2Matrix() == null ? new H2Matrix(b.toLowRank()) : b.castH2Matrix();
-    ClusterBasisProduct prod = new ClusterBasisProduct(h_a.col_basis, h_b.row_basis);
-    GEMatrixMult(h_a, h_b, alpha, beta, prod);
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
+;
+    return this;
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
-    H2Matrix h_a = a.castH2Matrix() == null ? new H2Matrix(a.toLowRank()) : a.castH2Matrix();
-    H2Matrix h_b = b.castH2Matrix() == null ? new H2Matrix(b.toLowRank()) : b.castH2Matrix();
-    GEMatrixMult(h_a, h_b, alpha, beta, prod);
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+
+
+    return this;
   }
 
-  public void GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct prod) {
+  public H2Matrix GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta) {
+    ClusterBasisProduct X = new ClusterBasisProduct(row_basis, a.row_basis);
+    ClusterBasisProduct Y = new ClusterBasisProduct(a.col_basis, b.row_basis);
+    ClusterBasisProduct Z = new ClusterBasisProduct(b.col_basis, col_basis);
+
+    H2Approx Sa = new H2Approx(row_basis, b.row_basis, X, Y, a);
+    H2Approx Sb = new H2Approx(a.col_basis, col_basis, Y, Z, b);
+    H2Approx Sc = new H2Approx(getNRowBlocks(), getNColumnBlocks());
+
+    GEMatrixMult (a, b, alpha, beta, X, Y, Z, Sa, Sb, Sc);
+    matrixBack(a.row_basis, b.col_basis, X, Z, Sb);
+    return this;
+  }
+
+  public Block GEMatrixMult (LowRank a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m = Sa.getS().times(Y.getProduct()).times(Sb.getS()).times(alpha);
+    Sc.accumProduct(m);
+    return this;
+  }
+  
+  public H2Matrix GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     int m = getNRowBlocks(), n = getNColumnBlocks(), k = a.getNColumnBlocks();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
-        if (beta != 1.) { e[i][j].scalarEquals(beta); }
-        for (int kk = 0; kk < k; kk++) {
-          // TODO
-          //e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., prod.getChildren(i, j));
-        }
+        if (beta != 1.) 
+        { e[i][j].scalarEquals(beta); }
+        for (int kk = 0; kk < k; kk++) 
+        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X, Y, Z, Sa, Sb, Sc); }
       }
     }
+
+    return this;
   }
 
   public H2Matrix matrixBack (ClusterBasis left_prime, ClusterBasis right_prime, ClusterBasisProduct X, ClusterBasisProduct Y, H2Approx S) {

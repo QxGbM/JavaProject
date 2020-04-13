@@ -44,9 +44,9 @@ public interface Block {
 
   abstract public void triangularSolve (Block b, boolean up_low);
   
-  abstract public void GEMatrixMult (Block a, Block b, double alpha, double beta);
+  abstract public Block GEMatrixMult (Block a, Block b, double alpha, double beta);
 
-  abstract public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod);
+  abstract public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc);
 
   abstract public Block plusEquals (Block b);
 

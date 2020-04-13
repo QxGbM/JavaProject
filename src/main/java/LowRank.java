@@ -203,7 +203,7 @@ public class LowRank implements Block {
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
     if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
       H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta);
       LowRank lr = h.toLowRank(); U = lr.U; S = lr.S; VT = lr.VT;
@@ -220,27 +220,54 @@ public class LowRank implements Block {
       c.scalarEquals(alpha);
       plusEquals(c);
     }
+
+    return this;
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
-    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
-      H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta, prod);
-      LowRank lr = h.toLowRank(); U = lr.U; S = lr.S; VT = lr.VT;
-    }
-    else if (a.getType() == Block_t.DENSE) {
-      scalarEquals(beta);
-      Block c = a.toDense().times(b, prod);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
-    else if (a.getType() == Block_t.LOW_RANK) {
-      scalarEquals(beta);
-      Block c = a.toLowRank().times(b, prod);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    if (a.getType() == Block_t.LOW_RANK) 
+    { GEMatrixMult(a.toLowRank(), b, alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+    else if (b.getType() == Block_t.LOW_RANK)
+    { GEMatrixMult(a, b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+    else if (a.getType() == Block_t.DENSE && b.getType() == Block_t.DENSE)
+    { GEMatrixMult(a.toDense(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+    else 
+    { GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+
+    return this;
   }
+
+  public LowRank GEMatrixMult (LowRank a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m = X.getProduct().times(a.S).times(Sb.getS()).times(alpha);
+    this.S.plusEquals(m);
+    return this;
+  }
+
+  public LowRank GEMatrixMult (Block a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m = Sa.getS().times(b.S).times(Z.getProduct()).times(alpha);
+    this.S.plusEquals(m);
+    return this;
+  }
+
+  public LowRank GEMatrixMult (Dense a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m = U.toMatrix().transpose().times(a).times(b).times(VT.toMatrix()).times(alpha);
+    this.S.plusEquals(m);
+    return this;
+  }
+
+  public LowRank GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    H2Matrix temp = new H2Matrix(this);
+    temp.GEMatrixMult(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
+    LowRank lr = temp.toLowRank();
+    U = lr.U; S = lr.S; VT = lr.VT;
+    return this;
+  }
+
 
   public LowRank plusEquals (LowRank lr) {
     boolean U_equal = lr.U.compare(U), VT_equal = lr.VT.compare(VT);
@@ -264,7 +291,8 @@ public class LowRank implements Block {
 
   @Override
   public Block scalarEquals (double s) {
-    S.timesEquals(s);
+    if (s != 1.)
+    { S.timesEquals(s); }
     return this;
   }
 
@@ -273,16 +301,6 @@ public class LowRank implements Block {
     return new LowRank (getU(), getS(), cb);
   }
 
-  public LowRank times (LowRank lr) {
-    ClusterBasisProduct prod = new ClusterBasisProduct(getVT(), lr.getU());
-    return times(lr, prod);
-  }
-
-  public LowRank times (LowRank lr, ClusterBasisProduct prod) {
-    Matrix Sa = getS(), Sb = lr.getS();
-    Matrix S = Sa.times(prod.getProduct()).times(Sb);
-    return new LowRank (getU(), S, lr.getVT());
-  }
 
   public Block times (Block b) {
     if (b.getType() == Block_t.LOW_RANK)
@@ -293,14 +311,6 @@ public class LowRank implements Block {
     { System.out.println("Error partition."); System.exit(-1); return null; }
   }
 
-  public Block times (Block b, ClusterBasisProduct prod) {
-    if (b.getType() == Block_t.LOW_RANK)
-    { return times(b.toLowRank(), prod); }
-    else if (b.getType() == Block_t.DENSE)
-    { return times(b.toDense()); }
-    else
-    { System.out.println("Error partition."); System.exit(-1); return null; }
-  }
 
   public ClusterBasis getU ()
   { return U; }

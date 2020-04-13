@@ -294,7 +294,7 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta) {
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
     if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
       System.out.println("bad partition"); System.exit(-1);
     }
@@ -310,25 +310,81 @@ public class Dense extends Matrix implements Block
       c.scalarEquals(alpha);
       plusEquals(c);
     }
+
+    return this;
   }
 
   @Override
-  public void GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct prod) {
-    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
-      System.out.println("bad partition"); System.exit(-1);
+  public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    if (a.getType() == Block_t.LOW_RANK) {
+      if (b.getType() == Block_t.LOW_RANK)
+      { GEMatrixMult(a.toLowRank(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else if (b.getType() == Block_t.DENSE)
+      { GEMatrixMult(a.toLowRank(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else
+      { GEMatrixMult(a.toLowRank(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     }
     else if (a.getType() == Block_t.DENSE) {
-      scalarEquals(beta);
-      Block c = a.toDense().times(b, prod);
-      c.scalarEquals(alpha);
-      plusEquals(c);
+      if (b.getType() == Block_t.LOW_RANK)
+      { GEMatrixMult(a.toDense(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else
+      { GEMatrixMult(a.toDense(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     }
-    else if (a.getType() == Block_t.LOW_RANK) {
-      scalarEquals(beta);
-      Block c = a.toLowRank().times(b, prod);
-      c.scalarEquals(alpha);
-      plusEquals(c);
+    else {
+      if (b.getType() == Block_t.LOW_RANK)
+      { GEMatrixMult(a.castH2Matrix(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else
+      { GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     }
+
+    return this;
+  }
+
+  public Block GEMatrixMult (LowRank a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m = Sa.getS().times(Y.getProduct()).times(Sb.getS()).times(alpha);
+    Sc.accumProduct(m);
+    return this;
+  }
+
+  public Block GEMatrixMult (LowRank a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m1 = a.getU().toMatrix().times(a.getS()).times(alpha);
+    Matrix m2 = a.getVT().toMatrix().transpose().times(b);
+    super.plusEquals(m1.times(m2));
+    return this;
+  }
+
+  public Block GEMatrixMult (LowRank a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    return GEMatrixMult(new H2Matrix(a), b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
+  }
+
+  public Block GEMatrixMult (Dense a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    Matrix m1 = a.times(b.getU().toMatrix()).times(alpha);
+    Matrix m2 = b.getS().times(b.getVT().toMatrix().transpose());
+    super.plusEquals(m1.times(m2));
+    return this;
+  }
+
+  public Block GEMatrixMult (Dense a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    super.plusEquals(a.times(b).times(alpha));
+    return this;
+  }
+
+  public Block GEMatrixMult (H2Matrix a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    return GEMatrixMult(a, new H2Matrix(b), alpha, 1., X, Y, Z, Sa, Sb, Sc);
+  }
+
+  public Block GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+    scalarEquals(beta);
+    H2Matrix temp = new H2Matrix(this, a.getRowBasis(), b.getColBasis());
+    temp.GEMatrixMult(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
+    super.setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, temp.toDense());
+    return this;
   }
 
   public Dense plusEquals (Dense d) {
@@ -348,7 +404,8 @@ public class Dense extends Matrix implements Block
 
   @Override
   public Block scalarEquals (double s) {
-    super.timesEquals(s);
+    if (s != 1.)
+    { super.timesEquals(s); }
     return this;
   }
 
@@ -369,10 +426,6 @@ public class Dense extends Matrix implements Block
     { return times(b.toDense()); }
     else
     { System.out.println("Error partition."); System.exit(-1); return null; }
-  }
-
-  public Block times (Block b, ClusterBasisProduct prod) {
-    return times(b);
   }
 
   public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {
