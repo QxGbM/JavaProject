@@ -67,25 +67,24 @@ public class PsplHMatrixPack {
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
 
-      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf * 2, nblocks, rank, 0, 0, 0, testFunc);
-
-      System.out.println("compress: " + h2_.toDense().minus(d).normF() / dim / dim);
+      H2Matrix h2_ = new H2Matrix(dim, dim, nleaf / 2, nblocks, rank, 0.4, 0, 0, testFunc);
+      h2_.scalarEquals(2);
 
       h2.plusEquals(h2_);
-      Jama.Matrix ref = d.times(2);
+      Jama.Matrix ref = d.times(3);
       System.out.println("add: " + h2.toDense().minus(ref).normF() / dim / dim);
 
 
       Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
+      Dense ref_c = c.toDense(), ref_a = a.toDense(), ref_b = b.toDense();
+
       c.GEMatrixMult(a, b, -1, 1);
+      //ref_c.GEMatrixMult(ref_a, ref_b, -1, 1);
 
-      /*LowRank lr = new Dense (256, 256, 2048, 0, testFunc).toLowRank();
-      LowRank lr2 = (new Dense (256, 256, 2048, 0, testFunc).scalarEquals(2)).toLowRank();
+      System.out.println("mult_add: " + c.toDense().minus(ref_c).normF() / ref_c.getRowDimension() / ref_c.getColumnDimension());
 
-      Jama.Matrix ref2 = lr.toDense().times(3);
-      lr.plusEquals(lr2);
 
-      System.out.println(lr.toDense().minus(ref2).normF() / 256 / 256);*/
+
 
       if (write_h)
       {

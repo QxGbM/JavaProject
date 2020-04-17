@@ -5,6 +5,11 @@ public class H2Approx {
   private Matrix S;
   private H2Approx children[][];
 
+  public H2Approx () {
+    S = null;
+    children = null;
+  }
+
   public H2Approx (Matrix S) {
     this.S = S;
     children = null;
@@ -13,6 +18,11 @@ public class H2Approx {
   public H2Approx (int m, int n) {
     S = null;
     children = new H2Approx[m][n];
+  }
+
+  public H2Approx (Matrix S, int m, int n) {
+    this.S = S;
+    children = m > 0 && n > 0 ? new H2Approx[m][n] : null;
   }
 
   public H2Approx (ClusterBasis left_prime, ClusterBasis right_prime, ClusterBasisProduct X, ClusterBasisProduct Y, H2Matrix h) {
@@ -105,7 +115,25 @@ public class H2Approx {
   }
 
   public H2Approx getChildren (int i, int j) {
-    return children == null ? null : children[i][j];
+    if (children == null || i < 0 || i >= getNRowBlocks() || j < 0 || j >= getNColumnBlocks())
+    { return null; }
+    else
+    { return children[i][j] == null ? children[i][j] = new H2Approx() : children[i][j]; }
+  }
+
+  public boolean hasChildren () {
+    return children != null;
+  }
+
+  public boolean hasChildren (int i, int j) {
+    return !(children == null || i < 0 || i >= getNRowBlocks() || j < 0 || j >= getNColumnBlocks()) && children[i][j] != null;
+  }
+
+  public void print() {
+    if (S != null)
+    System.out.println("product: " + S.getRowDimension() + ", " + S.getColumnDimension());
+    if (children != null)
+    System.out.println("children: " + getNRowBlocks() + ", " + getNColumnBlocks());
   }
 
 
