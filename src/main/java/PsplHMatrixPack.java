@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 3, nblocks = 2, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 4, nblocks = 2, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -78,8 +78,8 @@ public class PsplHMatrixPack {
       Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
       Dense ref_c = c.toDense(), ref_a = a.toDense(), ref_b = b.toDense();
 
-      c.GEMatrixMult(a, b, -1, 1);
-      //ref_c.GEMatrixMult(ref_a, ref_b, -1, 1);
+      c.GEMatrixMult(a, b, 1, 1);
+      ref_c.plusEquals(ref_a.times(ref_b));
 
       System.out.println("mult_add: " + c.toDense().minus(ref_c).normF() / ref_c.getRowDimension() / ref_c.getColumnDimension());
 

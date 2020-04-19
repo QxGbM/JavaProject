@@ -336,7 +336,6 @@ public class Dense extends Matrix implements Block
       else
       { GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     }
-
     return this;
   }
 

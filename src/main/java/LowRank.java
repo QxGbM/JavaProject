@@ -264,7 +264,7 @@ public class LowRank implements Block {
     H2Matrix temp = new H2Matrix(this);
     temp.GEMatrixMult(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
     LowRank lr = temp.toLowRank();
-    U = lr.U; S = lr.S; VT = lr.VT;
+    S = lr.S;
     return this;
   }
 
@@ -301,6 +301,9 @@ public class LowRank implements Block {
     return new LowRank (getU(), getS(), cb);
   }
 
+  public LowRank times (LowRank lr) {
+    return new LowRank (getU(), getS().times(getVT().toMatrix().transpose()).times(lr.getU().toMatrix()).times(lr.getS()), lr.getVT());
+  }
 
   public Block times (Block b) {
     if (b.getType() == Block_t.LOW_RANK)

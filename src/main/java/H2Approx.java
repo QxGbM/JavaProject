@@ -103,7 +103,11 @@ public class H2Approx {
   }
 
   public void splitProduct (ClusterBasis left, ClusterBasis right) {
-    if (S != null && children != null)
+
+    if (children == null)
+    { children = new H2Approx[left.childrenLength()][right.childrenLength()]; }
+
+    if (S != null)
     for (int i = 0; i < getNRowBlocks(); i++) {
       Matrix E_i = left.getTrans(i).times(S);
       for (int j = 0; j < getNColumnBlocks(); j++) {
@@ -111,14 +115,15 @@ public class H2Approx {
         accumProduct(i, j, E_i.times(Et_j));
       }
     }
-    S = null;
   }
 
   public H2Approx getChildren (int i, int j) {
     if (children == null || i < 0 || i >= getNRowBlocks() || j < 0 || j >= getNColumnBlocks())
-    { return null; }
+    { System.exit(-1); return null; }
+    else if (children[i][j] == null)
+    { children[i][j] = new H2Approx(); return children[i][j]; }
     else
-    { return children[i][j] == null ? children[i][j] = new H2Approx() : children[i][j]; }
+    { return children[i][j]; }
   }
 
   public boolean hasChildren () {
@@ -129,11 +134,33 @@ public class H2Approx {
     return !(children == null || i < 0 || i >= getNRowBlocks() || j < 0 || j >= getNColumnBlocks()) && children[i][j] != null;
   }
 
+  public boolean verifyStructure (Block b) {
+    if (b.castH2Matrix() == null && children == null)
+    { return true; }
+    else if (b.castH2Matrix() != null) {
+      H2Matrix h = b.castH2Matrix();
+      boolean bool = h.getNRowBlocks() == getNRowBlocks() && h.getNColumnBlocks() == getNColumnBlocks();
+      for (int i = 0; i < getNRowBlocks(); i++) {
+        for (int j = 0; j < getNColumnBlocks(); j++)
+        { bool &= children[i][j].verifyStructure(h.getElement(i, j)); }
+      }
+      return bool;
+    }
+    else
+    { return false; }
+  }
+
   public void print() {
     if (S != null)
     System.out.println("product: " + S.getRowDimension() + ", " + S.getColumnDimension());
-    if (children != null)
-    System.out.println("children: " + getNRowBlocks() + ", " + getNColumnBlocks());
+    if (children != null) { 
+      System.out.println("children: " + getNRowBlocks() + ", " + getNColumnBlocks());
+      for (int i = 0; i < getNRowBlocks(); i++) {
+        for (int j = 0; j < getNColumnBlocks(); j++) {
+          children[i][j].print();
+        }
+      }
+    }
   }
 
 

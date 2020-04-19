@@ -330,7 +330,7 @@ public class H2Matrix implements Block {
     if (a.castH2Matrix() != null && b.castH2Matrix() != null)
     { return GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta); }
     else
-    { return null; }
+    { System.out.println("Error partition."); System.exit(-1); return null; }
   }
 
   @Override
@@ -338,12 +338,16 @@ public class H2Matrix implements Block {
     if (a.getType() == Block_t.LOW_RANK) {
       if (b.getType() == Block_t.LOW_RANK) 
       { GEMatrixMult(a.toLowRank(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-      else
-      { GEMatrixMult(new H2Matrix(a.toLowRank()), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      else {
+        Sa.splitProduct(row_basis, b.castH2Matrix().row_basis);
+        GEMatrixMult(new H2Matrix(a.toLowRank()), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); 
+      }
     }
     else {
-      if (b.getType() == Block_t.LOW_RANK) 
-      { GEMatrixMult(a.castH2Matrix(), new H2Matrix(b.toLowRank()), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
+      if (b.getType() == Block_t.LOW_RANK) {
+        Sb.splitProduct(a.castH2Matrix().col_basis, col_basis);
+        GEMatrixMult(a.castH2Matrix(), new H2Matrix(b.toLowRank()), alpha, beta, X, Y, Z, Sa, Sb, Sc); 
+      }
       else
       { GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     }
@@ -374,17 +378,13 @@ public class H2Matrix implements Block {
   public H2Matrix GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     int m = getNRowBlocks(), n = getNColumnBlocks(), k = a.getNColumnBlocks();
 
-    if (!Sa.hasChildren())
-    { Sa = new H2Approx(row_basis, b.row_basis, X, Y, a); }
-    if (!Sb.hasChildren())
-    { Sb = new H2Approx(a.col_basis, col_basis, Y, Z, b); }
-
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
         if (beta != 1.) 
         { e[i][j].scalarEquals(beta); }
         H2Matrix h_ij = e[i][j].castH2Matrix();
         H2Approx Sc_prime = h_ij != null ? Sc.expandChildren(i, j, h_ij.getNRowBlocks(), h_ij.getNColumnBlocks()) : Sc.getChildren(i, j);
+
         for (int kk = 0; kk < k; kk++) 
         { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X.getChildren(i), Y.getChildren(kk), Z.getChildren(j), Sa.getChildren(i, kk), Sb.getChildren(kk, j), Sc_prime); }
       }

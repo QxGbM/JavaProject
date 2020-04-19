@@ -46,7 +46,7 @@ public class ClusterBasisProduct {
 
   public void accumProduct (Matrix product) {
     if (this.product == null)
-    { this.product = new Matrix(product.getArray()); }
+    { this.product = new Matrix(product.getArrayCopy()); }
     else 
     { this.product.plusEquals(product); }
   }
