@@ -200,8 +200,8 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public void triangularSolve (Block b, boolean up_low) {
-
+  public Block triangularSolve (Block b, boolean up_low) {
+    return this;
   }
 
   @Override

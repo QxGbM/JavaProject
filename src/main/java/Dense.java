@@ -263,34 +263,34 @@ public class Dense extends Matrix implements Block
   }
 
   public Matrix getL() {
-    Matrix L = new Matrix(getArray());
+    Matrix L = new Matrix(getArrayCopy());
     for (int i = 0; i < getRowDimension(); i++) {
       L.set(i, i, 1);
-      for (int j = i + 1; j < getColumnDimension(); j++) {
-        L.set(i, j, 0);
-      }
+      for (int j = i + 1; j < getColumnDimension(); j++) 
+      { L.set(i, j, 0); }
     }
     return L;
   }
 
   public Matrix getU() {
-    Matrix U = new Matrix(getArray());
+    Matrix U = new Matrix(getArrayCopy());
     for (int i = 0; i < getRowDimension(); i++) {
-      for (int j = 0; j < i; j++) {
-        U.set(i, j, 0);
-      }
+      for (int j = 0; j < i; j++) 
+      { U.set(i, j, 0); }
     }
     return U;
   }
 
   @Override
-  public void triangularSolve (Block b, boolean up_low) {
-    Matrix m;
-    if (up_low)
-    { m = solve(b.toDense().getL()); }
-    else
-    { m = solveTranspose(b.toDense().getU()); }
+  public Block triangularSolve (Block b, boolean up_low) {
+    
+    return triangularSolve(b.toDense(), up_low);
+  }
+
+  public Block triangularSolve (Dense d, boolean up_low) {
+    Matrix m = up_low ? d.getU().solveTranspose(this).transpose() : d.getL().solve(this);
     setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
+    return this;
   }
 
   @Override

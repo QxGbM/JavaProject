@@ -42,7 +42,7 @@ public interface Block {
 
   abstract public void LU ();
 
-  abstract public void triangularSolve (Block b, boolean up_low);
+  abstract public Block triangularSolve (Block b, boolean up_low);
   
   abstract public Block GEMatrixMult (Block a, Block b, double alpha, double beta);
 

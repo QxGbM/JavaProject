@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 4, nblocks = 2, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 3, nblocks = 2, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -83,6 +83,15 @@ public class PsplHMatrixPack {
 
       System.out.println("mult_add: " + c.toDense().minus(ref_c).normF() / ref_c.getRowDimension() / ref_c.getColumnDimension());
 
+      Dense ref_tri = new Dense(64, 64, 0, 0, testFunc);
+      ref_tri.LU();
+      LowRank ref_tri_lr = new Dense(64, 64, 0, 64, testFunc).toLowRank();
+      Dense ref_tri_lr_d = new Dense(64, 64, 0, 64, testFunc);
+
+      ref_tri_lr.triangularSolve(ref_tri, true);
+      ref_tri_lr_d.triangularSolve(ref_tri, true);
+
+      System.out.println("tri: " + ref_tri_lr.toDense().minus(ref_tri_lr_d).normF() / ref_tri_lr.getRowDimension() / ref_tri_lr.getColumnDimension());
 
 
 

@@ -198,8 +198,28 @@ public class LowRank implements Block {
   }
 
   @Override
-  public void triangularSolve (Block b, boolean up_low) {
+  public Block triangularSolve (Block b, boolean up_low) {
 
+    return triangularSolve(b.toDense(), up_low);
+  }
+
+  public Block triangularSolve (Dense d, boolean up_low) {
+    if (up_low) {
+      Matrix vt = getVT().toMatrix();
+      Matrix sv = getS().times(vt.transpose());
+      Matrix sv_prime = d.getU().solveTranspose(sv);
+      Matrix s_prime = sv_prime.transpose().times(vt);
+      S.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, s_prime);
+    }
+    else {
+      Matrix u = getU().toMatrix();
+      Matrix us = u.times(getS());
+      Matrix us_prime = d.getL().solve(us);
+      Matrix s_prime = u.transpose().times(us_prime);
+      S.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, s_prime);
+    }
+
+    return this;
   }
 
   @Override
