@@ -217,6 +217,11 @@ public class Hierarchical implements Block {
   }
 
   @Override
+  public void unshareBasis (boolean row_col) {
+    return;
+  }
+
+  @Override
   public Block plusEquals (Block b) {
     System.exit(1);
     return null;

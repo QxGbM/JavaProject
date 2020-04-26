@@ -18,8 +18,7 @@ public class LowRank implements Block {
   }
 
   public LowRank (ClusterBasis U, Matrix S, ClusterBasis VT) {
-    this.U = U;
-    this.VT = VT;
+    this.U = U; this.VT = VT;
 
     if (U.getDimension() == S.getRowDimension() && VT.getDimension() == S.getColumnDimension())
     { this.S = U.toMatrix().transpose().times(S).times(VT.toMatrix()); }
@@ -36,9 +35,7 @@ public class LowRank implements Block {
   public LowRank (Matrix U, Matrix S, Matrix VT) {
     ClusterBasis row_b = new ClusterBasis(U, true);
     ClusterBasis col_b = new ClusterBasis(VT, false);
-
-    this.U = row_b;
-    this.VT = col_b;
+    this.U = row_b; this.VT = col_b;
 
     if (U.getRowDimension() == S.getRowDimension() && VT.getRowDimension() == S.getColumnDimension())
     { this.S = U.transpose().times(S).times(VT); }
@@ -46,6 +43,16 @@ public class LowRank implements Block {
     { this.S = S; }
     else
     { System.out.print("Invalid Low-Rank Construction."); System.exit(-1); }
+  }
+
+  public LowRank (ClusterBasis U, ClusterBasis VT, LowRank lr) {
+    this.U = U; this.VT = VT;
+    if (lr.U == null)
+    { S = U.toMatrix().transpose().times(lr.S).times(new ClusterBasisProduct(VT, lr.VT).getProduct()); }
+    else if (lr.VT == null)
+    { S = new ClusterBasisProduct(U, lr.U).getProduct().times(lr.S).times(VT.toMatrix()); }
+    else
+    { S = new ClusterBasisProduct(U, lr.U).getProduct().times(lr.S).times(new ClusterBasisProduct(VT, lr.VT).getProduct()); }
   }
 
 
@@ -68,11 +75,11 @@ public class LowRank implements Block {
 
   @Override
   public int getRowDimension() 
-  { return U.getDimension(); }
+  { return U == null ? S.getRowDimension() : U.getDimension(); }
 
   @Override
   public int getColumnDimension() 
-  { return VT.getDimension(); }
+  { return VT == null ? S.getColumnDimension() : VT.getDimension(); }
 
   public int getRank()
   { return S.getRowDimension(); }
@@ -83,8 +90,9 @@ public class LowRank implements Block {
 
   @Override
   public Dense toDense() {
-    Matrix m = U.toMatrix().times(S).times(VT.toMatrix().transpose());
-    return new Dense(m.getArray());
+    Matrix m1 = U == null ? S : U.toMatrix().times(S);
+    Matrix m2 = VT == null ? m1 : m1.times(VT.toMatrix().transpose());
+    return new Dense(m2.getArray());
   }
 
   @Override
@@ -226,7 +234,7 @@ public class LowRank implements Block {
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
     if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
       H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta);
-      LowRank lr = h.toLowRank(); U = lr.U; S = lr.S; VT = lr.VT;
+      LowRank lr = h.toLowRank(); S = lr.S;
     }
     else if (a.getType() == Block_t.DENSE) {
       scalarEquals(beta);
@@ -246,9 +254,9 @@ public class LowRank implements Block {
 
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    if (a.getType() == Block_t.LOW_RANK) 
+    if (a.getType() == Block_t.LOW_RANK && U != null) 
     { GEMatrixMult(a.toLowRank(), b, alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    else if (b.getType() == Block_t.LOW_RANK)
+    else if (b.getType() == Block_t.LOW_RANK && VT != null)
     { GEMatrixMult(a, b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     else if (a.getType() == Block_t.DENSE && b.getType() == Block_t.DENSE)
     { GEMatrixMult(a.toDense(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
@@ -288,6 +296,13 @@ public class LowRank implements Block {
     return this;
   }
 
+  @Override
+  public void unshareBasis (boolean row_col) {
+    if (row_col && U != null) 
+    { S = U.toMatrix().times(S); U = null; }
+    else if (!row_col && VT != null)
+    { S = S.times(VT.toMatrix().transpose()); VT = null; }
+  }
 
   public LowRank plusEquals (LowRank lr) {
     boolean U_equal = lr.U.compare(U), VT_equal = lr.VT.compare(VT);
@@ -343,6 +358,15 @@ public class LowRank implements Block {
   
   public ClusterBasis getVT ()
   { return VT; }
+
+  public Matrix[] getPair () { 
+    if (U == null)
+    { return new Matrix[] { S, VT.toMatrix().transpose() }; }
+    else if (VT == null)
+    { return new Matrix[] { U.toMatrix(), S }; }
+    else
+    { return new Matrix[] { U.toMatrix().times(S), VT.toMatrix().transpose() };} 
+  }
 
   public static LowRank readFromFile (String name) throws IOException {
     BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));

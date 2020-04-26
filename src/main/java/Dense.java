@@ -348,8 +348,9 @@ public class Dense extends Matrix implements Block
 
   public Block GEMatrixMult (LowRank a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
-    Matrix m1 = a.getU().toMatrix().times(a.getS()).times(alpha);
-    Matrix m2 = a.getVT().toMatrix().transpose().times(b);
+    Matrix[] uv = a.getPair();
+    Matrix m1 = uv[0].times(alpha);
+    Matrix m2 = uv[1].times(b);
     super.plusEquals(m1.times(m2));
     return this;
   }
@@ -361,8 +362,9 @@ public class Dense extends Matrix implements Block
 
   public Block GEMatrixMult (Dense a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
-    Matrix m1 = a.times(b.getU().toMatrix()).times(alpha);
-    Matrix m2 = b.getS().times(b.getVT().toMatrix().transpose());
+    Matrix[] uv = b.getPair();
+    Matrix m1 = a.times(uv[0]);
+    Matrix m2 = uv[1].times(alpha);
     super.plusEquals(m1.times(m2));
     return this;
   }
@@ -384,6 +386,11 @@ public class Dense extends Matrix implements Block
     temp.GEMatrixMult(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
     super.setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, temp.toDense());
     return this;
+  }
+
+  @Override
+  public void unshareBasis (boolean row_col) {
+    return;
   }
 
   public Dense plusEquals (Dense d) {

@@ -38,7 +38,13 @@ public class H2Approx {
         for (int j = 0; j < n; j++) {
           Block b = h.getElement(i, j);
           if (b.getType() == Block.Block_t.LOW_RANK) {
-            Matrix product = X.getProduct(i).times(b.toLowRank().getS()).times(Y.getProduct(j));
+            LowRank lr = b.toLowRank(); Matrix s = lr.getS(), product;
+            if (lr.getU() == null)
+            { product = left_prime.toMatrix(i).transpose().times(s).times(Y.getProduct(j)); }
+            else if (lr.getVT() == null)
+            { product = X.getProduct(i).times(s).times(right_prime.toMatrix(j)); }
+            else
+            { product = X.getProduct(i).times(s).times(Y.getProduct(j)); }
             children[i][j] = new H2Approx(product);
           } 
           else if (b.getType() == Block.Block_t.DENSE) {
@@ -54,6 +60,41 @@ public class H2Approx {
     }
   }
 
+  public H2Approx (H2Approx Sa, ClusterBasis basis, boolean left_right) {
+    if (Sa.children == null)
+    { children = null; S = left_right ? basis.toMatrix().times(Sa.S) : Sa.S.times(basis.toMatrix().transpose()); }
+    else {
+      int m = Sa.getNRowBlocks(), n = Sa.getNColumnBlocks(), dim = basis.getDimension();
+      children = new H2Approx[m][n];
+
+      for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) 
+        { children[i][j] = new H2Approx(Sa.children[i][j], left_right ? basis.getChildren()[i] : basis.getChildren()[j], left_right); }
+      }
+
+      // TODO
+      if (left_right) {
+        S = new Matrix (basis.getRank(), dim);
+        for (int i = 0; i < getNRowBlocks(); i++) {
+          Matrix Et_i = basis.getTrans(i).transpose();
+          for (int j = 0; j < getNColumnBlocks(); j++) {
+            S.plusEquals(Et_i.times(children[i][j].S));
+          }
+        }
+      }
+      else {
+        S = new Matrix (dim, basis.getRank());
+        for (int i = 0; i < getNRowBlocks(); i++) {
+          for (int j = 0; j < getNColumnBlocks(); j++) {
+            Matrix E_j = basis.getTrans(j);
+            S.plusEquals(children[i][j].S.times(E_j));
+          }
+        }
+      }
+
+    }
+  }
+
   public int getNRowBlocks()
   { return children.length; }
 
@@ -62,6 +103,14 @@ public class H2Approx {
 
   public Matrix getS () {
     return S;
+  }
+
+  public int getRank () {
+    return getRank (true);
+  }
+
+  public int getRank (boolean left_right) {
+    return left_right ? S.getRowDimension() : S.getColumnDimension();
   }
 
   public Matrix getProduct (int i, int j) {

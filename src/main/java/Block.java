@@ -52,6 +52,8 @@ public interface Block {
 
   abstract public Block scalarEquals (double s);
 
+  abstract public void unshareBasis (boolean row_col);
+
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();
     String[] args = str.split("\\s+");

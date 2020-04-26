@@ -341,13 +341,15 @@ public class H2Matrix implements Block {
       { GEMatrixMult(a.toLowRank(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
       else {
         Sa.splitProduct(row_basis, b.castH2Matrix().row_basis);
-        GEMatrixMult(new H2Matrix(a.toLowRank()), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); 
+        LowRank a_prime = new LowRank (row_basis, b.castH2Matrix().row_basis, a.toLowRank());
+        GEMatrixMult(new H2Matrix(a_prime), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); 
       }
     }
     else {
       if (b.getType() == Block_t.LOW_RANK) {
         Sb.splitProduct(a.castH2Matrix().col_basis, col_basis);
-        GEMatrixMult(a.castH2Matrix(), new H2Matrix(b.toLowRank()), alpha, beta, X, Y, Z, Sa, Sb, Sc); 
+        LowRank b_prime = new LowRank (a.castH2Matrix().col_basis, col_basis, b.toLowRank());
+        GEMatrixMult(a.castH2Matrix(), new H2Matrix(b_prime), alpha, beta, X, Y, Z, Sa, Sb, Sc); 
       }
       else
       { GEMatrixMult(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
@@ -371,6 +373,7 @@ public class H2Matrix implements Block {
 
   public Block GEMatrixMult (LowRank a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
+    // TODO
     Matrix m = Sa.getS().times(Y.getProduct()).times(Sb.getS()).times(alpha);
     Sc.accumProduct(m);
     return this;
@@ -385,13 +388,50 @@ public class H2Matrix implements Block {
         { e[i][j].scalarEquals(beta); }
         H2Matrix h_ij = e[i][j].castH2Matrix();
         H2Approx Sc_prime = h_ij != null ? Sc.expandChildren(i, j, h_ij.getNRowBlocks(), h_ij.getNColumnBlocks()) : Sc.getChildren(i, j);
+        H2Approx Sa_prime, Sb_prime;
+
+        if (e[i][j].getType() == Block_t.LOW_RANK) {
+          LowRank lr = e[i][j].toLowRank();
+          if (lr.getU() == null)
+          { Sa_prime = new H2Approx(Sa, row_basis, true); Sb_prime = Sb; }
+          else if (lr.getVT() == null) 
+          { Sa_prime = Sa; Sb_prime = new H2Approx(Sb, col_basis, false); }
+          else
+          { Sa_prime = Sa; Sb_prime = Sb; }
+        }
+        else
+        { Sa_prime = Sa; Sb_prime = Sb; }
 
         for (int kk = 0; kk < k; kk++) 
-        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X.getChildren(i), Y.getChildren(kk), Z.getChildren(j), Sa.getChildren(i, kk), Sb.getChildren(kk, j), Sc_prime); }
+        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X.getChildren(i), Y.getChildren(kk), Z.getChildren(j), Sa_prime.getChildren(i, kk), Sb_prime.getChildren(kk, j), Sc_prime); }
       }
     }
 
     return this;
+  }
+
+  @Override
+  public void unshareBasis (boolean row_col) {
+    int m = getNRowBlocks(), n = getNColumnBlocks();
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        e[i][j].unshareBasis(row_col);
+      }
+    }
+  }
+
+  public void unshareBasis_diag () {
+    int m = getNRowBlocks(), n = getNColumnBlocks();
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        if (i < j)
+        { e[i][j].unshareBasis(false); }
+        else if (i > j)
+        { e[i][j].unshareBasis(true); }
+        else if (e[i][j].castH2Matrix() != null)
+        { e[i][j].castH2Matrix().unshareBasis_diag(); }
+      }
+    }
   }
 
   public H2Matrix matrixBack (ClusterBasis left_prime, ClusterBasis right_prime, ClusterBasisProduct X, ClusterBasisProduct Y, H2Approx S) {
