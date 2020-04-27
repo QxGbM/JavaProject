@@ -61,37 +61,16 @@ public class H2Approx {
   }
 
   public H2Approx (H2Approx Sa, ClusterBasis basis, boolean left_right) {
+    S = left_right ? basis.toMatrix().times(Sa.S) : Sa.S.times(basis.toMatrix().transpose());
     if (Sa.children == null)
-    { children = null; S = left_right ? basis.toMatrix().times(Sa.S) : Sa.S.times(basis.toMatrix().transpose()); }
+    { children = null; }
     else {
-      int m = Sa.getNRowBlocks(), n = Sa.getNColumnBlocks(), dim = basis.getDimension();
+      int m = Sa.getNRowBlocks(), n = Sa.getNColumnBlocks();
       children = new H2Approx[m][n];
-
       for (int i = 0; i < m; i++) {
         for (int j = 0; j < n; j++) 
         { children[i][j] = new H2Approx(Sa.children[i][j], left_right ? basis.getChildren()[i] : basis.getChildren()[j], left_right); }
       }
-
-      // TODO
-      if (left_right) {
-        S = new Matrix (basis.getRank(), dim);
-        for (int i = 0; i < getNRowBlocks(); i++) {
-          Matrix Et_i = basis.getTrans(i).transpose();
-          for (int j = 0; j < getNColumnBlocks(); j++) {
-            S.plusEquals(Et_i.times(children[i][j].S));
-          }
-        }
-      }
-      else {
-        S = new Matrix (dim, basis.getRank());
-        for (int i = 0; i < getNRowBlocks(); i++) {
-          for (int j = 0; j < getNColumnBlocks(); j++) {
-            Matrix E_j = basis.getTrans(j);
-            S.plusEquals(children[i][j].S.times(E_j));
-          }
-        }
-      }
-
     }
   }
 

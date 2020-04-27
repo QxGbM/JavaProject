@@ -373,7 +373,6 @@ public class H2Matrix implements Block {
 
   public Block GEMatrixMult (LowRank a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
-    // TODO
     Matrix m = Sa.getS().times(Y.getProduct()).times(Sb.getS()).times(alpha);
     Sc.accumProduct(m);
     return this;
@@ -388,22 +387,9 @@ public class H2Matrix implements Block {
         { e[i][j].scalarEquals(beta); }
         H2Matrix h_ij = e[i][j].castH2Matrix();
         H2Approx Sc_prime = h_ij != null ? Sc.expandChildren(i, j, h_ij.getNRowBlocks(), h_ij.getNColumnBlocks()) : Sc.getChildren(i, j);
-        H2Approx Sa_prime, Sb_prime;
-
-        if (e[i][j].getType() == Block_t.LOW_RANK) {
-          LowRank lr = e[i][j].toLowRank();
-          if (lr.getU() == null)
-          { Sa_prime = new H2Approx(Sa, row_basis, true); Sb_prime = Sb; }
-          else if (lr.getVT() == null) 
-          { Sa_prime = Sa; Sb_prime = new H2Approx(Sb, col_basis, false); }
-          else
-          { Sa_prime = Sa; Sb_prime = Sb; }
-        }
-        else
-        { Sa_prime = Sa; Sb_prime = Sb; }
 
         for (int kk = 0; kk < k; kk++) 
-        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X.getChildren(i), Y.getChildren(kk), Z.getChildren(j), Sa_prime.getChildren(i, kk), Sb_prime.getChildren(kk, j), Sc_prime); }
+        { e[i][j].GEMatrixMult(a.e[i][kk], b.e[kk][j], alpha, 1., X.getChildren(i), Y.getChildren(kk), Z.getChildren(j), Sa.getChildren(i, kk), Sb.getChildren(kk, j), Sc_prime); }
       }
     }
 
@@ -425,9 +411,9 @@ public class H2Matrix implements Block {
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
         if (i < j)
-        { e[i][j].unshareBasis(false); }
-        else if (i > j)
         { e[i][j].unshareBasis(true); }
+        else if (i > j)
+        { e[i][j].unshareBasis(false); }
         else if (e[i][j].castH2Matrix() != null)
         { e[i][j].castH2Matrix().unshareBasis_diag(); }
       }

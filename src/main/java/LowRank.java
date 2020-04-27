@@ -5,9 +5,12 @@ import java.nio.ByteBuffer;
 import Jama.Matrix;
 
 public class LowRank implements Block {
+
+  enum LR_FORM { U_S_V, US_V, U_SV };
 		
   private Matrix S;
   private ClusterBasis U, VT;
+  private LR_FORM form;
   private int x_start = 0;
   private int y_start = 0;
 
@@ -15,6 +18,7 @@ public class LowRank implements Block {
     U = new ClusterBasis(m, r, true);
     S = new Matrix(r, r);
     VT = new ClusterBasis(n, r, false);
+    form = LR_FORM.U_S_V;
   }
 
   public LowRank (ClusterBasis U, Matrix S, ClusterBasis VT) {
@@ -30,6 +34,7 @@ public class LowRank implements Block {
       System.out.println("Dims: (" + U.getDimension() + ", " + U.getRank() + ") (" + S.getRowDimension() + ", " + S.getColumnDimension() + ") (" + VT.getDimension() + ", " + VT.getRank() + ").");
       System.exit(-1); 
     }
+    form = LR_FORM.U_S_V;
   }
 
   public LowRank (Matrix U, Matrix S, Matrix VT) {
@@ -43,16 +48,18 @@ public class LowRank implements Block {
     { this.S = S; }
     else
     { System.out.print("Invalid Low-Rank Construction."); System.exit(-1); }
+    form = LR_FORM.U_S_V;
   }
 
   public LowRank (ClusterBasis U, ClusterBasis VT, LowRank lr) {
     this.U = U; this.VT = VT;
-    if (lr.U == null)
+    if (lr.form == LR_FORM.US_V)
     { S = U.toMatrix().transpose().times(lr.S).times(new ClusterBasisProduct(VT, lr.VT).getProduct()); }
-    else if (lr.VT == null)
+    else if (lr.form == LR_FORM.U_SV)
     { S = new ClusterBasisProduct(U, lr.U).getProduct().times(lr.S).times(VT.toMatrix()); }
     else
     { S = new ClusterBasisProduct(U, lr.U).getProduct().times(lr.S).times(new ClusterBasisProduct(VT, lr.VT).getProduct()); }
+    form = LR_FORM.U_S_V;
   }
 
 
@@ -75,14 +82,14 @@ public class LowRank implements Block {
 
   @Override
   public int getRowDimension() 
-  { return U == null ? S.getRowDimension() : U.getDimension(); }
+  { return form == LR_FORM.US_V ? S.getRowDimension() : U.getDimension(); }
 
   @Override
   public int getColumnDimension() 
-  { return VT == null ? S.getColumnDimension() : VT.getDimension(); }
+  { return form == LR_FORM.U_SV ? S.getColumnDimension() : VT.getDimension(); }
 
   public int getRank()
-  { return S.getRowDimension(); }
+  { return form == LR_FORM.US_V ? S.getColumnDimension() : S.getRowDimension(); }
 
   @Override
   public Block_t getType() 
@@ -90,8 +97,8 @@ public class LowRank implements Block {
 
   @Override
   public Dense toDense() {
-    Matrix m1 = U == null ? S : U.toMatrix().times(S);
-    Matrix m2 = VT == null ? m1 : m1.times(VT.toMatrix().transpose());
+    Matrix m1 = form == LR_FORM.US_V ? S : U.toMatrix().times(S);
+    Matrix m2 = form == LR_FORM.U_SV ? m1 : m1.times(VT.toMatrix().transpose());
     return new Dense(m2.getArray());
   }
 
@@ -254,9 +261,9 @@ public class LowRank implements Block {
 
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    if (a.getType() == Block_t.LOW_RANK && U != null) 
+    if (a.getType() == Block_t.LOW_RANK && form != LR_FORM.US_V) 
     { GEMatrixMult(a.toLowRank(), b, alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    else if (b.getType() == Block_t.LOW_RANK && VT != null)
+    else if (b.getType() == Block_t.LOW_RANK)
     { GEMatrixMult(a, b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
     else if (a.getType() == Block_t.DENSE && b.getType() == Block_t.DENSE)
     { GEMatrixMult(a.toDense(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
@@ -268,15 +275,29 @@ public class LowRank implements Block {
 
   public LowRank GEMatrixMult (LowRank a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
-    Matrix m = X.getProduct().times(a.S).times(Sb.getS()).times(alpha);
-    this.S.plusEquals(m);
+    if (form == LR_FORM.U_SV) {
+      H2Approx Sb_prime = new H2Approx(Sb, VT, false);
+      Matrix m = X.getProduct().times(a.getS()).times(Sb_prime.getS()).times(alpha);
+      this.S.plusEquals(m);
+    }
+    else {
+      Matrix m = X.getProduct().times(a.getS()).times(Sb.getS()).times(alpha);
+      this.S.plusEquals(m);
+    }
     return this;
   }
 
   public LowRank GEMatrixMult (Block a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
-    Matrix m = Sa.getS().times(b.S).times(Z.getProduct()).times(alpha);
-    this.S.plusEquals(m);
+    if (form == LR_FORM.US_V) {
+      H2Approx Sa_prime = new H2Approx(Sa, U, true);
+      Matrix m = Sa_prime.getS().times(b.getS()).times(Z.getProduct()).times(alpha);
+      this.S.plusEquals(m);
+    }
+    else {
+      Matrix m = Sa.getS().times(b.getS()).times(Z.getProduct()).times(alpha);
+      this.S.plusEquals(m);
+    }
     return this;
   }
 
@@ -298,10 +319,10 @@ public class LowRank implements Block {
 
   @Override
   public void unshareBasis (boolean row_col) {
-    if (row_col && U != null) 
-    { S = U.toMatrix().times(S); U = null; }
-    else if (!row_col && VT != null)
-    { S = S.times(VT.toMatrix().transpose()); VT = null; }
+    if (row_col && form == LR_FORM.U_S_V) 
+    { S = U.toMatrix().times(S); form = LR_FORM.US_V; }
+    else if (!row_col && form == LR_FORM.U_S_V)
+    { S = S.times(VT.toMatrix().transpose()); form = LR_FORM.U_SV; }
   }
 
   public LowRank plusEquals (LowRank lr) {
@@ -312,8 +333,8 @@ public class LowRank implements Block {
   }
 
   public LowRank plusEquals (ClusterBasisProduct X, ClusterBasisProduct Y, Matrix S_prime) {
-    Matrix a = X == null ? S_prime : X.getProduct().times(S_prime);
-    Matrix b = Y == null ? a : a.times(Y.getProduct());
+    Matrix a = form == LR_FORM.US_V ? U.toMatrix().times(S_prime) : (X == null ? S_prime : X.getProduct().times(S_prime));
+    Matrix b = form == LR_FORM.U_SV ? a.times(VT.toMatrix().transpose()) : (Y == null ? a : a.times(Y.getProduct()));
     S.plusEquals(b);
     return this;
   }
@@ -354,15 +375,15 @@ public class LowRank implements Block {
   { return U; }
 
   public Matrix getS ()
-  { return S; }
+  { return form == LR_FORM.U_S_V ? S : (form == LR_FORM.US_V ? U.toMatrix().transpose().times(S) : S.times(VT.toMatrix())); }
   
   public ClusterBasis getVT ()
   { return VT; }
 
   public Matrix[] getPair () { 
-    if (U == null)
+    if (form == LR_FORM.US_V)
     { return new Matrix[] { S, VT.toMatrix().transpose() }; }
-    else if (VT == null)
+    else if (form == LR_FORM.U_SV)
     { return new Matrix[] { U.toMatrix(), S }; }
     else
     { return new Matrix[] { U.toMatrix().times(S), VT.toMatrix().transpose() };} 
