@@ -276,8 +276,9 @@ public class LowRank implements Block {
   public LowRank GEMatrixMult (LowRank a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
     if (form == LR_FORM.U_SV) {
-      H2Approx Sb_prime = new H2Approx(Sb, VT, false);
-      Matrix m = X.getProduct().times(a.getS()).times(Sb_prime.getS()).times(alpha);
+      //H2Approx Sb_prime = new H2Approx(Sb, VT, false);
+      //Matrix m = X.getProduct().times(a.getS()).times(Sb_prime.getS()).times(alpha);
+      Matrix m = X.getProduct().times(a.getS()).times(a.getVT().toMatrix().transpose()).times(b.toDense()).times(alpha);
       this.S.plusEquals(m);
     }
     else {
@@ -290,8 +291,9 @@ public class LowRank implements Block {
   public LowRank GEMatrixMult (Block a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
     if (form == LR_FORM.US_V) {
-      H2Approx Sa_prime = new H2Approx(Sa, U, true);
-      Matrix m = Sa_prime.getS().times(b.getS()).times(Z.getProduct()).times(alpha);
+      //H2Approx Sa_prime = new H2Approx(Sa, U, true);
+      //Matrix m = Sa_prime.getS().times(b.getS()).times(Z.getProduct()).times(alpha);
+      Matrix m = a.toDense().times(b.getU().toMatrix()).times(b.getS()).times(Z.getProduct()).times(alpha);
       this.S.plusEquals(m);
     }
     else {
