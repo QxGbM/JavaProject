@@ -1,35 +1,36 @@
 
 import Jama.Matrix;
+import Jama.SingularValueDecomposition;
 
 public class ClusterBasis {
 
   private Matrix basis;
+  private Matrix basis_add;
   private ClusterBasis children[];
   private int xy_start;
-  private boolean row_col;
   private boolean reducedStorageForm;
 
-  public ClusterBasis (int m, int n, boolean row_col) {
+  public ClusterBasis (int m, int n) {
     basis = new Matrix(m, n);
+    basis_add = null;
     children = null;
     xy_start = 0;
-    this.row_col = row_col;
     reducedStorageForm = false;
   }
 
-  public ClusterBasis (Matrix m, boolean row_col) {
-    basis = new Matrix(m.getArray());
+  public ClusterBasis (Matrix m) {
+    basis = new Matrix(m.getArrayCopy());
+    basis_add = null;
     children = null;
     xy_start = 0;
-    this.row_col = row_col;
     reducedStorageForm = false;
   }
 
   public ClusterBasis (ClusterBasis cb, Matrix m) {
     basis = cb.basis.times(m);
+    basis_add = null;
     children = cb.children;
     xy_start = cb.xy_start;
-    row_col = cb.row_col;
     reducedStorageForm = cb.reducedStorageForm;
   }
 
@@ -39,6 +40,7 @@ public class ClusterBasis {
     { basis = Dense.getBasisU(xy_start, mn, rank, admis, func); }
     else
     { basis = Dense.getBasisVT(xy_start, mn, rank, admis, func); }
+    basis_add = null;
 
     if (mn > nleaf) {
       int mn_block = mn / part_strat, mn_remain = mn - (part_strat - 1) * mn_block;
@@ -54,7 +56,6 @@ public class ClusterBasis {
     { children = null; }
 
     this.xy_start = xy_start;
-    this.row_col = row_col;
     reducedStorageForm = false;
   }
 
@@ -98,10 +99,6 @@ public class ClusterBasis {
     return children;
   }
 
-  public boolean getRow_Col () {
-    return row_col;
-  }
-
   public boolean compare (ClusterBasis cb) {
     if (cb.childrenLength() == 0 && childrenLength() == 0)
     { return cb.basis.minus(basis).normF() <= PsplHMatrixPack.epi; }
@@ -140,8 +137,7 @@ public class ClusterBasis {
 
       int start_x = 0, start_y = 0; 
       Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
-      for (int i = 0; i < children.length; i++)
-      {
+      for (int i = 0; i < children.length; i++) {
         int end_x = start_x + children_basis[i].getRowDimension() - 1, end_y = start_y + children_basis[i].getColumnDimension() - 1;
         lower.setMatrix(start_x, end_x, start_y, end_y, children_basis[i]);
         start_x = end_x + 1; start_y = end_y + 1;
@@ -167,8 +163,7 @@ public class ClusterBasis {
 
       int start_x = 0, start_y = 0; 
       Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
-      for (int i = 0; i < children.length; i++)
-      {
+      for (int i = 0; i < children.length; i++) {
         int end_x = start_x + children_basis[i].getRowDimension() - 1, end_y = start_y + children_basis[i].getColumnDimension() - 1;
         lower.setMatrix(start_x, end_x, start_y, end_y, children_basis[i]);
         start_x = end_x + 1; start_y = end_y + 1;
@@ -178,6 +173,15 @@ public class ClusterBasis {
       reducedStorageForm = true;
       return temp;
     }
+  }
+
+  public Matrix updateAdditionalBasis (Matrix m) {
+    Matrix proj_left = Matrix.identity(m.getRowDimension(), m.getColumnDimension()).minus(basis.times(basis.transpose()));
+    Matrix proj_right = proj_left.transpose();
+    Matrix G = proj_left.times(m).times(proj_right);
+    SingularValueDecomposition svd_ = G.svd();
+    basis_add = svd_.getU();
+    return basis_add;
   }
 
 
