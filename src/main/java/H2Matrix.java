@@ -316,12 +316,53 @@ public class H2Matrix implements Block {
   }
 
   @Override
-  public void LU () {
-    
+  public Block LU () {
+   
+    return this;
   }
 
   @Override
   public Block triangularSolve (Block b, boolean up_low) {
+    if (b.castH2Matrix() != null)
+    { triangularSolve(b.castH2Matrix(), up_low); }
+    else
+    { triangularSolve(b.toDense(), up_low); }
+
+    return this;
+  }
+
+  public H2Matrix triangularSolve (H2Matrix h, boolean up_low) {
+
+    int m = getNRowBlocks(), n = getNColumnBlocks();
+    if (up_low) {
+      for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+          e[i][j].triangularSolve(h.e[i][i], up_low);
+          for (int k = j; k < n; k++) 
+          { e[i][k].GEMatrixMult(e[i][j], h.e[i][k], -1., 1.); }
+        }
+      }
+    }
+    else {
+      for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+          e[i][j].triangularSolve(h.e[i][i], up_low);
+          for (int k = i; k < m; k++) 
+          { e[k][j].GEMatrixMult(h.e[k][j], e[i][j], -1., 1.); }
+        }
+      }
+    }
+
+    return this;
+  }
+
+  public H2Matrix triangularSolve (Dense d, boolean up_low) {
+    if (up_low) {
+
+    }
+    else {
+
+    }
 
     return this;
   }

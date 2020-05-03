@@ -252,7 +252,7 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public void LU () {
+  public Block LU () {
     LUDecomposition lu_ = lu();
     Matrix L = lu_.getL(), U = lu_.getU();
     for (int i = 0; i < getRowDimension(); i++) {
@@ -260,6 +260,7 @@ public class Dense extends Matrix implements Block
         set(i, j, i > j ? L.get(i, j) : U.get(i, j));
       }
     }
+    return this;
   }
 
   public Matrix getL() {

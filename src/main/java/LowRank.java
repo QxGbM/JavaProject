@@ -193,8 +193,10 @@ public class LowRank implements Block {
   { U.toMatrix().print(w, d); S.print(w, d); VT.toMatrix().print(w, d); }
 
   @Override
-  public void LU () {
+  public Block LU () {
     System.out.println("error LU on LR");
+    System.exit(-1);
+    return null;
   }
 
   @Override

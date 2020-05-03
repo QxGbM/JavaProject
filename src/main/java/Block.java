@@ -40,7 +40,7 @@ public interface Block {
 
   abstract public void print (int w, int d);
 
-  abstract public void LU ();
+  abstract public Block LU ();
 
   abstract public Block triangularSolve (Block b, boolean up_low);
   

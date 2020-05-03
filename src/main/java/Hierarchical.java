@@ -195,8 +195,8 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public void LU () {
-    
+  public Block LU () {
+    return this;
   }
 
   @Override
