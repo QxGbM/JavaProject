@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 4, nblocks = 2, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 1, nblocks = 3, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -63,36 +63,13 @@ public class PsplHMatrixPack {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
       H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+      System.out.println(h2.structure());
+
+      h2.LU();
+      d.LU();
 
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
-
-      /*H2Matrix h2_ = new H2Matrix(dim, dim, nleaf / 2, nblocks, rank, 0.4, 0, 0, testFunc);
-      h2_.scalarEquals(2);
-
-      h2.plusEquals(h2_);
-      Jama.Matrix ref = d.times(3);
-      System.out.println("add: " + h2.toDense().minus(ref).normF() / dim / dim);*/
-
-      h2.unshareBasis_diag();
-      Block a = h2.getElement(1, 0), b = h2.getElement(0, 1), c = h2.getElement(1, 1);
-      Dense ref_c = c.toDense(), ref_a = a.toDense(), ref_b = b.toDense();
-
-      c.GEMatrixMult(a, b, 1, 1);
-      ref_c.plusEquals(ref_a.times(ref_b));
-
-      System.out.println("mult_add: " + c.toDense().minus(ref_c).normF() / ref_c.getRowDimension() / ref_c.getColumnDimension());
-
-      Dense ref_tri = new Dense(64, 64, 0, 0, testFunc);
-      ref_tri.LU();
-      LowRank ref_tri_lr = new Dense(64, 64, 64, 0, testFunc).toLowRank();
-      Dense ref_tri_lr_d = new Dense(64, 64, 64, 0, testFunc);
-
-      ref_tri_lr.triangularSolve(ref_tri, false);
-      ref_tri_lr_d.triangularSolve(ref_tri, false);
-
-      System.out.println("tri: " + ref_tri_lr.toDense().minus(ref_tri_lr_d).normF() / ref_tri_lr.getRowDimension() / ref_tri_lr.getColumnDimension());
-
 
 
       if (write_h)

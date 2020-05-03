@@ -317,7 +317,20 @@ public class H2Matrix implements Block {
 
   @Override
   public Block LU () {
-   
+    int m = getNRowBlocks(), n = getNColumnBlocks(), iters = Integer.min(m, n);
+    for (int i = 0; i < iters; i++) {
+      e[i][i].LU();
+      for (int j = i + 1; j < m; j++) {
+        e[j][i].triangularSolve(e[i][i], true);
+      }
+      for (int j = i + 1; j < n; j++) {
+        e[i][j].triangularSolve(e[i][i], false);
+        for (int k = i + 1; k < m; k++) {
+          e[k][j].GEMatrixMult(e[k][i], e[i][j], -1., 1.);
+        }
+      }
+    }
+
     return this;
   }
 
