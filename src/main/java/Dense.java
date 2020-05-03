@@ -100,8 +100,8 @@ public class Dense extends Matrix implements Block
     Matrix V = qr_.getQ(), R = qr_.getR();
     SingularValueDecomposition svd_ = R.svd();
 
-    ClusterBasis row_b = new ClusterBasis(Q.times(svd_.getV()), true);
-    ClusterBasis col_b = new ClusterBasis(V.times(svd_.getU()), false);
+    ClusterBasis row_b = new ClusterBasis(Q.times(svd_.getV()));
+    ClusterBasis col_b = new ClusterBasis(V.times(svd_.getU()));
 
     LowRank lr = new LowRank (row_b, svd_.getS(), col_b);
     lr.setClusterStart(x_start, y_start);
@@ -421,7 +421,7 @@ public class Dense extends Matrix implements Block
   }
 
   public LowRank times (LowRank lr) {
-    ClusterBasis cb = new ClusterBasis(times(lr.getU().toMatrix()), true);
+    ClusterBasis cb = new ClusterBasis(times(lr.getU().toMatrix()));
     return new LowRank(cb, lr.getS(), lr.getVT());
   }
 

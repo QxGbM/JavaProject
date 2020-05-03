@@ -15,9 +15,9 @@ public class LowRank implements Block {
   private int y_start = 0;
 
   public LowRank (int m, int n, int r) {
-    U = new ClusterBasis(m, r, true);
+    U = new ClusterBasis(m, r);
     S = new Matrix(r, r);
-    VT = new ClusterBasis(n, r, false);
+    VT = new ClusterBasis(n, r);
     form = LR_FORM.U_S_V;
   }
 
@@ -38,8 +38,8 @@ public class LowRank implements Block {
   }
 
   public LowRank (Matrix U, Matrix S, Matrix VT) {
-    ClusterBasis row_b = new ClusterBasis(U, true);
-    ClusterBasis col_b = new ClusterBasis(VT, false);
+    ClusterBasis row_b = new ClusterBasis(U);
+    ClusterBasis col_b = new ClusterBasis(VT);
     this.U = row_b; this.VT = col_b;
 
     if (U.getRowDimension() == S.getRowDimension() && VT.getRowDimension() == S.getColumnDimension())
@@ -355,7 +355,7 @@ public class LowRank implements Block {
   }
 
   public LowRank times (Dense d) {
-    ClusterBasis cb = new ClusterBasis(d.times(getVT().toMatrix()), true);
+    ClusterBasis cb = new ClusterBasis(d.times(getVT().toMatrix()));
     return new LowRank (getU(), getS(), cb);
   }
 
