@@ -153,8 +153,13 @@ public class Dense extends Matrix implements Block
 
   @Override
   public boolean equals (Block b) {
-    double norm = this.minus(b.toDense()).normF() / getColumnDimension() / getRowDimension();
+    double norm = compare(b.toDense());
     return norm <= PsplHMatrixPack.epi; 
+  }
+
+  @Override
+  public double compare (Matrix m) {
+    return this.minus(m).normF() / getColumnDimension() / getRowDimension();
   }
 
   @Override
@@ -284,11 +289,10 @@ public class Dense extends Matrix implements Block
 
   @Override
   public Block triangularSolve (Block b, boolean up_low) {
-    
     return triangularSolve(b.toDense(), up_low);
   }
 
-  public Block triangularSolve (Dense d, boolean up_low) {
+  public Dense triangularSolve (Dense d, boolean up_low) {
     Matrix m = up_low ? d.getU().solveTranspose(this).transpose() : d.getL().solve(this);
     setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
     return this;
@@ -418,12 +422,14 @@ public class Dense extends Matrix implements Block
 
   public Dense times (Dense d) {
     Matrix R = super.times(d);
-    return new Dense (R.getArray());
+    return new Dense (R.getArrayCopy());
   }
 
   public LowRank times (LowRank lr) {
-    ClusterBasis cb = new ClusterBasis(times(lr.getU().toMatrix()));
-    return new LowRank(cb, lr.getS(), lr.getVT());
+    ClusterBasis rb = new ClusterBasis(times(lr.getU().toMatrix()));
+    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix());
+    Matrix s_prime = new Matrix(lr.getS().getArrayCopy());
+    return new LowRank(rb, s_prime, cb);
   }
 
   public Block times (Block b) {

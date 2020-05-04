@@ -230,10 +230,16 @@ public class H2Matrix implements Block {
     return this;
   }
 
+
   @Override
   public boolean equals (Block b) {
-    double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
-    return norm < PsplHMatrixPack.epi;
+    double norm = compare(b.toDense());
+    return norm <= PsplHMatrixPack.epi; 
+  }
+
+  @Override
+  public double compare (Matrix m) {
+    return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
   }
 
   @Override
@@ -557,6 +563,22 @@ public class H2Matrix implements Block {
   public void setElement (int m, int n, Block b) {
     if (m < getNRowBlocks() && n < getNColumnBlocks())
     { e[m][n] = b; }
+  }
+
+  public void compareDense (Dense d) {
+    int m = getNRowBlocks(), n = getNColumnBlocks();
+    int y = 0;
+    for (int i = 0; i < m; i++) {
+      int y_end = y + e[i][0].getRowDimension() - 1, x = 0;
+      for (int j = 0; j < n; j++) {
+        int x_end = x + e[i][j].getColumnDimension() - 1;
+        double norm = e[i][j].compare(d.getMatrix(y, y_end, x, x_end));
+        System.out.println(i + ", " + j + ": " + norm);
+        x = x_end + 1;
+      }
+      y = y_end + 1;
+    }
+
   }
 
 

@@ -1,4 +1,5 @@
 import java.io.*;
+import Jama.Matrix;
 
 public interface Block {
 
@@ -25,6 +26,8 @@ public interface Block {
   abstract public H2Matrix castH2Matrix();
 
   abstract public boolean equals (Block b);
+
+  abstract public double compare (Matrix m);
 
   abstract public double getCompressionRatio ();
 

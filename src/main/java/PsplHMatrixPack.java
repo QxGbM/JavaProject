@@ -63,13 +63,14 @@ public class PsplHMatrixPack {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
       H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+      System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println(h2.structure());
 
       h2.LU();
       d.LU();
+      h2.compareDense(d);
 
-      System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
-      System.out.println("h2 Storage Compression Ratio:"  + Double.toString(h2.getCompressionRatio()));
+      System.out.println("lu: " + h2.toDense().minus(d).normF() / dim / dim);
 
 
       if (write_h)

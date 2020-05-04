@@ -1,4 +1,5 @@
 import java.io.*;
+import Jama.Matrix;
 
 public class Hierarchical implements Block {
 
@@ -118,8 +119,13 @@ public class Hierarchical implements Block {
 
   @Override
   public boolean equals (Block b) {
-    double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
-    return norm < PsplHMatrixPack.epi;
+    double norm = compare(b.toDense());
+    return norm <= PsplHMatrixPack.epi; 
+  }
+
+  @Override
+  public double compare (Matrix m) {
+    return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
   }
 
   @Override

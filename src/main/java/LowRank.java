@@ -118,8 +118,13 @@ public class LowRank implements Block {
 
   @Override
   public boolean equals (Block b) {
-    double norm = this.toDense().minus(b.toDense()).normF() / getRowDimension() / getColumnDimension();
-    return norm < PsplHMatrixPack.epi;
+    double norm = compare(b.toDense());
+    return norm <= PsplHMatrixPack.epi; 
+  }
+
+  @Override
+  public double compare (Matrix m) {
+    return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
   }
 
   @Override
@@ -216,12 +221,13 @@ public class LowRank implements Block {
 
   @Override
   public Block triangularSolve (Block b, boolean up_low) {
-
     return triangularSolve(b.toDense(), up_low);
   }
 
-  public Block triangularSolve (Dense d, boolean up_low) {
-    if (up_low) {
+  public LowRank triangularSolve (Dense d, boolean up_low) {
+    Dense ref = toDense().triangularSolve(d, up_low);
+
+    /*if (!up_low) {
       Matrix vt = getVT().toMatrix();
       Matrix sv = getS().times(vt.transpose());
       Matrix sv_prime = d.getU().solveTranspose(sv);
@@ -235,6 +241,12 @@ public class LowRank implements Block {
       Matrix s_prime = u.transpose().times(us_prime);
       S.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, s_prime);
     }
+*/
+
+    LowRank lr = ref.toLowRank();
+    U = lr.U;
+    S = lr.S;
+    VT = lr.VT;
 
     return this;
   }
@@ -357,12 +369,17 @@ public class LowRank implements Block {
   }
 
   public LowRank times (Dense d) {
-    ClusterBasis cb = new ClusterBasis(d.times(getVT().toMatrix()));
-    return new LowRank (getU(), getS(), cb);
+    ClusterBasis rb = new ClusterBasis(getU().toMatrix());
+    ClusterBasis cb = new ClusterBasis(d.transpose().times(getVT().toMatrix()));
+    Matrix s_prime = new Matrix(getS().getArrayCopy());
+    return new LowRank (rb, s_prime, cb);
   }
 
   public LowRank times (LowRank lr) {
-    return new LowRank (getU(), getS().times(getVT().toMatrix().transpose()).times(lr.getU().toMatrix()).times(lr.getS()), lr.getVT());
+    ClusterBasis rb = new ClusterBasis(getU().toMatrix());
+    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix());
+    Matrix s_prime = getS().times(getVT().toMatrix().transpose()).times(lr.getU().toMatrix()).times(lr.getS());
+    return new LowRank (rb, s_prime, cb);
   }
 
   public Block times (Block b) {
