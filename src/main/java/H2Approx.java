@@ -40,15 +40,15 @@ public class H2Approx {
           if (b.getType() == Block.Block_t.LOW_RANK) {
             LowRank lr = b.toLowRank(); Matrix s = lr.getS(), product;
             if (lr.getU() == null)
-            { product = left_prime.toMatrix(i).transpose().times(s).times(Y.getProduct(j)); }
+            { product = left_prime.childMatrix(i).transpose().times(s).times(Y.getProduct(j)); }
             else if (lr.getVT() == null)
-            { product = X.getProduct(i).times(s).times(right_prime.toMatrix(j)); }
+            { product = X.getProduct(i).times(s).times(right_prime.childMatrix(j)); }
             else
             { product = X.getProduct(i).times(s).times(Y.getProduct(j)); }
             children[i][j] = new H2Approx(product);
           } 
           else if (b.getType() == Block.Block_t.DENSE) {
-            Matrix product = left_prime.toMatrix(i).transpose().times(b.toDense()).times(right_prime.toMatrix(j));
+            Matrix product = left_prime.childMatrix(i).transpose().times(b.toDense()).times(right_prime.childMatrix(j));
             children[i][j] = new H2Approx(product);
           }
           else {

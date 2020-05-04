@@ -95,6 +95,17 @@ public class ClusterBasis {
     return children.length;
   }
 
+  public Matrix getBasis () {
+    if (basis_add == null)
+    { return basis; }
+    else {
+      Matrix new_basis = new Matrix(basis.getRowDimension(), basis_add.getColumnDimension() + basis.getColumnDimension());
+      new_basis.setMatrix(0, basis.getRowDimension() - 1, 0, basis.getColumnDimension() - 1, basis);
+      new_basis.setMatrix(0, basis.getRowDimension() - 1, basis.getColumnDimension(), basis.getColumnDimension() + basis_add.getColumnDimension() - 1, basis_add);
+      return new_basis;
+    }
+  }
+
   public ClusterBasis[] getChildren () {
     return children;
   }
@@ -129,7 +140,7 @@ public class ClusterBasis {
 
   public Matrix toMatrix() {
     if (!reducedStorageForm || children == null)
-    { return basis; }
+    { return getBasis(); }
     else {
       int dim = 0; Matrix children_basis[] = new Matrix[children.length];
       for (int i = 0; i < children.length; i++) 
@@ -147,7 +158,14 @@ public class ClusterBasis {
     }
   }
 
-  public Matrix toMatrix (int i) {
+  public Matrix toMatrix (int max_rank) {
+    Matrix m = toMatrix();
+    if (m.getColumnDimension() > max_rank)
+    { m = m.getMatrix(0, m.getRowDimension() - 1, 0, max_rank - 1); }
+    return m;
+  }
+
+  public Matrix childMatrix (int i) {
     return children[i].toMatrix();
   }
 
@@ -175,13 +193,35 @@ public class ClusterBasis {
     }
   }
 
-  public Matrix updateAdditionalBasis (Matrix m) {
-    Matrix proj_left = Matrix.identity(m.getRowDimension(), m.getColumnDimension()).minus(basis.times(basis.transpose()));
+  public Matrix appendAdditionalBasis (Matrix add) {
+    if (basis_add == null)
+    { basis_add = new Matrix(add.getArrayCopy()); }
+    else {
+      Matrix new_basis = new Matrix(basis_add.getRowDimension(), basis_add.getColumnDimension() + add.getColumnDimension());
+      new_basis.setMatrix(0, basis_add.getRowDimension() - 1, 0, basis_add.getColumnDimension() - 1, basis_add);
+      new_basis.setMatrix(0, basis_add.getRowDimension() - 1, basis_add.getColumnDimension(), basis_add.getColumnDimension() + add.getColumnDimension() - 1, add);
+      basis_add = new_basis;
+    }
+    return getBasis();
+  }
+
+  public Matrix updateAdditionalBasis (Matrix m, boolean row_col) {
+    Matrix V = basis.times(basis.transpose());
+    if (basis_add != null)
+    { V.plusEquals(basis_add.times(basis_add.transpose())); }
+
+    Matrix F = row_col ? m.times(m.transpose()) : m.transpose().times(m);
+
+    Matrix proj_left = Matrix.identity(basis.getRowDimension(), basis.getRowDimension()).minus(V);
     Matrix proj_right = proj_left.transpose();
-    Matrix G = proj_left.times(m).times(proj_right);
+
+    Matrix G = proj_left.times(F).times(proj_right);
+
     SingularValueDecomposition svd_ = G.svd();
-    basis_add = svd_.getU();
-    return basis_add;
+    double[] s = svd_.getSingularValues(); int rank = 0;
+    while (rank < s.length && s[rank] > PsplHMatrixPack.epi)
+    { rank++; }
+    return appendAdditionalBasis(svd_.getU().getMatrix(0, basis.getRowDimension() - 1, 0, rank));
   }
 
 

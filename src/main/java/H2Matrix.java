@@ -491,7 +491,7 @@ public class H2Matrix implements Block {
           if (b.getType() == Block.Block_t.LOW_RANK) 
           { b.toLowRank().plusEquals(X.getChildren(i), Y.getChildren(j), S.getProduct(i, j)); } 
           else if (b.getType() == Block.Block_t.DENSE) 
-          { b.toDense().plusEquals(left_prime.toMatrix(i).times(S.getProduct(i, j)).times(right_prime.toMatrix(j).transpose())); }
+          { b.toDense().plusEquals(left_prime.childMatrix(i).times(S.getProduct(i, j)).times(right_prime.childMatrix(j).transpose())); }
           else 
           { b.castH2Matrix().matrixBack(left_prime.getChildren()[i], right_prime.getChildren()[j], X.getChildren(i), Y.getChildren(j), S.getChildren(i, j)); }
         }

@@ -97,8 +97,8 @@ public class LowRank implements Block {
 
   @Override
   public Dense toDense() {
-    Matrix m1 = form == LR_FORM.US_V ? S : U.toMatrix().times(S);
-    Matrix m2 = form == LR_FORM.U_SV ? m1 : m1.times(VT.toMatrix().transpose());
+    Matrix m1 = form == LR_FORM.US_V ? S : U.toMatrix(S.getRowDimension()).times(S);
+    Matrix m2 = form == LR_FORM.U_SV ? m1 : m1.times(VT.toMatrix(S.getColumnDimension()).transpose());
     return new Dense(m2.getArray());
   }
 
@@ -225,28 +225,19 @@ public class LowRank implements Block {
   }
 
   public LowRank triangularSolve (Dense d, boolean up_low) {
-    Dense ref = toDense().triangularSolve(d, up_low);
 
-    /*if (!up_low) {
+    if (up_low) {
       Matrix vt = getVT().toMatrix();
-      Matrix sv = getS().times(vt.transpose());
-      Matrix sv_prime = d.getU().solveTranspose(sv);
-      Matrix s_prime = sv_prime.transpose().times(vt);
-      S.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, s_prime);
+      Matrix vt_prime = d.getU().solveTranspose(vt.transpose());
+      Matrix vt_new = VT.updateAdditionalBasis(vt_prime, true);
+      S = S.times(vt_prime.transpose()).times(vt_new);
     }
     else {
       Matrix u = getU().toMatrix();
-      Matrix us = u.times(getS());
-      Matrix us_prime = d.getL().solve(us);
-      Matrix s_prime = u.transpose().times(us_prime);
-      S.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, s_prime);
+      Matrix u_prime = d.getL().solve(u);
+      Matrix u_new = U.updateAdditionalBasis(u_prime, true);
+      S = u_new.transpose().times(u_prime).times(S);
     }
-*/
-
-    LowRank lr = ref.toLowRank();
-    U = lr.U;
-    S = lr.S;
-    VT = lr.VT;
 
     return this;
   }
