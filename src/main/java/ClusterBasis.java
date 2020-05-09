@@ -71,7 +71,7 @@ public class ClusterBasis {
   }
 
   public int getRank () {
-    return basis.getColumnDimension();
+    return basis.getColumnDimension() + (basis_add == null ? 0 : basis_add.getColumnDimension());
   }
 
   public int size () {
@@ -111,8 +111,10 @@ public class ClusterBasis {
   }
 
   public boolean compare (ClusterBasis cb) {
-    if (cb.childrenLength() == 0 && childrenLength() == 0)
-    { return cb.basis.minus(basis).normF() <= PsplHMatrixPack.epi; }
+    if (this == cb)
+    { return true; }
+    else if (cb.childrenLength() == 0 && childrenLength() == 0)
+    { return cb.getBasis().minus(getBasis()).normF() <= PsplHMatrixPack.epi; }
     else if (cb.childrenLength() > 0 && childrenLength() > 0 && cb.childrenLength() == childrenLength())
     {
       boolean equal = true;
@@ -205,14 +207,19 @@ public class ClusterBasis {
     return getBasis();
   }
 
-  public Matrix updateAdditionalBasis (Matrix m, boolean row_col) {
+  public Matrix updateAdditionalBasis (Matrix m) {
     Matrix V = basis.times(basis.transpose());
     if (basis_add != null)
     { V.plusEquals(basis_add.times(basis_add.transpose())); }
 
+    int size = basis.getRowDimension();
+    boolean row_col = m.getRowDimension() == size;
+    if (!row_col && m.getColumnDimension() != size)
+    { System.out.println("Expected F size: " + size); return null; }
+
     Matrix F = row_col ? m.times(m.transpose()) : m.transpose().times(m);
 
-    Matrix proj_left = Matrix.identity(basis.getRowDimension(), basis.getRowDimension()).minus(V);
+    Matrix proj_left = Matrix.identity(size, size).minus(V);
     Matrix proj_right = proj_left.transpose();
 
     Matrix G = proj_left.times(F).times(proj_right);
@@ -221,7 +228,7 @@ public class ClusterBasis {
     double[] s = svd_.getSingularValues(); int rank = 0;
     while (rank < s.length && s[rank] > PsplHMatrixPack.epi)
     { rank++; }
-    return appendAdditionalBasis(svd_.getU().getMatrix(0, basis.getRowDimension() - 1, 0, rank));
+    return appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
   }
 
 

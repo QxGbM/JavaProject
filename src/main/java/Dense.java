@@ -426,9 +426,10 @@ public class Dense extends Matrix implements Block
   }
 
   public LowRank times (LowRank lr) {
-    ClusterBasis rb = new ClusterBasis(times(lr.getU().toMatrix()));
-    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix());
     Matrix s_prime = new Matrix(lr.getS().getArrayCopy());
+    Matrix u_prime = times(lr.getU().toMatrix(s_prime.getRowDimension()));
+    ClusterBasis rb = new ClusterBasis(u_prime);
+    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix(s_prime.getColumnDimension()));
     return new LowRank(rb, s_prime, cb);
   }
 

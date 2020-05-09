@@ -325,14 +325,14 @@ public class H2Matrix implements Block {
   public Block LU () {
     int m = getNRowBlocks(), n = getNColumnBlocks(), iters = Integer.min(m, n);
     for (int i = 0; i < iters; i++) {
-      e[i][i].LU();
+      e[i][i].LU(); //System.out.println(i + ", " + i + " LU");
       for (int j = i + 1; j < m; j++) {
-        e[j][i].triangularSolve(e[i][i], true);
+        e[j][i].triangularSolve(e[i][i], true); //System.out.println(j + ", " + i + " TRSML");
       }
       for (int j = i + 1; j < n; j++) {
-        e[i][j].triangularSolve(e[i][i], false);
+        e[i][j].triangularSolve(e[i][i], false); //System.out.println(i + ", " + j + " TRSMR");
         for (int k = i + 1; k < m; k++) {
-          e[k][j].GEMatrixMult(e[k][i], e[i][j], -1., 1.);
+          e[k][j].GEMatrixMult(e[k][i], e[i][j], -1., 1.); //System.out.println(k + ", " + j + " GEMM");
         }
       }
     }

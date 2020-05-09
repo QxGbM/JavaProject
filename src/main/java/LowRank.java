@@ -227,16 +227,16 @@ public class LowRank implements Block {
   public LowRank triangularSolve (Dense d, boolean up_low) {
 
     if (up_low) {
-      Matrix vt = getVT().toMatrix();
+      Matrix vt = getVT().toMatrix(S.getColumnDimension()).times(S.transpose());
       Matrix vt_prime = d.getU().solveTranspose(vt.transpose());
-      Matrix vt_new = VT.updateAdditionalBasis(vt_prime, true);
-      S = S.times(vt_prime.transpose()).times(vt_new);
+      Matrix vt_new = VT.updateAdditionalBasis(vt_prime);
+      S = vt_prime.transpose().times(vt_new);
     }
     else {
-      Matrix u = getU().toMatrix();
+      Matrix u = getU().toMatrix(S.getRowDimension()).times(S);
       Matrix u_prime = d.getL().solve(u);
-      Matrix u_new = U.updateAdditionalBasis(u_prime, true);
-      S = u_new.transpose().times(u_prime).times(S);
+      Matrix u_new = U.updateAdditionalBasis(u_prime);
+      S = u_new.transpose().times(u_prime);
     }
 
     return this;
@@ -333,10 +333,26 @@ public class LowRank implements Block {
   }
 
   public LowRank plusEquals (LowRank lr) {
-    boolean U_equal = lr.U.compare(U), VT_equal = lr.VT.compare(VT);
+    /*boolean U_equal = lr.U.compare(U), VT_equal = lr.VT.compare(VT);
     ClusterBasisProduct X = U_equal ? null : new ClusterBasisProduct(U, lr.U);
     ClusterBasisProduct Y = VT_equal ? null : new ClusterBasisProduct(lr.VT, VT);
-    return plusEquals(X, Y, lr.S);
+    return plusEquals(X, Y, lr.S);*/
+
+    Matrix row_f = lr.getU().toMatrix().times(lr.getS());
+    Matrix col_f = lr.getVT().toMatrix().times(lr.getS().transpose());
+
+    Matrix u_new = U.updateAdditionalBasis(row_f);
+    Matrix vt_new = VT.updateAdditionalBasis(col_f);
+
+    Matrix S_prime = new Matrix(U.getRank(), VT.getRank());
+    S_prime.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, S);
+
+    Matrix U_proj = u_new.transpose().times(row_f);
+    Matrix V_proj = lr.VT.toMatrix().transpose().times(vt_new);
+    S_prime.plusEquals(U_proj.times(V_proj));
+
+    S = S_prime;
+    return this;
   }
 
   public LowRank plusEquals (ClusterBasisProduct X, ClusterBasisProduct Y, Matrix S_prime) {
@@ -360,16 +376,18 @@ public class LowRank implements Block {
   }
 
   public LowRank times (Dense d) {
-    ClusterBasis rb = new ClusterBasis(getU().toMatrix());
-    ClusterBasis cb = new ClusterBasis(d.transpose().times(getVT().toMatrix()));
     Matrix s_prime = new Matrix(getS().getArrayCopy());
+    ClusterBasis rb = new ClusterBasis(getU().toMatrix(s_prime.getRowDimension()));
+    ClusterBasis cb = new ClusterBasis(d.transpose().times(getVT().toMatrix(s_prime.getColumnDimension())));
     return new LowRank (rb, s_prime, cb);
   }
 
   public LowRank times (LowRank lr) {
-    ClusterBasis rb = new ClusterBasis(getU().toMatrix());
-    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix());
-    Matrix s_prime = getS().times(getVT().toMatrix().transpose()).times(lr.getU().toMatrix()).times(lr.getS());
+    Matrix left_V = getS().times(getVT().toMatrix(getS().getColumnDimension()).transpose());
+    Matrix right_U = lr.getU().toMatrix(lr.getS().getRowDimension()).times(lr.getS());
+    Matrix s_prime = left_V.times(right_U);
+    ClusterBasis rb = new ClusterBasis(getU().toMatrix(s_prime.getRowDimension()));
+    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix(s_prime.getColumnDimension()));
     return new LowRank (rb, s_prime, cb);
   }
 

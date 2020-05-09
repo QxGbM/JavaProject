@@ -3,7 +3,7 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
-  static final double epi = 1.e-8;
+  static final double epi = 1.e-12;
   static final int minimal_sep = 512;
   static int rank = 16;
 
@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 3, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 1, nblocks = 8, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
