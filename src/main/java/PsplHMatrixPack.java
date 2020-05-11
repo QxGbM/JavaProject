@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 8, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 1, nblocks = 4, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";

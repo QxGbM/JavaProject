@@ -224,6 +224,9 @@ public class ClusterBasis {
 
     Matrix G = proj_left.times(F).times(proj_right);
 
+    if (G.normF() / size / size <= PsplHMatrixPack.epi)
+    { return getBasis(); }
+
     SingularValueDecomposition svd_ = G.svd();
     double[] s = svd_.getSingularValues(); int rank = 0;
     while (rank < s.length && s[rank] > PsplHMatrixPack.epi)
