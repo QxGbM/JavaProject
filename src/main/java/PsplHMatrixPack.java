@@ -3,7 +3,7 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
-  static final double epi = 1.e-12;
+  static final double epi = 1.e-10;
   static final int minimal_sep = 512;
   static int rank = 16;
 
@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 4, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 1, nblocks = 16, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -66,11 +66,14 @@ public class PsplHMatrixPack {
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println(h2.structure());
 
+      long startTime = System.nanoTime();
       h2.LU();
+      long endTime = System.nanoTime();
+      System.out.println("BLR-LU time: " +  (endTime - startTime) / 1000000);
+
       d.LU();
       h2.compareDense(d);
-
-      System.out.println("lu: " + h2.toDense().minus(d).normF() / dim / dim);
+      System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
 
 
       if (write_h)

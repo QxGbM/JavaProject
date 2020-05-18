@@ -9,7 +9,7 @@ public class H2Matrix implements Block {
   private Block e[][];
   private int x_start = 0;
   private int y_start = 0;
-
+  private LowRankBasic accm = null;
 
   public H2Matrix (int m, int n, int nleaf, int part_strat, int rank, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
     row_basis = new ClusterBasis(y_start, m, true, nleaf, part_strat, rank, admis, func);
@@ -221,6 +221,11 @@ public class H2Matrix implements Block {
   }
 
   @Override
+  public LowRankBasic toLowRankBasic () { 
+    return new LowRankBasic(toLowRank());
+  }
+
+  @Override
   public Hierarchical castHierarchical() {
     return null;
   }
@@ -230,6 +235,15 @@ public class H2Matrix implements Block {
     return this;
   }
 
+  @Override
+  public void setAccumulator (LowRankBasic accm) {
+    this.accm = accm;
+  }
+
+  @Override
+  public LowRankBasic getAccumulator() {
+    return accm;
+  }
 
   @Override
   public boolean equals (Block b) {
@@ -454,30 +468,6 @@ public class H2Matrix implements Block {
     }
 
     return this;
-  }
-
-  @Override
-  public void unshareBasis (boolean row_col) {
-    int m = getNRowBlocks(), n = getNColumnBlocks();
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < n; j++) {
-        e[i][j].unshareBasis(row_col);
-      }
-    }
-  }
-
-  public void unshareBasis_diag () {
-    int m = getNRowBlocks(), n = getNColumnBlocks();
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < n; j++) {
-        if (i < j)
-        { e[i][j].unshareBasis(true); }
-        else if (i > j)
-        { e[i][j].unshareBasis(false); }
-        else if (e[i][j].castH2Matrix() != null)
-        { e[i][j].castH2Matrix().unshareBasis_diag(); }
-      }
-    }
   }
 
   public H2Matrix matrixBack (ClusterBasis left_prime, ClusterBasis right_prime, ClusterBasisProduct X, ClusterBasisProduct Y, H2Approx S) {

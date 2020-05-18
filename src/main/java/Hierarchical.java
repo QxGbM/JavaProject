@@ -6,6 +6,7 @@ public class Hierarchical implements Block {
   private Block e[][];
   private int x_start = 0;
   private int y_start = 0;
+  private LowRankBasic accm = null;
 
   public Hierarchical (int m, int n)
   { e = new Block[m][n]; }
@@ -105,7 +106,12 @@ public class Hierarchical implements Block {
 
   @Override
   public LowRank toLowRank() 
-  { return toDense().toLowRank(); }
+  { return null; }
+  
+  @Override
+  public LowRankBasic toLowRankBasic () { 
+    return null;
+  }
 
   @Override
   public Hierarchical castHierarchical() {
@@ -115,6 +121,16 @@ public class Hierarchical implements Block {
   @Override
   public H2Matrix castH2Matrix() {
     return null;
+  }
+
+  @Override
+  public void setAccumulator (LowRankBasic accm) {
+    this.accm = accm;
+  }
+
+  @Override
+  public LowRankBasic getAccumulator() {
+    return accm;
   }
 
   @Override
@@ -222,10 +238,6 @@ public class Hierarchical implements Block {
     return null;
   }
 
-  @Override
-  public void unshareBasis (boolean row_col) {
-    return;
-  }
 
   @Override
   public Block plusEquals (Block b) {

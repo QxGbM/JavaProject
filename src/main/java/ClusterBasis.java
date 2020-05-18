@@ -26,14 +26,6 @@ public class ClusterBasis {
     reducedStorageForm = false;
   }
 
-  public ClusterBasis (ClusterBasis cb, Matrix m) {
-    basis = cb.basis.times(m);
-    basis_add = null;
-    children = cb.children;
-    xy_start = cb.xy_start;
-    reducedStorageForm = cb.reducedStorageForm;
-  }
-
   public ClusterBasis (int xy_start, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
 
     if (row_col)
@@ -55,7 +47,7 @@ public class ClusterBasis {
     else
     { children = null; }
 
-    this.xy_start = xy_start;
+    //this.xy_start = xy_start;
     reducedStorageForm = false;
   }
 
@@ -113,17 +105,23 @@ public class ClusterBasis {
   public boolean compare (ClusterBasis cb) {
     if (this == cb)
     { return true; }
-    else if (cb.childrenLength() == 0 && childrenLength() == 0)
-    { return cb.getBasis().minus(getBasis()).normF() <= PsplHMatrixPack.epi; }
-    else if (cb.childrenLength() > 0 && childrenLength() > 0 && cb.childrenLength() == childrenLength())
-    {
+    else if (cb.childrenLength() == 0 && childrenLength() == 0) {
+      System.out.println(basis.getColumnDimension() + " " + cb.basis.getColumnDimension());
+      double norm = cb.basis.minus(basis).normF() / basis.getRowDimension() / basis.getColumnDimension();
+      if (cb.basis_add != null && basis_add != null)
+      { }
+      return norm <= PsplHMatrixPack.epi; 
+    }
+    else if (cb.childrenLength() > 0 && childrenLength() > 0 && cb.childrenLength() == childrenLength()) {
       boolean equal = true;
       for (int i = 0; i < childrenLength(); i++)
       { equal &= children[i].compare(cb.children[i]); }
       return equal;
     }
-    else
-    { return cb.toMatrix().minus(toMatrix()).normF() <= PsplHMatrixPack.epi; }
+    else {
+      int rank = Integer.min(cb.getRank(), getRank());
+      return cb.toMatrix(rank).minus(toMatrix(rank)).normF() / getDimension() / rank <= PsplHMatrixPack.epi; 
+    }
   }
 
   public Matrix getTrans (int children_i) {
@@ -232,6 +230,14 @@ public class ClusterBasis {
     while (rank < s.length && s[rank] > PsplHMatrixPack.epi)
     { rank++; }
     return appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
+  }
+
+  public ClusterBasis timesInner (Matrix m) {
+    ClusterBasis cb = new ClusterBasis(getBasis().times(m));
+    cb.children = children;
+    cb.xy_start = xy_start;
+    cb.reducedStorageForm = reducedStorageForm;
+    return cb;
   }
 
 

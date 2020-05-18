@@ -21,9 +21,15 @@ public interface Block {
 
   abstract public LowRank toLowRank();
 
+  abstract public LowRankBasic toLowRankBasic();
+
   abstract public Hierarchical castHierarchical();
 
   abstract public H2Matrix castH2Matrix();
+
+  abstract public void setAccumulator(LowRankBasic accm);
+
+  abstract public LowRankBasic getAccumulator();
 
   abstract public boolean equals (Block b);
 
@@ -54,8 +60,6 @@ public interface Block {
   abstract public Block plusEquals (Block b);
 
   abstract public Block scalarEquals (double s);
-
-  abstract public void unshareBasis (boolean row_col);
 
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();
