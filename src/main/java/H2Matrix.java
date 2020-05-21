@@ -48,7 +48,7 @@ public class H2Matrix implements Block {
     col_basis.convertReducedStorageForm();
   }
 
-  public H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.dataFunction func) {
+  private H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.dataFunction func) {
     this.row_basis = row_basis;
     this.col_basis = col_basis;
     y_start = row_basis.getStart(); x_start = col_basis.getStart();

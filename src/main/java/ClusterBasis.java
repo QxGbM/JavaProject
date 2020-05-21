@@ -249,6 +249,8 @@ public class ClusterBasis {
     ClusterBasisProduct accm_admis = new ClusterBasisProduct();
     Matrix accm_y = h2matrixTimes_interact(h2, forward, accm_admis);
     
+    if (accm_y == null)
+    { accm_y = new Matrix(h2.getRowDimension(), getRank()); }
     accm_y = h2matrixTimes_backward(accm_admis, row, accm_y);
     return accm_y;
   }
@@ -303,6 +305,7 @@ public class ClusterBasis {
       Matrix m = lr.getS().times(forward.getProduct());
       accm_admis.accumProduct(m);
       return null;
+      //return lr.getU().toMatrix().times(m);
     }
     else {
       return null;

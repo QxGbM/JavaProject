@@ -75,15 +75,16 @@ public class PsplHMatrixPack {
       h2.compareDense(d);
       System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);*/
 
-      H2Matrix h2_test = new H2Matrix(1024, 1024, 128, 2, 16, 0.5, 0, 0, testFunc);
-      H2Matrix h2_01 = h2_test.getElement(0, 1).castH2Matrix();
-      H2Matrix h2_10 = h2_test.getElement(1, 0).castH2Matrix();
+      H2Matrix h2_test = new H2Matrix(1024, 1024, 128, 2, 16, 0.3, 0, 0, testFunc);
+      H2Matrix h2_01 = h2_test.getElement(0, 1).castH2Matrix();//.getElement(0, 1).castH2Matrix();
+      H2Matrix h2_10 = h2_test.getElement(1, 0).castH2Matrix();//.getElement(1, 0).castH2Matrix();
 
       ClusterBasis col = h2_10.getColBasis();
       Jama.Matrix test = col.h2matrixTimes(h2_01);
 
       Jama.Matrix ref = h2_01.toDense().times(col.toMatrix());
       System.out.println(h2_01.structure());
+
       System.out.println("test: " + ref.minus(test).normF() / ref.getRowDimension() / ref.getColumnDimension());
 
 
