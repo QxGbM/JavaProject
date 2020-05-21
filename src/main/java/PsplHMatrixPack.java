@@ -16,7 +16,7 @@ public class PsplHMatrixPack {
   
   public static void main (String args[]) {
 
-    int level = 1, nblocks = 16, nleaf = 128, dim = nleaf * (int) Math.pow (nblocks, level);
+    int level = 1, nblocks = 4, nleaf = 256, dim = nleaf * (int) Math.pow (nblocks, level);
     double admis = 0.5;
     
     String h_name = "test", d_name = "ref";
@@ -62,7 +62,7 @@ public class PsplHMatrixPack {
     try {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
-      H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+      /*H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println(h2.structure());
 
@@ -73,7 +73,18 @@ public class PsplHMatrixPack {
 
       d.LU();
       h2.compareDense(d);
-      System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
+      System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);*/
+
+      H2Matrix h2_test = new H2Matrix(1024, 1024, 128, 2, 16, 0.5, 0, 0, testFunc);
+      H2Matrix h2_01 = h2_test.getElement(0, 1).castH2Matrix();
+      H2Matrix h2_10 = h2_test.getElement(1, 0).castH2Matrix();
+
+      ClusterBasis col = h2_10.getColBasis();
+      Jama.Matrix test = col.h2matrixTimes(h2_01);
+
+      Jama.Matrix ref = h2_01.toDense().times(col.toMatrix());
+      System.out.println(h2_01.structure());
+      System.out.println("test: " + ref.minus(test).normF() / ref.getRowDimension() / ref.getColumnDimension());
 
 
       if (write_h)
