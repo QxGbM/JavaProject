@@ -68,6 +68,13 @@ public class ClusterBasisProduct {
     return children;
   }
 
+  public ClusterBasisProduct[] setChildren (ClusterBasisProduct[] children) {
+    if (this.children == null) {
+      this.children = children;
+    }
+    return this.children;
+  }
+
   public Matrix getProduct (int i) {
     return getChildren(i) == null ? null : children[i].product;
   }
@@ -105,21 +112,5 @@ public class ClusterBasisProduct {
     }
   }
 
-  public void print () {
-    if (product != null)
-    System.out.print(product.getRowDimension() + " " + product.getColumnDimension() + " " + product.normF());
-    else
-    System.out.print("0  0 0.0");
-
-    if (children != null) {
-      System.out.println(" : " + children.length);
-      for (int i = 0; i < children.length; i++) 
-      children[i].print();
-    }
-    else
-    System.out.println(" : 0");
-
-
-  }
 
 }

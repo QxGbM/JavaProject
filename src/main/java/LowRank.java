@@ -235,14 +235,14 @@ public class LowRank implements Block {
     if (up_low) {
       Matrix vt = getVT().toMatrix(S.getColumnDimension()).times(S.transpose());
       Matrix vt_prime = d.getU().solveTranspose(vt.transpose());
-      Matrix vt_new = VT.updateAdditionalBasis(vt_prime);
-      S = vt_prime.transpose().times(vt_new);
+      ClusterBasisProduct vt_proj = VT.updateAdditionalBasis(vt_prime);
+      S = vt_proj.getProduct().transpose();
     }
     else {
       Matrix u = getU().toMatrix(S.getRowDimension()).times(S);
       Matrix u_prime = d.getL().solve(u);
-      Matrix u_new = U.updateAdditionalBasis(u_prime);
-      S = u_new.transpose().times(u_prime);
+      ClusterBasisProduct u_proj = U.updateAdditionalBasis(u_prime);
+      S = u_proj.getProduct();
     }
 
     return this;
@@ -323,14 +323,14 @@ public class LowRank implements Block {
   }
 
   public LowRank plusEquals (LowRankBasic lr) {
-    Matrix u_new = U.updateAdditionalBasis(lr.getU());
-    Matrix vt_new = VT.updateAdditionalBasis(lr.getVT());
+    ClusterBasisProduct u_proj = U.updateAdditionalBasis(lr.getU());
+    ClusterBasisProduct vt_proj = VT.updateAdditionalBasis(lr.getVT());
 
     Matrix S_prime = new Matrix(U.getRank(), VT.getRank());
     S_prime.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, S);
 
-    Matrix U_proj = u_new.transpose().times(lr.getU());
-    Matrix V_proj = lr.getVT().transpose().times(vt_new);
+    Matrix U_proj = u_proj.getProduct();
+    Matrix V_proj = vt_proj.getProduct().transpose();
     S_prime.plusEquals(U_proj.times(V_proj));
 
     S = S_prime;

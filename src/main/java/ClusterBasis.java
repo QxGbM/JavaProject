@@ -133,7 +133,7 @@ public class ClusterBasis {
 
       int startX = 0;
       int startY = 0; 
-      Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
+      Matrix lower = new Matrix(dim, childDim[children.length]);
       for (int i = 0; i < children.length; i++) {
         int endX = startX + childrenBasis[i].getRowDimension() - 1;
         int endY = startY + childrenBasis[i].getColumnDimension() - 1;
@@ -196,8 +196,12 @@ public class ClusterBasis {
 
       if (newChildDim[children.length] != childDim[children.length]) {
         Matrix newBasis = new Matrix(newChildDim[children.length], basis.getColumnDimension());
-        for (int i = 0; i < children.length; i++) 
-        { newBasis.setMatrix(newChildDim[i], newChildDim[i + 1] - 1, 0, basis.getColumnDimension() - 1, getTrans(i)); }
+        for (int i = 0; i < children.length; i++) {
+          Matrix trans = getTrans(i);
+          int startY = newChildDim[i];
+          int endY = Integer.min(startY + trans.getRowDimension() - 1, newChildDim[i + 1] - 1);
+          newBasis.setMatrix(startY, endY, 0, basis.getColumnDimension() - 1, trans); 
+        }
         basis = newBasis;
         childDim = newChildDim;
       }
@@ -217,15 +221,48 @@ public class ClusterBasis {
     return getBasis();
   }
 
-  public Matrix updateAdditionalBasis (Matrix m) {
+  public ClusterBasisProduct updateAdditionalBasis (Matrix m) {
+    Matrix mA = m.getRowDimension() == getDimension() ? m : m.transpose();
+    if (childDim != null && children != null) {
+      Matrix[] mPart = partitionMatrix(mA);
+      return updateAdditionalBasisNonLeaf(mPart);
+    }
+    else {
+      return updateAdditionalBasisLeaf(mA);
+    }
+  }
+
+  private Matrix[] partitionMatrix (Matrix m) {
+    Matrix[] mPart = new Matrix[children.length];
+    int startY = 0;
+    for (int i = 0; i < children.length; i++) {
+      int endY = startY + children[i].getDimension() - 1;
+      mPart[i] = m.getMatrix(startY, endY, 0, m.getColumnDimension() - 1);
+      startY = endY + 1;
+    }
+    return mPart;
+  }
+
+  private ClusterBasisProduct updateAdditionalBasisNonLeaf (Matrix[] mPart) {
+    ClusterBasisProduct projChild[] = new ClusterBasisProduct[children.length];
+    for (int i = 0; i < children.length; i++) 
+    { projChild[i] = children[i].updateAdditionalBasis(mPart[i]); }
+    updateTrans();
+
+    Matrix m = new Matrix (childDim[children.length], basis.getColumnDimension());
+    for (int i = 0; i < children.length; i++) 
+    { m.setMatrix(childDim[i], childDim[i + 1] - 1, 0, basis.getColumnDimension() - 1, projChild[i].getProduct()); }
+
+    ClusterBasisProduct proj = updateAdditionalBasisLeaf(m);
+    proj.setChildren(projChild);
+    return proj;
+  }
+
+  private ClusterBasisProduct updateAdditionalBasisLeaf (Matrix m) {
     Matrix V = basis.times(basis.transpose());
 
     int size = basis.getRowDimension();
-    boolean row_col = m.getRowDimension() == size;
-    if (!row_col && m.getColumnDimension() != size)
-    { System.out.println("Expected F size: " + size); return null; }
-
-    Matrix F = row_col ? m.times(m.transpose()) : m.transpose().times(m);
+    Matrix F = m.times(m.transpose());
 
     Matrix proj_left = Matrix.identity(size, size).minus(V);
     Matrix proj_right = proj_left.transpose();
@@ -233,14 +270,16 @@ public class ClusterBasis {
     Matrix G = proj_left.times(F).times(proj_right);
 
     if (G.normF() / size / size <= PsplHMatrixPack.EPI)
-    { return getBasis(); }
+    { return new ClusterBasisProduct(getBasis().transpose().times(m)); }
 
     SingularValueDecomposition svd_ = G.svd();
     double[] s = svd_.getSingularValues(); 
     int rank = 0;
     while (rank < s.length && s[rank] > PsplHMatrixPack.EPI)
     { rank++; }
-    return appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
+
+    Matrix newBasis = appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
+    return new ClusterBasisProduct(newBasis.transpose().times(m));
   }
 
   public Matrix h2matrixTimes (H2Matrix h2) {
