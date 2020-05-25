@@ -3,9 +3,18 @@ import java.io.IOException;
 
 public class PsplHMatrixPack {
 
-  static final double epi = 1.e-10;
-  static final int minimal_sep = 512;
+  static final double EPI = 1.e-10;
+  static final int MINIMAL_SEP = 512;
   static int rank = 16;
+  static int level = 1;
+  static int nblocks = 8;
+  static int nleaf = 128;
+  static int dim = nleaf * (int) Math.pow (nblocks, level);
+  static double admis = 0.5;
+  static String h_name = "test";
+  static String d_name = "ref";
+  static boolean write_h = true;
+  static boolean write_d = false;
 
   @FunctionalInterface
   public interface dataFunction
@@ -13,15 +22,8 @@ public class PsplHMatrixPack {
 
   static final dataFunction testFunc = (int i, int j) -> 
   { return 1. / (1. + Math.abs(i - j)); };
-  
-  public static void main (String args[]) {
 
-    int level = 1, nblocks = 4, nleaf = 256, dim = nleaf * (int) Math.pow (nblocks, level);
-    double admis = 0.5;
-    
-    String h_name = "test", d_name = "ref";
-    boolean write_h = true, write_d = false;
-
+  private static void parse (String args[]) {
     for (int i = 0; i < args.length; i++)
     {
       if (args[i].startsWith("-level="))
@@ -55,14 +57,18 @@ public class PsplHMatrixPack {
     System.out.println("dim: " + Integer.toString(dim));
     System.out.println("admis: " + Double.toString(admis));
     System.out.println("rank: " + Integer.toString(rank));
+  }
+  
+  public static void main (String args[]) {
+
+    parse(args);
 
     boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
 
-    if (integrity)
-    try {
+    if (integrity) try {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
-      /*H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+      H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
       System.out.println(h2.structure());
 
@@ -73,11 +79,11 @@ public class PsplHMatrixPack {
 
       d.LU();
       h2.compareDense(d);
-      System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);*/
+      System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
 
       H2Matrix h2_test = new H2Matrix(1024, 1024, 128, 2, 16, 0.3, 0, 0, testFunc);
-      H2Matrix h2_01 = h2_test.getElement(0, 1).castH2Matrix();//.getElement(0, 1).castH2Matrix();
-      H2Matrix h2_10 = h2_test.getElement(1, 0).castH2Matrix();//.getElement(1, 0).castH2Matrix();
+      H2Matrix h2_01 = h2_test.getElement(0, 1).castH2Matrix();
+      H2Matrix h2_10 = h2_test.getElement(1, 0).castH2Matrix();
 
       ClusterBasis col = h2_10.getColBasis();
       Jama.Matrix test = col.h2matrixTimes(h2_01);

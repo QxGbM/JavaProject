@@ -136,7 +136,7 @@ public class Hierarchical implements Block {
   @Override
   public boolean equals (Block b) {
     double norm = compare(b.toDense());
-    return norm <= PsplHMatrixPack.epi; 
+    return norm <= PsplHMatrixPack.EPI; 
   }
 
   @Override

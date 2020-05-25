@@ -60,7 +60,12 @@ public class ClusterBasisProduct {
   }
 
   public ClusterBasisProduct[] setChildren (int m) {
-    return children == null ? children = new ClusterBasisProduct[m] : children;
+    if (children == null) {
+      children = new ClusterBasisProduct[m];
+      for (int i = 0; i < m; i++)
+      { children[i] = new ClusterBasisProduct(); }
+    }
+    return children;
   }
 
   public Matrix getProduct (int i) {

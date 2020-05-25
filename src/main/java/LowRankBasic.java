@@ -99,6 +99,7 @@ public class LowRankBasic implements Block {
 
   @Override
   public void setAccumulator (LowRankBasic accm) {
+    // no accm needed
   }
 
   @Override
@@ -109,7 +110,7 @@ public class LowRankBasic implements Block {
   @Override
   public boolean equals (Block b) {
     double norm = compare(b.toDense());
-    return norm <= PsplHMatrixPack.epi; 
+    return norm <= PsplHMatrixPack.EPI; 
   }
 
   @Override
@@ -255,7 +256,7 @@ public class LowRankBasic implements Block {
     SingularValueDecomposition svd_ = R.svd();
     double[] s = svd_.getSingularValues();
     int rank = 0;
-    while(rank < length && s[rank] >= PsplHMatrixPack.epi) 
+    while(rank < length && s[rank] >= PsplHMatrixPack.EPI) 
     { rank++; }
 
     Matrix U_s = svd_.getU().getMatrix(0, length - 1, 0, rank - 1);

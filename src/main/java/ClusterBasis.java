@@ -5,34 +5,30 @@ import Jama.SingularValueDecomposition;
 public class ClusterBasis {
 
   private Matrix basis;
-  private Matrix basis_add;
-  private ClusterBasis children[];
-  private int xy_start;
-  private boolean reducedStorageForm;
+  private ClusterBasis[] children;
+  private int xyStart;
+  private int[] childDim;
 
   public ClusterBasis (int m, int n) {
     basis = new Matrix(m, n);
-    basis_add = null;
     children = null;
-    xy_start = 0;
-    reducedStorageForm = false;
+    xyStart = 0;
+    childDim = null;
   }
 
   public ClusterBasis (Matrix m) {
     basis = new Matrix(m.getArrayCopy());
-    basis_add = null;
     children = null;
-    xy_start = 0;
-    reducedStorageForm = false;
+    xyStart = 0;
+    childDim = null;
   }
 
-  public ClusterBasis (int xy_start, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+  public ClusterBasis (int xyStart, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
 
     if (row_col)
-    { basis = Dense.getBasisU(xy_start, mn, rank, admis, func); }
+    { basis = Dense.getBasisU(xyStart, mn, rank, admis, func); }
     else
-    { basis = Dense.getBasisVT(xy_start, mn, rank, admis, func); }
-    basis_add = null;
+    { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func); }
 
     if (mn > nleaf) {
       int mn_block = mn / part_strat, mn_remain = mn - (part_strat - 1) * mn_block;
@@ -40,22 +36,22 @@ public class ClusterBasis {
   
       for (int i = 0; i < part_strat; i++) {
         int mn_e = i == part_strat - 1 ? mn_remain : mn_block;
-        int xy_e = xy_start + mn_block * i;
+        int xy_e = xyStart + mn_block * i;
         children[i] = new ClusterBasis (xy_e, mn_e, row_col, nleaf, part_strat, rank, admis, func);
       }
     }
     else
     { children = null; }
 
-    this.xy_start = xy_start;
-    reducedStorageForm = false;
+    this.xyStart = xyStart;
+    childDim = null;
   }
 
   public int getDimension () {
     if (children != null) {
       int rows = 0; 
       for (int i = 0; i < children.length; i++)
-      rows += children[i].getDimension();
+        rows += children[i].getDimension();
       return rows;
     }
     else
@@ -63,20 +59,20 @@ public class ClusterBasis {
   }
 
   public int getRank () {
-    return basis.getColumnDimension() + (basis_add == null ? 0 : basis_add.getColumnDimension());
+    return basis.getColumnDimension();
   }
 
   public int size () {
     int sum = basis.getRowDimension() * basis.getColumnDimension();
     if (children != null) {
       for (int i = 0; i < children.length; i++)
-      sum += children[i].size();
+        sum += children[i].size();
     }
     return sum;
   }
 
   public int getStart () {
-    return xy_start;
+    return xyStart;
   }
 
   public int childrenLength () {
@@ -88,14 +84,7 @@ public class ClusterBasis {
   }
 
   public Matrix getBasis () {
-    if (basis_add == null)
-    { return basis; }
-    else {
-      Matrix new_basis = new Matrix(basis.getRowDimension(), basis_add.getColumnDimension() + basis.getColumnDimension());
-      new_basis.setMatrix(0, basis.getRowDimension() - 1, 0, basis.getColumnDimension() - 1, basis);
-      new_basis.setMatrix(0, basis.getRowDimension() - 1, basis.getColumnDimension(), basis.getColumnDimension() + basis_add.getColumnDimension() - 1, basis_add);
-      return new_basis;
-    }
+    return basis;
   }
 
   public ClusterBasis[] getChildren () {
@@ -106,11 +95,8 @@ public class ClusterBasis {
     if (this == cb)
     { return true; }
     else if (cb.childrenLength() == 0 && childrenLength() == 0) {
-      System.out.println(basis.getColumnDimension() + " " + cb.basis.getColumnDimension());
       double norm = cb.basis.minus(basis).normF() / basis.getRowDimension() / basis.getColumnDimension();
-      if (cb.basis_add != null && basis_add != null)
-      { }
-      return norm <= PsplHMatrixPack.epi; 
+      return norm <= PsplHMatrixPack.EPI; 
     }
     else if (cb.childrenLength() > 0 && childrenLength() > 0 && cb.childrenLength() == childrenLength()) {
       boolean equal = true;
@@ -120,38 +106,39 @@ public class ClusterBasis {
     }
     else {
       int rank = Integer.min(cb.getRank(), getRank());
-      return cb.toMatrix(rank).minus(toMatrix(rank)).normF() / getDimension() / rank <= PsplHMatrixPack.epi; 
+      return cb.toMatrix(rank).minus(toMatrix(rank)).normF() / getDimension() / rank <= PsplHMatrixPack.EPI; 
     }
   }
 
-  public Matrix getTrans (int children_i) {
-    if (reducedStorageForm && children_i >= 0 && children_i < childrenLength()) {
-      int start_y = 0;
-      for (int i = 0; i < children_i; i++)
-      { start_y += children[i].getRank(); }
-      int end_y = start_y + children[children_i].getRank() - 1;
-      return basis.getMatrix(start_y, end_y, 0, basis.getColumnDimension() - 1);
+  public Matrix getTrans (int childrenI) {
+    if (childDim != null && childrenI >= 0 && childrenI < childrenLength()) {
+      int startY = childDim[childrenI];
+      int endY = childDim[childrenI + 1] - 1;
+      return basis.getMatrix(startY, endY, 0, basis.getColumnDimension() - 1);
     }
-    else if (!reducedStorageForm)
+    else if (childDim == null)
     { System.out.println("Not in reduced storage form when retrieving Trans."); return null; }
     else
     { System.out.println("No children or invalid children index when retrieving Trans."); return null; }
   }
 
   public Matrix toMatrix() {
-    if (!reducedStorageForm || children == null)
+    if (childDim == null || children == null)
     { return getBasis(); }
     else {
-      int dim = 0; Matrix children_basis[] = new Matrix[children.length];
+      int dim = 0;
+      Matrix childrenBasis[] = new Matrix[children.length];
       for (int i = 0; i < children.length; i++) 
-      { children_basis[i] = children[i].toMatrix(); dim += children_basis[i].getRowDimension(); }
+      { childrenBasis[i] = children[i].toMatrix(); dim += childrenBasis[i].getRowDimension(); }
 
-      int start_x = 0, start_y = 0; 
+      int startX = 0;
+      int startY = 0; 
       Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
       for (int i = 0; i < children.length; i++) {
-        int end_x = start_x + children_basis[i].getRowDimension() - 1, end_y = start_y + children_basis[i].getColumnDimension() - 1;
-        lower.setMatrix(start_x, end_x, start_y, end_y, children_basis[i]);
-        start_x = end_x + 1; start_y = end_y + 1;
+        int endX = startX + childrenBasis[i].getRowDimension() - 1;
+        int endY = startY + childrenBasis[i].getColumnDimension() - 1;
+        lower.setMatrix(startX, endX, startY, endY, childrenBasis[i]);
+        startX = endX + 1; startY = endY + 1;
       }
       
       return lower.times(basis);
@@ -171,44 +158,67 @@ public class ClusterBasis {
 
   public Matrix convertReducedStorageForm() {
     if (children == null)
-    { reducedStorageForm = true; return basis; }
-    else if (reducedStorageForm)
+    { return basis; }
+    else if (childDim != null)
     { return toMatrix(); }
     else {
-      int dim = 0; Matrix children_basis[] = new Matrix[children.length];
-      for (int i = 0; i < children.length; i++) 
-      { children_basis[i] = children[i].convertReducedStorageForm(); dim += children_basis[i].getRowDimension(); }
+      int dim = 0; 
+      Matrix childrenBasis[] = new Matrix[children.length];
+      childDim = new int[children.length + 1];
+      childDim[0] = 0;
+      for (int i = 0; i < children.length; i++) { 
+        childrenBasis[i] = children[i].convertReducedStorageForm();
+        childDim[i + 1] = childDim[i] + childrenBasis[i].getColumnDimension();
+        dim += childrenBasis[i].getRowDimension();
+      }
 
-      int start_x = 0, start_y = 0; 
+      int startX = 0;
+      int startY = 0; 
       Matrix lower = new Matrix(dim, children.length * basis.getColumnDimension());
       for (int i = 0; i < children.length; i++) {
-        int end_x = start_x + children_basis[i].getRowDimension() - 1, end_y = start_y + children_basis[i].getColumnDimension() - 1;
-        lower.setMatrix(start_x, end_x, start_y, end_y, children_basis[i]);
-        start_x = end_x + 1; start_y = end_y + 1;
+        int endX = startX + childrenBasis[i].getRowDimension() - 1;
+        int endY = startY + childrenBasis[i].getColumnDimension() - 1;
+        lower.setMatrix(startX, endX, startY, endY, childrenBasis[i]);
+        startX = endX + 1; startY = endY + 1;
       }
 
       Matrix temp = basis; basis = lower.transpose().times(temp);
-      reducedStorageForm = true;
       return temp;
     }
   }
 
+  public void updateTrans () {
+    if (children != null && childDim != null) {
+      int[] newChildDim = new int[children.length + 1];
+      newChildDim[0] = 0;
+      for (int i = 0; i < children.length; i++) 
+      { newChildDim[i + 1] = newChildDim[i] + children[i].getRank(); }
+
+      if (newChildDim[children.length] != childDim[children.length]) {
+        Matrix newBasis = new Matrix(newChildDim[children.length], basis.getColumnDimension());
+        for (int i = 0; i < children.length; i++) 
+        { newBasis.setMatrix(newChildDim[i], newChildDim[i + 1] - 1, 0, basis.getColumnDimension() - 1, getTrans(i)); }
+        basis = newBasis;
+        childDim = newChildDim;
+      }
+    }
+  }
+
   public Matrix appendAdditionalBasis (Matrix add) {
-    if (basis_add == null)
-    { basis_add = new Matrix(add.getArrayCopy()); }
+    if (basis == null) { 
+      basis = add.copy(); 
+    }
     else {
-      Matrix new_basis = new Matrix(basis_add.getRowDimension(), basis_add.getColumnDimension() + add.getColumnDimension());
-      new_basis.setMatrix(0, basis_add.getRowDimension() - 1, 0, basis_add.getColumnDimension() - 1, basis_add);
-      new_basis.setMatrix(0, basis_add.getRowDimension() - 1, basis_add.getColumnDimension(), basis_add.getColumnDimension() + add.getColumnDimension() - 1, add);
-      basis_add = new_basis;
+      Matrix newBasis = new Matrix(basis.getRowDimension(), basis.getColumnDimension() + add.getColumnDimension());
+      newBasis.setMatrix(0, basis.getRowDimension() - 1, 0, basis.getColumnDimension() - 1, basis);
+      newBasis.setMatrix(0, basis.getRowDimension() - 1, basis.getColumnDimension(), basis.getColumnDimension() + add.getColumnDimension() - 1, add);
+      basis = newBasis;
     }
     return getBasis();
   }
 
   public Matrix updateAdditionalBasis (Matrix m) {
     Matrix V = basis.times(basis.transpose());
-    if (basis_add != null)
-    { V.plusEquals(basis_add.times(basis_add.transpose())); }
 
     int size = basis.getRowDimension();
     boolean row_col = m.getRowDimension() == size;
@@ -222,22 +232,15 @@ public class ClusterBasis {
 
     Matrix G = proj_left.times(F).times(proj_right);
 
-    if (G.normF() / size / size <= PsplHMatrixPack.epi)
+    if (G.normF() / size / size <= PsplHMatrixPack.EPI)
     { return getBasis(); }
 
     SingularValueDecomposition svd_ = G.svd();
-    double[] s = svd_.getSingularValues(); int rank = 0;
-    while (rank < s.length && s[rank] > PsplHMatrixPack.epi)
+    double[] s = svd_.getSingularValues(); 
+    int rank = 0;
+    while (rank < s.length && s[rank] > PsplHMatrixPack.EPI)
     { rank++; }
     return appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
-  }
-
-  public ClusterBasis timesInner (Matrix m) {
-    ClusterBasis cb = new ClusterBasis(getBasis().times(m));
-    cb.children = children;
-    cb.xy_start = xy_start;
-    cb.reducedStorageForm = reducedStorageForm;
-    return cb;
   }
 
   public Matrix h2matrixTimes (H2Matrix h2) {
@@ -255,57 +258,54 @@ public class ClusterBasis {
     return accm_y;
   }
 
-
-  private Matrix h2matrixTimes_interact (Block b, ClusterBasisProduct forward, ClusterBasisProduct accm_admis) {
-    if (b.castH2Matrix() != null) {
-      H2Matrix h2 = b.castH2Matrix();
-      int m = h2.getNRowBlocks(), n = h2.getNColumnBlocks();
+  private Matrix h2matrixTimes_interact (H2Matrix h2, ClusterBasisProduct forward, ClusterBasisProduct accm_admis) {
+    int m = h2.getNRowBlocks(), n = h2.getNColumnBlocks();
       Matrix accm[] = new Matrix[m];
-      int rank = 0;
+      int rank = getRank();
+      boolean skipDense = true;
       ClusterBasisProduct[] accm_children = accm_admis.setChildren(m);
 
       for (int i = 0; i < m; i++) {
-        if (accm_children[i] == null)
-        { accm_children[i] = new ClusterBasisProduct(); }
-
         for (int j = 0; j < n; j++) {
           Matrix accm_ij = children[j].h2matrixTimes_interact(h2.getElement(i, j), forward.getChildren(j), accm_children[i]);
           if (accm_ij != null) {
-            rank = getRank();
+            skipDense = false;
             Matrix accm_e = accm_ij.times(getTrans(j));
-            if (accm[i] == null)
-            { accm[i] = accm_e; }
-            else
-            { accm[i].plusEquals(accm_e); }
+            accm[i] = accm[i] == null ? accm_e : accm[i].plusEquals(accm_e);
           }
         }
       }
 
-      Matrix accm_y;
-      if (rank > 0) {
-        int y = 0; accm_y = new Matrix(h2.getRowDimension(), rank);
-        for (int i = 0; i < m; i++) {
-          int y_end = y + h2.getElement(i, 0).getRowDimension() - 1;
-          if (accm[i] != null) 
-          { accm_y.setMatrix(y, y_end, 0, accm[i].getColumnDimension() - 1, accm[i]); }
-          y = y_end + 1;
-        }
+      if (skipDense)
+      { return null; }
+
+      int y = 0; 
+      Matrix accm_y = new Matrix(h2.getRowDimension(), rank);
+      for (int i = 0; i < m; i++) {
+        int y_end = y + h2.getElement(i, 0).getRowDimension() - 1;
+        if (accm[i] != null)
+        { accm_y.setMatrix(y, y_end, 0, accm[i].getColumnDimension() - 1, accm[i]); }
+        y = y_end + 1;
       }
-      else
-      { accm_y = null; }
       return accm_y;
+  }
+
+
+
+  private Matrix h2matrixTimes_interact (Block b, ClusterBasisProduct forward, ClusterBasisProduct accm_admis) {
+    if (b.castH2Matrix() != null) {
+      H2Matrix h2 = b.castH2Matrix();
+      return h2matrixTimes_interact(h2, forward, accm_admis);
     }
     else if (b.getType() == Block.Block_t.DENSE) {
       Dense d = b.toDense();
-      Matrix accm_y = d.times(toMatrix());
-      return accm_y;
+      return d.times(toMatrix());
     }
     else if (b.getType() == Block.Block_t.LOW_RANK) {
       LowRank lr = b.toLowRank();
       Matrix m = lr.getS().times(forward.getProduct());
       accm_admis.accumProduct(m);
       return null;
-      //return lr.getU().toMatrix().times(m);
     }
     else {
       return null;
