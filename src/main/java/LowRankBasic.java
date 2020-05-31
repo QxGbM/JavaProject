@@ -79,8 +79,9 @@ public class LowRankBasic implements Block {
   }
 
   @Override
-  public LowRank toLowRank() 
-  { return null; }
+  public LowRank toLowRank() { 
+    return new LowRank(U, Matrix.identity(U.getColumnDimension(), VT.getColumnDimension()), VT); 
+  }
   
   @Override
   public LowRankBasic toLowRankBasic () { 
@@ -273,6 +274,16 @@ public class LowRankBasic implements Block {
     if (s != 1. && U != null)
     { U.timesEquals(s); }
     return this;
+  }
+
+  @Override
+  public Block times (Block b) {
+    return null;
+  }
+
+  @Override
+  public Block accum (LowRankBasic accm) {
+    return plusEquals(accm);
   }
 
   public LowRankBasic multLeft (Matrix m) {

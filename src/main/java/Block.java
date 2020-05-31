@@ -61,6 +61,10 @@ public interface Block {
 
   abstract public Block scalarEquals (double s);
 
+  abstract public Block times (Block b);
+
+  abstract public Block accum (LowRankBasic accm);
+
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();
     String[] args = str.split("\\s+");

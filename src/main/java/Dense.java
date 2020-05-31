@@ -277,7 +277,7 @@ public class Dense extends Matrix implements Block
   @Override
   public Block LU () {
     if (getAccumulator() != null)
-    { plusEquals(accm); }
+    { accum(accm); }
     LUDecomposition lu_ = lu();
     Matrix L = lu_.getL(), U = lu_.getU();
     for (int i = 0; i < getRowDimension(); i++) {
@@ -310,7 +310,7 @@ public class Dense extends Matrix implements Block
   @Override
   public Block triangularSolve (Block b, boolean up_low) {
     if (getAccumulator() != null)
-    { plusEquals(accm); }
+    { accum(accm); }
     return triangularSolve(b.toDense(), up_low);
   }
 
@@ -409,7 +409,9 @@ public class Dense extends Matrix implements Block
 
   public Block GEMatrixMult (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
     scalarEquals(beta);
-    H2Matrix temp = new H2Matrix(this, a.getRowBasis(), b.getColBasis());
+    H2Matrix temp = new H2Matrix(this, a.getNRowBlocks(), b.getNColumnBlocks());
+    temp.setRowBasis(a.getRowBasis());
+    temp.setColBasis(b.getColBasis());
     temp.GEMatrixMult(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
     super.setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, temp.toDense());
     return this;
@@ -417,16 +419,23 @@ public class Dense extends Matrix implements Block
 
   @Override
   public Block plusEquals (Block b) {
-    return plusEquals(b.toDense());
+    if (b.getType() == Block_t.DENSE)
+    { return plusEquals(b.toDense()); }
+    else if (b.getType() == Block_t.LOW_RANK) {
+      LowRankBasic lr = b.toLowRankBasic();
+      if (accm == null)
+      { accm = new LowRankBasic(); }
+      accm.plusEquals(lr.toLowRankBasic());
+      return this;
+    }
+    else if (b.getType() == Block_t.HIERARCHICAL) 
+    { return plusEquals(b.toDense()); }
+    else
+    { return this; }
   }
 
   public Dense plusEquals (Dense d) {
     super.plusEquals(d);
-    return this;
-  }
-
-  public Dense plusEquals (Dense d, double alpha, double beta) {
-    super.timesEquals(beta).plusEquals(d.times(alpha));
     return this;
   }
 
@@ -437,19 +446,7 @@ public class Dense extends Matrix implements Block
     return this;
   }
 
-  public Dense times (Dense d) {
-    Matrix R = super.times(d);
-    return new Dense (R.getArrayCopy());
-  }
-
-  public LowRank times (LowRank lr) {
-    Matrix s_prime = new Matrix(lr.getS().getArrayCopy());
-    Matrix u_prime = times(lr.getU().toMatrix(s_prime.getRowDimension()));
-    ClusterBasis rb = new ClusterBasis(u_prime);
-    ClusterBasis cb = new ClusterBasis(lr.getVT().toMatrix(s_prime.getColumnDimension()));
-    return new LowRank(rb, s_prime, cb);
-  }
-
+  @Override
   public Block times (Block b) {
     if (b.getType() == Block_t.LOW_RANK)
     { return times(b.toLowRank()); }
@@ -457,6 +454,23 @@ public class Dense extends Matrix implements Block
     { return times(b.toDense()); }
     else
     { System.out.println("Error partition."); System.exit(-1); return null; }
+  }
+
+  public Dense times (Dense d) {
+    Matrix R = super.times(d);
+    return new Dense (R.getArrayCopy());
+  }
+
+  public LowRankBasic times (LowRank lr) {
+    int rank = lr.getS().getColumnDimension();
+    Matrix u = times(lr.getUS());
+    Matrix vt = lr.getVT().toMatrix(rank);
+    return new LowRankBasic(u, vt);
+  }
+
+  @Override
+  public Block accum (LowRankBasic accm) {
+    return plusEquals(accm.toDense());
   }
 
   public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {

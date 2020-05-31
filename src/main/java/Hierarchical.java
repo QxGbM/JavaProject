@@ -251,6 +251,16 @@ public class Hierarchical implements Block {
     return null;
   }
 
+  @Override
+  public Block times (Block b) {
+    return null;
+  }
+
+  @Override
+  public Block accum (LowRankBasic accm) {
+    return null;
+  }
+
   public Block getElement (int m, int n)
   { return e[m][n]; }
 

@@ -6,8 +6,8 @@ public class PsplHMatrixPack {
   static final double EPI = 1.e-10;
   static final int MINIMAL_SEP = 512;
   static int rank = 16;
-  static int level = 1;
-  static int nblocks = 8;
+  static int level = 2;
+  static int nblocks = 2;
   static int nleaf = 128;
   static int dim = nleaf * (int) Math.pow (nblocks, level);
   static double admis = 0.5;
@@ -75,33 +75,12 @@ public class PsplHMatrixPack {
       long startTime = System.nanoTime();
       h2.LU();
       long endTime = System.nanoTime();
-      System.out.println("BLR-LU time: " +  (endTime - startTime) / 1000000);
+      System.out.println("H2-LU time: " +  (endTime - startTime) / 1000000);
 
       d.LU();
       h2.compareDense(d);
       System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
-
-      H2Matrix h2_test = new H2Matrix(1024, 1024, 128, 2, 16, 0.5, 0, 0, testFunc);
-      H2Matrix h2_01 = h2_test.getElement(0, 1).castH2Matrix();
-      H2Matrix h2_10 = h2_test.getElement(1, 0).castH2Matrix();
-
-      ClusterBasis col = h2_10.getColBasis();
-      Jama.Matrix test = col.h2matrixTimes(h2_01);
-
-      Jama.Matrix ref = h2_01.toDense().times(col.toMatrix());
-      System.out.println(h2_01.structure());
-
-      System.out.println("test: " + ref.minus(test).normF() / ref.getRowDimension() / ref.getColumnDimension());
-
-      LowRank h2_010 = h2_01.getElement(0, 0).toLowRank();
-      LowRankBasic h2_011 = h2_01.getElement(0, 1).toLowRank().toLowRankBasic();
-
-      Jama.Matrix ref2 = h2_010.toDense().plus(h2_011.toDense());
-      h2_010.plusEquals(h2_011);
-      Jama.Matrix test2 = h2_010.toDense();
-      System.out.println("test2: " + ref2.minus(test2).normF() / ref2.getRowDimension() / ref2.getColumnDimension());
-
-
+      System.out.println(h2.structure());
 
 
       if (write_h)
