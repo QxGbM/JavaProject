@@ -12,11 +12,11 @@ public class Dense extends Matrix implements Block
   private static final long serialVersionUID = 1;
   private transient LowRankBasic accm = null;
 
-  public Dense (double[][] A)
-  { super(A); }
+  public Dense (double[][] a)
+  { super(a); }
 
-  public Dense (double[][] A, int m, int n) 
-  { super(A, m, n); }
+  public Dense (double[][] a, int m, int n) 
+  { super(a, m, n); }
 
   public Dense (double[] vals, int m) 
   { super(vals, m); }
@@ -24,28 +24,20 @@ public class Dense extends Matrix implements Block
   public Dense (int m, int n)
   { super(m, n); }
 
-  public Dense (int m, int n, int y_start, int x_start, PsplHMatrixPack.DataFunction func)
+  public Dense (int m, int n, int yStart, int xStart, PsplHMatrixPack.DataFunction func)
   {
     super(m, n);
-    double data[][] = getArray();
+    double[][] data = getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++)
-      { data[i][j] = func.body(y_start + i, x_start + j); }
+      { data[i][j] = func.body(yStart + i, xStart + j); }
     }
 
   }
 
   public Dense (int m, int n, double s)
   { super(m, n, s); }
-
-  @Override
-  public int getRowDimension() 
-  { return super.getRowDimension(); }
-
-  @Override
-  public int getColumnDimension() 
-  { return super.getColumnDimension(); }
 
   @Override
   public Block_t getType()
@@ -64,32 +56,32 @@ public class Dense extends Matrix implements Block
     step = n > PsplHMatrixPack.rank * 4 ? PsplHMatrixPack.rank : step;
 
     boolean approx;
-    Matrix Q, Y;
-    QRDecomposition qr_;
+    Matrix q;
+    Matrix y;
+    QRDecomposition qrd;
     
     do {
       r += step; r = r >= n ? n : r;
 
-      Matrix X = times(random(n, r));
-      qr_ = X.qr();
-      Q = qr_.getQ();
-      Y = transpose().times(Q);
-      Matrix A = Q.times(Y.transpose()).minus(this);
-      double norm = A.normF() / (m * n);
+      Matrix x = times(random(n, r));
+      qrd = x.qr();
+      q = qrd.getQ();
+      y = transpose().times(q);
+      Matrix a = q.times(y.transpose()).minus(this);
+      double norm = a.normF() / (m * n);
       approx = norm <= PsplHMatrixPack.EPI;
 
     } while (r < n && !approx);
 
-    qr_ = Y.qr();
-    Matrix V = qr_.getQ(), R = qr_.getR();
-    SingularValueDecomposition svd_ = R.svd();
+    qrd = y.qr();
+    Matrix v = qrd.getQ();
+    Matrix u = qrd.getR();
+    SingularValueDecomposition svdd = u.svd();
 
-    ClusterBasis row_b = new ClusterBasis(Q.times(svd_.getV()));
-    ClusterBasis col_b = new ClusterBasis(V.times(svd_.getU()));
+    ClusterBasis rowB = new ClusterBasis(q.times(svdd.getV()));
+    ClusterBasis colB = new ClusterBasis(v.times(svdd.getU()));
 
-    LowRank lr = new LowRank (row_b, svd_.getS(), col_b);
-
-    return lr;
+    return new LowRank (rowB, svdd.getS(), colB);
   }
 
   
@@ -108,7 +100,7 @@ public class Dense extends Matrix implements Block
     return null;
   }
 
-  public LowRank toLowRank_fromBasis (ClusterBasis row_basis, ClusterBasis col_basis_t) {
+  public LowRank toLowRankFromBasis (ClusterBasis row_basis, ClusterBasis col_basis_t) {
     Matrix S = row_basis.toMatrix().transpose().times(this).times(col_basis_t.toMatrix());
     return new LowRank(row_basis, S, col_basis_t);
   }
@@ -121,29 +113,6 @@ public class Dense extends Matrix implements Block
   @Override
   public LowRankBasic getAccumulator() {
     return accm;
-  }
-
-  public Matrix[] rsvd (int rank) {
-    Matrix[] usv = new Matrix[3];
-
-    Matrix X = times(random(getColumnDimension(), rank));
-    QRDecomposition qr_ = X.qr();
-    Matrix Q = qr_.getQ();
-    Matrix Y = transpose().times(Q);
-
-    qr_ = Y.qr();
-    Matrix V = qr_.getQ(), R = qr_.getR();
-    SingularValueDecomposition svd_ = R.svd();
-
-    usv[0] = Q.times(svd_.getV());
-    usv[1] = svd_.getS();
-    usv[2] = V.times(svd_.getU());
-
-    return usv;
-  }
-
-  public double rsvd_norm (Matrix[] usv) {
-    return usv[0].times(usv[1]).times(usv[2].transpose()).minus(this).normF() / (double) (getRowDimension() * getColumnDimension());
   }
 
   @Override
@@ -171,23 +140,25 @@ public class Dense extends Matrix implements Block
   @Override
   public void loadBinary (InputStream stream) throws IOException
   {
-    int m = getRowDimension(), n = getColumnDimension();
-    byte data[];
-    double data_ptr[][] = getArray();
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    byte[] data;
+    double[][] dataPtr = getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
         data = stream.readNBytes(8 * m * n);
-        data_ptr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
+        dataPtr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
       }
     }
   }
 
   @Override
   public void writeBinary (OutputStream stream) throws IOException {
-    int m = getRowDimension(), n = getColumnDimension();
-    byte data[] = new byte[8];
-    double data_ptr[][] = getArray();
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    byte[] data = new byte[8];
+    double[][] data_ptr = getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) { 
@@ -199,15 +170,12 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public void print (int w, int d)
-  { super.print(w, d); }
-
-  @Override
   public Block getrf () {
     if (getAccumulator() != null)
     { accum(accm); }
     LUDecomposition lu_ = lu();
-    Matrix L = lu_.getL(), U = lu_.getU();
+    Matrix L = lu_.getL();
+    Matrix U = lu_.getU();
     for (int i = 0; i < getRowDimension(); i++) {
       for (int j = 0; j < getColumnDimension(); j++) {
         set(i, j, i > j ? L.get(i, j) : U.get(i, j));
@@ -236,14 +204,14 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public Block trsm (Block b, boolean up_low) {
+  public Block trsm (Block b, boolean lower) {
     if (getAccumulator() != null)
     { accum(accm); }
-    return trsm(b.toDense(), up_low);
+    return trsm(b.toDense(), lower);
   }
 
-  public Dense trsm (Dense d, boolean up_low) {
-    Matrix m = up_low ? d.getU().solveTranspose(this).transpose() : d.getL().solve(this);
+  public Dense trsm (Dense d, boolean lower) {
+    Matrix m = lower ? d.getU().solveTranspose(this).transpose() : d.getL().solve(this);
     setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
     return this;
   }
@@ -256,82 +224,6 @@ public class Dense extends Matrix implements Block
     plusEquals(c);
     return this;
   }
-
-  /*@Override
-  public Block gemm (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    if (a.getType() == Block_t.LOW_RANK) {
-      if (b.getType() == Block_t.LOW_RANK)
-      { gemm(a.toLowRank(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-      else if (b.getType() == Block_t.DENSE)
-      { gemm(a.toLowRank(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-      else
-      { gemm(a.toLowRank(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    }
-    else if (a.getType() == Block_t.DENSE) {
-      if (b.getType() == Block_t.LOW_RANK)
-      { gemm(a.toDense(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-      else
-      { gemm(a.toDense(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    }
-    else {
-      if (b.getType() == Block_t.LOW_RANK)
-      { gemm(a.castH2Matrix(), b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-      else
-      { gemm(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    }
-    return this;
-  }
-
-  public Block gemm (LowRank a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    Matrix m = Sa.getS().times(Y.getProduct()).times(Sb.getS()).times(alpha);
-    Sc.accumProduct(m);
-    return this;
-  }
-
-  public Block gemm (LowRank a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    LowRankBasic lr = a.toLowRankBasic();
-    lr.multRight(b);
-    lr.scalarEquals(alpha);
-    super.plusEquals(lr.toDense());
-    return this;
-  }
-
-  public Block gemm (LowRank a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    return gemm(new H2Matrix(a), b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
-  }
-
-  public Block gemm (Dense a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    LowRankBasic lr = b.toLowRankBasic();
-    lr.multLeft(a);
-    lr.scalarEquals(alpha);
-    super.plusEquals(lr.toDense());
-    return this;
-  }
-
-  public Block gemm (Dense a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    super.plusEquals(a.times(b).times(alpha));
-    return this;
-  }
-
-  public Block gemm (H2Matrix a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    return gemm(a, new H2Matrix(b), alpha, 1., X, Y, Z, Sa, Sb, Sc);
-  }
-
-  public Block gemm (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    H2Matrix temp = new H2Matrix(this, a.getNRowBlocks(), b.getNColumnBlocks());
-    temp.setRowBasis(a.getRowBasis());
-    temp.setColBasis(b.getColBasis());
-    temp.gemm(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
-    super.setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, temp.toDense());
-    return this;
-  }*/
 
   @Override
   public Block plusEquals (Block b) {
@@ -366,10 +258,8 @@ public class Dense extends Matrix implements Block
   public Block times (Block b) {
     if (b.getType() == Block_t.LOW_RANK)
     { return times(b.toLowRank()); }
-    else if (b.getType() == Block_t.DENSE)
-    { return times(b.toDense()); }
     else
-    { System.out.println("Error partition."); System.exit(-1); return null; }
+    { return times(b.toDense()); }
   }
 
   public Dense times (Dense d) {
@@ -389,17 +279,17 @@ public class Dense extends Matrix implements Block
     return plusEquals(accm.toDense());
   }
 
-  public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.DataFunction func) {
+  public static Matrix getBasisU (int yStart, int m, int rank, double admis, PsplHMatrixPack.DataFunction func) {
     int minimal_sep = Integer.max((int) (admis * m * m / rank), PsplHMatrixPack.MINIMAL_SEP); 
-    Dense d1 = new Dense(m, m, y_start, y_start + minimal_sep, func);
+    Dense d1 = new Dense(m, m, yStart, yStart + minimal_sep, func);
     Dense d2 = new Dense(d1.times(Matrix.random(m, rank)).getArray());
     QRDecomposition qr_ = d2.qr();
     return qr_.getQ();
   }
 
-  public static Matrix getBasisVT (int x_start, int n, int rank, double admis, PsplHMatrixPack.DataFunction func) {
+  public static Matrix getBasisVT (int xStart, int n, int rank, double admis, PsplHMatrixPack.DataFunction func) {
     int minimal_sep = Integer.max((int) (admis * n * n / rank), PsplHMatrixPack.MINIMAL_SEP);
-    Dense d1 = new Dense(n, n, x_start + minimal_sep, x_start, func);
+    Dense d1 = new Dense(n, n, xStart + minimal_sep, xStart, func);
     Dense d2 = new Dense(Matrix.random(rank, n).times(d1).getArray());
     QRDecomposition qr_ = d2.transpose().qr();
     return qr_.getQ();

@@ -4,7 +4,7 @@ import Jama.Matrix;
 public class ClusterBasisProduct {
 
   private Matrix product;
-  private ClusterBasisProduct children[];
+  private ClusterBasisProduct[] children;
 
   public ClusterBasisProduct () {
     product = null;
@@ -22,26 +22,27 @@ public class ClusterBasisProduct {
   }
 
   public ClusterBasisProduct (ClusterBasis left, ClusterBasis right) {
-    int left_child = left.childrenLength(), right_child = right.childrenLength();
-    if (left_child == 0 || right_child == 0 || left_child != right_child) 
+    int leftChild = left.childrenLength();
+    int rightChild = right.childrenLength();
+    if (leftChild == 0 || rightChild == 0 || leftChild != rightChild) 
     { children = null; product = left.toMatrix().transpose().times(right.toMatrix()); }
     else {
-      children = new ClusterBasisProduct[left_child];
-      for (int i = 0; i < left_child; i++) {
+      children = new ClusterBasisProduct[leftChild];
+      for (int i = 0; i < leftChild; i++) {
         children[i] = new ClusterBasisProduct(left.getChildren()[i], right.getChildren()[i]);
       }
-      product = collectProduct_single(left, right);
+      product = collectProductSingle(left, right);
     }
   }
 
-  public Matrix collectProduct_single (ClusterBasis left, ClusterBasis right) {
-    Matrix product = new Matrix (left.getRank(), right.getRank());
+  private Matrix collectProductSingle (ClusterBasis left, ClusterBasis right) {
+    Matrix p = new Matrix (left.getRank(), right.getRank());
     for (int i = 0; i < getNBlocks(); i++) {
-      Matrix Et_i = left.getTrans(i).transpose();
-      Matrix E_j = right.getTrans(i);
-      product.plusEquals(Et_i.times(children[i].product).times(E_j));
+      Matrix etI = left.getTrans(i).transpose();
+      Matrix eJ = right.getTrans(i);
+      p.plusEquals(etI.times(children[i].product).times(eJ));
     }
-    return product;
+    return p;
   }
 
   public int getNBlocks()

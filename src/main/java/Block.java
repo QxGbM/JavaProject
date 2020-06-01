@@ -35,7 +35,7 @@ public interface Block {
 
   public abstract Block getrf ();
 
-  public abstract Block trsm (Block b, boolean up_low);
+  public abstract Block trsm (Block b, boolean lower);
   
   public abstract Block gemm (Block a, Block b, double alpha, double beta);
 

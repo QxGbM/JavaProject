@@ -3,25 +3,27 @@ import Jama.Matrix;
 
 public class Hierarchical implements Block {
 
-  private Block e[][];
+  private Block[][] e;
   private LowRankBasic accm = null;
 
   public Hierarchical (int m, int n)
   { e = new Block[m][n]; }
 
   public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.DataFunction func) {
-    int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
-    int n_block = n / part_strat, n_remain = n - (part_strat - 1) * n_block;
+    int mBlock = m / part_strat;
+    int m_remain = m - (part_strat - 1) * mBlock;
+    int nBlock = n / part_strat;
+    int n_remain = n - (part_strat - 1) * nBlock;
 
     e = new Block[part_strat][part_strat];
 
     for (int i = 0; i < part_strat; i++) {
-      int m_e = i == part_strat - 1 ? m_remain : m_block;
-      int y_e = y_start + m_block * i;
+      int m_e = i == part_strat - 1 ? m_remain : mBlock;
+      int y_e = y_start + mBlock * i;
 
       for (int j = 0; j < part_strat; j++) {
-        int n_e = j == part_strat - 1 ? n_remain : n_block;
-        int x_e = x_start + n_block * j;
+        int n_e = j == part_strat - 1 ? n_remain : nBlock;
+        int x_e = x_start + nBlock * j;
 
         boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
 
@@ -72,7 +74,8 @@ public class Hierarchical implements Block {
     int i0 = 0;
 
     for (int i = 0; i < getNRowBlocks(); i++) {
-      int i1 = 0, j0 = 0;
+      int i1 = 0;
+      int j0 = 0;
       for (int j = 0; j < getNColumnBlocks(); j++) {
         Dense X = e[i][j].toDense(); 
         int j1 = j0 + X.getColumnDimension() - 1;
@@ -134,20 +137,20 @@ public class Hierarchical implements Block {
 
   @Override
   public double getCompressionRatioNoBasis () {
-    System.out.println("This method shouldn't be used in non-shared H-matrix.");
+    PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, "This method shouldn't be used in non-shared H-matrix.");
     return -1;
   }
 
   @Override
   public String structure () {
-    String s = "H " + Integer.toString(getNRowBlocks()) + " " + Integer.toString(getNColumnBlocks()) + "\n";
+    StringBuilder s = new StringBuilder("H " + Integer.toString(getNRowBlocks()) + " " + Integer.toString(getNColumnBlocks()) + "\n");
 
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++)
-      { s += e[i][j].structure(); }
+      { s.append(e[i][j].structure()); }
     }
 
-    return s;
+    return s.toString();
   }
 
   @Override
@@ -181,7 +184,7 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public Block trsm (Block b, boolean up_low) {
+  public Block trsm (Block b, boolean lower) {
     return this;
   }
 

@@ -111,9 +111,11 @@ public class LowRankBasic implements Block {
 
   @Override
   public void loadBinary (InputStream stream) throws IOException {
-    int m = getRowDimension(), n = getColumnDimension(), r = getRank();
-    byte data[];
-    double data_ptr[][] = U.getArray();
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    int r = getRank();
+    byte[] data;
+    double[][] data_ptr = U.getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
@@ -134,9 +136,11 @@ public class LowRankBasic implements Block {
 
   @Override
   public void writeBinary (OutputStream stream) throws IOException {
-    int m = getRowDimension(), n = getColumnDimension(), r = getRank();
-    byte data[] = new byte[8];
-    double data_ptr[][] = U.getArray();
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    int r = getRank();
+    byte[] data = new byte[8];
+    double[][] data_ptr = U.getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
@@ -186,7 +190,7 @@ public class LowRankBasic implements Block {
 
   public LowRankBasic plusEquals (LowRankBasic lr) {
 
-    if (U == null && VT == null)
+    if (U == null || VT == null)
     { U = new Matrix (lr.U.getArrayCopy()); VT = new Matrix (lr.VT.getArrayCopy()); return this; }
 
     int length = U.getColumnDimension() + lr.U.getColumnDimension();

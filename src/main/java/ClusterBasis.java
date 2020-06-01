@@ -34,7 +34,8 @@ public class ClusterBasis {
     { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func); }
 
     if (mn > nleaf) {
-      int mn_block = mn / part_strat, mn_remain = mn - (part_strat - 1) * mn_block;
+      int mn_block = mn / part_strat;
+      int mn_remain = mn - (part_strat - 1) * mn_block;
       children = new ClusterBasis[part_strat];
   
       for (int i = 0; i < part_strat; i++) {
@@ -146,7 +147,7 @@ public class ClusterBasis {
     { return getBasis(); }
     else {
       int dim = 0;
-      Matrix childrenBasis[] = new Matrix[children.length];
+      Matrix[] childrenBasis = new Matrix[children.length];
       for (int i = 0; i < children.length; i++) 
       { childrenBasis[i] = children[i].toMatrix(); dim += childrenBasis[i].getRowDimension(); }
 
@@ -182,7 +183,7 @@ public class ClusterBasis {
     { return toMatrix(); }
     else {
       int dim = 0; 
-      Matrix childrenBasis[] = new Matrix[children.length];
+      Matrix[] childrenBasis = new Matrix[children.length];
       childDim = new int[children.length + 1];
       childDim[0] = 0;
       for (int i = 0; i < children.length; i++) { 
@@ -258,7 +259,7 @@ public class ClusterBasis {
   }
 
   private ClusterBasisProduct updateAdditionalBasisNonLeaf (Matrix m) {
-    ClusterBasisProduct projChild[] = new ClusterBasisProduct[children.length];
+    ClusterBasisProduct[] projChild = new ClusterBasisProduct[children.length];
     Matrix[] mPart = partitionMatrix(m);
     for (int i = 0; i < children.length; i++)
     { projChild[i] = children[i].updateAdditionalBasisRecur(mPart[i]); }
@@ -330,7 +331,7 @@ public class ClusterBasis {
     int m = transpose ? h2.getNColumnBlocks() : h2.getNRowBlocks();
     int n = transpose ? h2.getNRowBlocks() : h2.getNColumnBlocks();
     int rank = getRank();
-    Matrix accm[] = new Matrix[m];
+    Matrix[] accm = new Matrix[m];
     boolean skipDense = true;
     ClusterBasisProduct[] accm_children = accm_admis.setChildren(m);
 

@@ -7,7 +7,8 @@ import Jama.Matrix;
 public class LowRank implements Block {
 		
   private Matrix S;
-  private ClusterBasis U, VT;
+  private ClusterBasis U;
+  private ClusterBasis VT;
   private LowRankBasic accm = null;
 
   public LowRank (int m, int n, int r) {
@@ -121,9 +122,11 @@ public class LowRank implements Block {
 
   @Override
   public void loadBinary (InputStream stream) throws IOException {
-    int m = getRowDimension(), n = getColumnDimension(), r = getRank();
-    byte data[];
-    double data_ptr[][] = U.toMatrix().getArray();
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    int r = getRank();
+    byte[] data;
+    double[][] data_ptr = U.toMatrix().getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
@@ -146,9 +149,11 @@ public class LowRank implements Block {
 
   @Override
   public void writeBinary (OutputStream stream) throws IOException {
-    int m = getRowDimension(), n = getColumnDimension(), r = getRank();
-    byte data[] = new byte[8];
-    double data_ptr[][] = U.toMatrix().getArray();
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    int r = getRank();
+    byte[] data = new byte[8];
+    double[][] data_ptr = U.toMatrix().getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
@@ -180,15 +185,15 @@ public class LowRank implements Block {
   }
 
   @Override
-  public Block trsm (Block b, boolean up_low) {
+  public Block trsm (Block b, boolean lower) {
     if (getAccumulator() != null)
     { accum(accm); }
-    return trsm(b.toDense(), up_low); // TODO
+    return trsm(b.toDense(), lower); // TODO
   }
 
-  public LowRank trsm (Dense d, boolean up_low) {
+  public LowRank trsm (Dense d, boolean lower) {
 
-    if (up_low) {
+    if (lower) {
       Matrix vt = getVT().toMatrix(S.getColumnDimension()).times(S.transpose());
       Matrix vt_prime = d.getU().solveTranspose(vt.transpose());
       ClusterBasisProduct vt_proj = VT.updateAdditionalBasis(vt_prime);
@@ -213,49 +218,6 @@ public class LowRank implements Block {
     return this;
   }
 
-  /*@Override
-  public Block gemm (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    if (a.getType() == Block_t.LOW_RANK) 
-    { gemm(a.toLowRank(), b, alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    else if (b.getType() == Block_t.LOW_RANK)
-    { gemm(a, b.toLowRank(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    else if (a.getType() == Block_t.DENSE && b.getType() == Block_t.DENSE)
-    { gemm(a.toDense(), b.toDense(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-    else 
-    { gemm(a.castH2Matrix(), b.castH2Matrix(), alpha, beta, X, Y, Z, Sa, Sb, Sc); }
-
-    return this;
-  }
-
-  public LowRank gemm (LowRank a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    Matrix m = X.getProduct().times(a.getS()).times(Sb.getS()).times(alpha);
-    S.plusEquals(m);
-    return this;
-  }
-
-  public LowRank gemm (Block a, LowRank b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    Matrix m = Sa.getS().times(b.getS()).times(Z.getProduct()).times(alpha);
-    this.S.plusEquals(m);
-    return this;
-  }
-
-  public LowRank gemm (Dense a, Dense b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    Matrix m = U.toMatrix().transpose().times(a).times(b).times(VT.toMatrix()).times(alpha);
-    this.S.plusEquals(m);
-    return this;
-  }
-
-  public LowRank gemm (H2Matrix a, H2Matrix b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-    scalarEquals(beta);
-    H2Matrix temp = new H2Matrix(this);
-    temp.gemm(a, b, alpha, 1., X, Y, Z, Sa, Sb, Sc);
-    LowRank lr = temp.toLowRank();
-    S = lr.S;
-    return this;
-  }*/
 
   @Override
   public Block plusEquals (Block b) {
@@ -267,13 +229,6 @@ public class LowRank implements Block {
     if (accm == null)
     { accm = new LowRankBasic(); }
     accm.plusEquals(lr.toLowRankBasic());
-    return this;
-  }
-
-  public LowRank plusEquals (ClusterBasisProduct X, ClusterBasisProduct Y, Matrix S_prime) {
-    Matrix a = X == null ? S_prime : X.getProduct().times(S_prime);
-    Matrix b = Y == null ? a : a.times(Y.getProduct());
-    S.plusEquals(b);
     return this;
   }
 
