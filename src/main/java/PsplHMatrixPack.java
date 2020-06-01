@@ -6,7 +6,7 @@ public class PsplHMatrixPack {
   static final double EPI = 1.e-10;
   static final int MINIMAL_SEP = 512;
   static int rank = 16;
-  static int level = 2;
+  static int level = 3;
   static int nblocks = 2;
   static int nleaf = 128;
   static int dim = nleaf * (int) Math.pow (nblocks, level);
@@ -70,17 +70,16 @@ public class PsplHMatrixPack {
 
       H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
       System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
-      System.out.println(h2.structure());
 
+      d = h2.toDense();
       long startTime = System.nanoTime();
       h2.LU();
       long endTime = System.nanoTime();
       System.out.println("H2-LU time: " +  (endTime - startTime) / 1000000);
 
       d.LU();
-      h2.compareDense(d);
+      h2.compareDense(d, "");
       System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
-      System.out.println(h2.structure());
 
 
       if (write_h)

@@ -8,12 +8,14 @@ public class ClusterBasis {
   private ClusterBasis[] children;
   private int xyStart;
   private int[] childDim;
+  private ClusterBasis parent;
 
   public ClusterBasis (int m, int n) {
     basis = new Matrix(m, n);
     children = null;
     xyStart = 0;
     childDim = null;
+    parent = null;
   }
 
   public ClusterBasis (Matrix m) {
@@ -21,6 +23,7 @@ public class ClusterBasis {
     children = null;
     xyStart = 0;
     childDim = null;
+    parent = null;
   }
 
   public ClusterBasis (int xyStart, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
@@ -38,6 +41,7 @@ public class ClusterBasis {
         int mn_e = i == part_strat - 1 ? mn_remain : mn_block;
         int xy_e = xyStart + mn_block * i;
         children[i] = new ClusterBasis (xy_e, mn_e, row_col, nleaf, part_strat, rank, admis, func);
+        children[i].parent = this;
       }
     }
     else
@@ -45,6 +49,7 @@ public class ClusterBasis {
 
     this.xyStart = xyStart;
     childDim = null;
+    parent = null;
   }
 
   public int getDimension () {
@@ -222,28 +227,16 @@ public class ClusterBasis {
     }
   }
 
-  public Matrix appendAdditionalBasis (Matrix add) {
-    if (basis == null) { 
-      basis = add.copy(); 
-    }
-    else {
-      Matrix newBasis = new Matrix(basis.getRowDimension(), basis.getColumnDimension() + add.getColumnDimension());
-      newBasis.setMatrix(0, basis.getRowDimension() - 1, 0, basis.getColumnDimension() - 1, basis);
-      newBasis.setMatrix(0, basis.getRowDimension() - 1, basis.getColumnDimension(), basis.getColumnDimension() + add.getColumnDimension() - 1, add);
-      basis = newBasis;
-    }
-    return getBasis();
-  }
-
   public ClusterBasisProduct updateAdditionalBasis (Matrix m) {
     Matrix mA = m.getRowDimension() == getDimension() ? m : m.transpose();
-    if (childDim != null && children != null) {
-      Matrix[] mPart = partitionMatrix(mA);
-      return updateAdditionalBasisNonLeaf(mPart);
-    }
-    else {
-      return updateAdditionalBasisLeaf(mA);
-    }
+    ClusterBasisProduct product;
+    if (childDim != null && children != null) 
+    { product = updateAdditionalBasisNonLeaf(mA); }
+    else 
+    { product = updateAdditionalBasisLeaf(mA); }
+    if (parent != null)
+    { parent.updateTrans(); }
+    return product;
   }
 
   private Matrix[] partitionMatrix (Matrix m) {
@@ -257,17 +250,26 @@ public class ClusterBasis {
     return mPart;
   }
 
-  private ClusterBasisProduct updateAdditionalBasisNonLeaf (Matrix[] mPart) {
+  private ClusterBasisProduct updateAdditionalBasisRecur (Matrix m) {
+    if (childDim != null && children != null) 
+    { return updateAdditionalBasisNonLeaf(m); }
+    else 
+    { return updateAdditionalBasisLeaf(m); }
+  }
+
+  private ClusterBasisProduct updateAdditionalBasisNonLeaf (Matrix m) {
     ClusterBasisProduct projChild[] = new ClusterBasisProduct[children.length];
-    for (int i = 0; i < children.length; i++) 
-    { projChild[i] = children[i].updateAdditionalBasis(mPart[i]); }
+    Matrix[] mPart = partitionMatrix(m);
+    for (int i = 0; i < children.length; i++)
+    { projChild[i] = children[i].updateAdditionalBasisRecur(mPart[i]); }
     updateTrans();
 
-    Matrix m = new Matrix (childDim[children.length], basis.getColumnDimension());
+    int rank = m.getColumnDimension();
+    Matrix l = new Matrix (childDim[children.length], rank);
     for (int i = 0; i < children.length; i++) 
-    { m.setMatrix(childDim[i], childDim[i + 1] - 1, 0, basis.getColumnDimension() - 1, projChild[i].getProduct()); }
+    { l.setMatrix(childDim[i], childDim[i + 1] - 1, 0, rank - 1, projChild[i].getProduct()); }
 
-    ClusterBasisProduct proj = updateAdditionalBasisLeaf(m);
+    ClusterBasisProduct proj = updateAdditionalBasisLeaf(l);
     proj.setChildren(projChild);
     return proj;
   }
@@ -294,6 +296,19 @@ public class ClusterBasis {
 
     Matrix newBasis = appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
     return new ClusterBasisProduct(newBasis.transpose().times(m));
+  }
+
+  public Matrix appendAdditionalBasis (Matrix add) {
+    if (basis == null) { 
+      basis = add.copy(); 
+    }
+    else {
+      Matrix newBasis = new Matrix(basis.getRowDimension(), basis.getColumnDimension() + add.getColumnDimension());
+      newBasis.setMatrix(0, basis.getRowDimension() - 1, 0, basis.getColumnDimension() - 1, basis);
+      newBasis.setMatrix(0, basis.getRowDimension() - 1, basis.getColumnDimension(), basis.getColumnDimension() + add.getColumnDimension() - 1, add);
+      basis = newBasis;
+    }
+    return getBasis();
   }
 
   public Matrix h2matrixTimes (H2Matrix h2, boolean transpose) {
@@ -347,6 +362,19 @@ public class ClusterBasis {
     return accm_y;
   }
 
+  private Matrix alignRank (Matrix s, int rank) {
+    int rankS = s.getColumnDimension();
+    if (rankS > rank) 
+    { return s.getMatrix(0, s.getRowDimension() - 1, 0, rank - 1); }
+    else if (rankS < rank) {
+      Matrix r = new Matrix(s.getRowDimension(), rank);
+      r.setMatrix(0, s.getRowDimension() - 1, 0, rankS - 1, s); 
+      return r; 
+    }
+    else
+    { return s; }
+  }
+
   private Matrix h2matrixTimes_interact (Block b, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, boolean transpose) {
     if (b.castH2Matrix() != null) {
       H2Matrix h2 = b.castH2Matrix();
@@ -359,7 +387,8 @@ public class ClusterBasis {
     else if (b.getType() == Block.Block_t.LOW_RANK) {
       LowRank lr = b.toLowRank();
       Matrix s = transpose ? lr.getS().transpose() : lr.getS();
-      Matrix m = s.times(forward.getProduct());
+      Matrix r = alignRank(s, forward.getProduct().getRowDimension());
+      Matrix m = r.times(forward.getProduct());
       accm_admis.accumProduct(m);
       return null;
     }

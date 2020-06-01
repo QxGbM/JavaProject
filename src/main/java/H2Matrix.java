@@ -413,11 +413,11 @@ public class H2Matrix implements Block {
 
     int m = getNRowBlocks(), n = getNColumnBlocks();
     if (up_low) {
-      for (int i = 0; i < m; i++) {
-        for (int j = 0; j < n; j++) {
-          e[i][j].triangularSolve(h.e[i][i], up_low);
-          for (int k = j; k < n; k++) 
-          { e[i][k].GEMatrixMult(e[i][j], h.e[i][k], -1., 1.); }
+      for (int j = 0; j < n; j++) {
+        for (int i = 0; i < m; i++) {
+          e[i][j].triangularSolve(h.e[j][j], up_low);
+          for (int k = j + 1; k < n; k++) 
+          { e[i][k].GEMatrixMult(e[i][j], h.e[j][k], -1., 1.); }
         }
       }
     }
@@ -425,8 +425,8 @@ public class H2Matrix implements Block {
       for (int i = 0; i < m; i++) {
         for (int j = 0; j < n; j++) {
           e[i][j].triangularSolve(h.e[i][i], up_low);
-          for (int k = i; k < m; k++) 
-          { e[k][j].GEMatrixMult(h.e[k][j], e[i][j], -1., 1.); }
+          for (int k = i + 1; k < m; k++) 
+          { e[k][j].GEMatrixMult(h.e[k][i], e[i][j], -1., 1.); }
         }
       }
     }
@@ -586,6 +586,8 @@ public class H2Matrix implements Block {
   public H2Matrix plusEquals (H2Matrix h) {
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++) {
+        if (h.e[i][j].getAccumulator() != null)
+        { e[i][j].plusEquals(h.e[i][j].getAccumulator()); }
         e[i][j].plusEquals(h.e[i][j]);
       }
     }
@@ -629,7 +631,11 @@ public class H2Matrix implements Block {
         for (int j = 0; j < n; j++) {
           product.e[i][j] = e[i][0].times(h.e[0][j]);
           for (int k = 1; k < l; k++) {
-            product.e[i][j].plusEquals(e[i][k].times(h.e[k][j]));
+            Block b = e[i][k].times(h.e[k][j]);
+            if (product.e[i][j].getType() == Block_t.LOW_RANK && b.castH2Matrix() != null)
+            { b.plusEquals(product.e[i][j]); product.e[i][j] = b; }
+            else
+            { product.e[i][j].plusEquals(b); }
           }
         }
       }
@@ -659,7 +665,7 @@ public class H2Matrix implements Block {
     { e[m][n] = b; }
   }
 
-  public void compareDense (Dense d) {
+  public void compareDense (Matrix d, String str) {
     int m = getNRowBlocks(), n = getNColumnBlocks();
     int y = 0;
     for (int i = 0; i < m; i++) {
@@ -667,7 +673,9 @@ public class H2Matrix implements Block {
       for (int j = 0; j < n; j++) {
         int x_end = x + e[i][j].getColumnDimension() - 1;
         double norm = e[i][j].compare(d.getMatrix(y, y_end, x, x_end));
-        System.out.println(i + ", " + j + ": " + norm);
+        System.out.println(str + " (" + i + ", " + j + "): " + norm);
+        if (e[i][j].castH2Matrix() != null)
+        { e[i][j].castH2Matrix().compareDense(d.getMatrix(y, y_end, x, x_end), str + " (" + i + ", " + j + ")"); }
         x = x_end + 1;
       }
       y = y_end + 1;

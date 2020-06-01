@@ -226,7 +226,7 @@ public class LowRank implements Block {
   public Block triangularSolve (Block b, boolean up_low) {
     if (getAccumulator() != null)
     { accum(accm); }
-    return triangularSolve(b.toDense(), up_low);
+    return triangularSolve(b.toDense(), up_low); // TODO
   }
 
   public LowRank triangularSolve (Dense d, boolean up_low) {
@@ -360,8 +360,11 @@ public class LowRank implements Block {
   }
 
   public LowRankBasic times (LowRank lr) {
-    ClusterBasisProduct p = new ClusterBasisProduct(VT, lr.U);
-    Matrix u = getUS().times(p.getProduct()).times(lr.S);
+    Matrix p = new ClusterBasisProduct(VT, lr.U).getProduct();
+    int left = S.getColumnDimension();
+    int right = lr.S.getRowDimension();
+    Matrix q = p.getMatrix(0, left - 1, 0, right - 1);
+    Matrix u = getUS().times(q).times(lr.S);
     Matrix vt = lr.VT.toMatrix(lr.S.getColumnDimension());
     return new LowRankBasic (u, vt);
   }
