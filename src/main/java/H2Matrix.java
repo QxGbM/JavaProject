@@ -468,29 +468,29 @@ public class H2Matrix implements Block {
 
   public H2Matrix times (H2Matrix h) {
     int l = getNColumnBlocks();
-    if (l == h.getNRowBlocks()) { 
-      H2Matrix product = new H2Matrix();
-      product.rowBasis = rowBasis;
-      product.colBasis = h.colBasis;
-      int m = getNRowBlocks();
-      int n = h.getNColumnBlocks();
-      product.e = new Block[m][n];
-  
-      for (int i = 0; i < m; i++) {
-        for (int j = 0; j < n; j++) {
-          product.e[i][j] = e[i][0].times(h.e[0][j]);
-          for (int k = 1; k < l; k++) {
-            Block b = e[i][k].times(h.e[k][j]);
-            if (product.e[i][j].getType() == Block_t.LOW_RANK && b.castH2Matrix() != null)
-            { b.plusEquals(product.e[i][j]); product.e[i][j] = b; }
-            else
-            { product.e[i][j].plusEquals(b); }
-          }
+    if (l != h.getNRowBlocks()) 
+    { PsplHMatrixPack.errorOut("error partition"); return null; }
+
+    H2Matrix product = new H2Matrix();
+    product.rowBasis = rowBasis;
+    product.colBasis = h.colBasis;
+    int m = getNRowBlocks();
+    int n = h.getNColumnBlocks();
+    product.e = new Block[m][n];
+
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        product.e[i][j] = e[i][0].times(h.e[0][j]);
+        for (int k = 1; k < l; k++) {
+          Block b = e[i][k].times(h.e[k][j]);
+          if (product.e[i][j].getType() == Block_t.LOW_RANK && b.castH2Matrix() != null)
+          { product.e[i][j] = b.plusEquals(product.e[i][j]); }
+          else
+          { product.e[i][j].plusEquals(b); }
         }
       }
-      return product;
     }
-    return null;
+    return product;
   }
 
   public LowRankBasic times (LowRank lr) {

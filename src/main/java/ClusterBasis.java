@@ -334,30 +334,33 @@ public class ClusterBasis {
     Matrix[] accm = new Matrix[m];
     boolean skipDense = true;
     ClusterBasisProduct[] accmChildren = accmAdmis.setChildren(m);
+    int[] dims = new int[m];
+    int dim = 0;
 
     for (int i = 0; i < m; i++) {
+      dims[i] = transpose ? h2.getColumnDimension(i) : h2.getRowDimension(i);
+      dim += dims[i];
+      Matrix accmI = new Matrix(dims[i], rank);
       for (int j = 0; j < n; j++) {
         Block eIJ = transpose ? h2.getElement(j, i) : h2.getElement(i, j);
         Matrix accmIJ = children[j].h2matrixTimesInteract(eIJ, forward.getChildren(j), accmChildren[i], row.children[i], transpose);
         if (accmIJ != null) {
           skipDense = false;
           Matrix accmE = accmIJ.times(getTrans(j));
-          accm[i] = accm[i] == null ? accmE : accm[i].plusEquals(accmE);
+          accmI.plusEquals(accmE);
         }
       }
+      accm[i] = accmI;
     }
 
     if (skipDense)
     { return null; }
 
     int y = 0;
-    int dim = transpose ? h2.getColumnDimension() : h2.getRowDimension();
     Matrix accmY = new Matrix(dim, rank);
     for (int i = 0; i < m; i++) {
-      dim = transpose ? h2.getColumnDimension(i) : h2.getRowDimension(i);
-      int yEnd = y + dim - 1;
-      if (accm[i] != null)
-      { accmY.setMatrix(y, yEnd, 0, accm[i].getColumnDimension() - 1, accm[i]); }
+      int yEnd = y + dims[i] - 1;
+      accmY.setMatrix(y, yEnd, 0, accm[i].getColumnDimension() - 1, accm[i]);
       y = yEnd + 1;
     }
     return accmY;
