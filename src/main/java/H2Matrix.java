@@ -31,21 +31,21 @@ public class H2Matrix implements Block {
     for (int i = 0; i < partStrat; i++) {
       int mE = i == partStrat - 1 ? mRemain : mBlock;
       int yE = yStart + mBlock * i;
-      ClusterBasis b_i = rowBasisLower[i];
+      ClusterBasis bI = rowBasisLower[i];
 
       for (int j = 0; j < partStrat; j++) {
         int nE = j == partStrat - 1 ? nRemain : nBlock;
         int xE = xStart + nBlock * j;
-        ClusterBasis b_j = colBasisLower[j];
+        ClusterBasis bJ = colBasisLower[j];
 
         boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
 
         if (admisible)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(b_i, b_j); }
-        else if (b_i.childrenLength() == 0 || b_j.childrenLength() == 0)
+        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(bI, bJ); }
+        else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
         { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new H2Matrix(b_i, b_j, admis, func); }
+        { e[i][j] = new H2Matrix(bI, bJ, admis, func); }
 
       }
     }
@@ -75,21 +75,21 @@ public class H2Matrix implements Block {
     for (int i = 0; i < partStrat; i++) {
       int mE = i == partStrat - 1 ? mRemain : mBlock;
       int yE = yStart + mBlock * i;
-      ClusterBasis b_i = rowBasisLower[i];
+      ClusterBasis bI = rowBasisLower[i];
 
       for (int j = 0; j < partStrat; j++) {
         int nE = j == partStrat - 1 ? nRemain : nBlock;
         int xE = xStart + nBlock * j;
-        ClusterBasis b_j = colBasisLower[j];
+        ClusterBasis bJ = colBasisLower[j];
 
         boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
 
         if (admisible)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(b_i, b_j); }
-        else if (b_i.childrenLength() == 0 || b_j.childrenLength() == 0)
+        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(bI, bJ); }
+        else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
         { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new H2Matrix(b_i, b_j, admis, func); }
+        { e[i][j] = new H2Matrix(bI, bJ, admis, func); }
 
       }
     }
@@ -372,36 +372,37 @@ public class H2Matrix implements Block {
     { accum(accm); }
 
     if (b.castH2Matrix() != null)
-    { return trsm(b.castH2Matrix(), lower); }
+    { return lower ? trsml(b.castH2Matrix()) : trsmr(b.castH2Matrix()); }
     else
     { return this; }
   }
 
-  public H2Matrix trsm (H2Matrix h, boolean lower) {
-
+  public H2Matrix trsml (H2Matrix h) {
     int m = getNRowBlocks();
     int n = getNColumnBlocks();
-    if (lower) {
-      for (int j = 0; j < n; j++) {
-        for (int i = 0; i < m; i++) {
-          e[i][j].trsm(h.e[j][j], lower);
-          for (int k = j + 1; k < n; k++) 
-          { e[i][k].gemm(e[i][j], h.e[j][k], -1., 1.); }
-        }
-      }
-    }
-    else {
+    for (int j = 0; j < n; j++) {
       for (int i = 0; i < m; i++) {
-        for (int j = 0; j < n; j++) {
-          e[i][j].trsm(h.e[i][i], lower);
-          for (int k = i + 1; k < m; k++) 
-          { e[k][j].gemm(h.e[k][i], e[i][j], -1., 1.); }
-        }
+        e[i][j].trsm(h.e[j][j], true);
+        for (int k = j + 1; k < n; k++) 
+        { e[i][k].gemm(e[i][j], h.e[j][k], -1., 1.); }
       }
     }
-
     return this;
   }
+
+  public H2Matrix trsmr (H2Matrix h) {
+    int m = getNRowBlocks();
+    int n = getNColumnBlocks();
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        e[i][j].trsm(h.e[i][i], false);
+        for (int k = i + 1; k < m; k++) 
+        { e[k][j].gemm(h.e[k][i], e[i][j], -1., 1.); }
+      }
+    }
+    return this;
+  }
+
 
   @Override
   public Block gemm (Block a, Block b, double alpha, double beta) {

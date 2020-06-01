@@ -6,60 +6,57 @@ import Jama.Matrix;
 
 public class LowRank implements Block {
 		
-  private Matrix S;
-  private ClusterBasis U;
-  private ClusterBasis VT;
+  private Matrix s;
+  private ClusterBasis u;
+  private ClusterBasis vt;
   private LowRankBasic accm = null;
 
   public LowRank (int m, int n, int r) {
-    U = new ClusterBasis(m, r);
-    S = new Matrix(r, r);
-    VT = new ClusterBasis(n, r);
+    u = new ClusterBasis(m, r);
+    s = new Matrix(r, r);
+    vt = new ClusterBasis(n, r);
   }
 
-  public LowRank (ClusterBasis U, Matrix S, ClusterBasis VT) {
-    this.U = U; this.VT = VT;
+  public LowRank (ClusterBasis u, Matrix s, ClusterBasis vt) {
+    this.u = u; this.vt = vt;
 
-    if (U.getDimension() == S.getRowDimension() && VT.getDimension() == S.getColumnDimension())
-    { this.S = U.toMatrix().transpose().times(S).times(VT.toMatrix()); }
-    else if (U.getRank() >= S.getRowDimension() && VT.getRank() >= S.getColumnDimension())
-    { this.S = S; }
-    else { 
-      System.out.println("Invalid Low-Rank Construction.");
-      System.out.println("Dims: (" + U.getDimension() + ", " + U.getRank() + ") (" + S.getRowDimension() + ", " + S.getColumnDimension() + ") (" + VT.getDimension() + ", " + VT.getRank() + ").");
-      System.exit(-1); 
-    }
+    if (u.getDimension() == s.getRowDimension() && vt.getDimension() == s.getColumnDimension())
+    { this.s = u.toMatrix().transpose().times(s).times(vt.toMatrix()); }
+    else if (u.getRank() >= s.getRowDimension() && vt.getRank() >= s.getColumnDimension())
+    { this.s = s; }
+    else 
+    { PsplHMatrixPack.errorOut("Invalid Low-Rank Construction."); }
   }
 
-  public LowRank (Matrix U, Matrix S, Matrix VT) {
-    ClusterBasis row_b = new ClusterBasis(U);
-    ClusterBasis col_b = new ClusterBasis(VT);
-    this.U = row_b; this.VT = col_b;
+  public LowRank (Matrix u, Matrix s, Matrix vt) {
+    ClusterBasis rowB = new ClusterBasis(u);
+    ClusterBasis colB = new ClusterBasis(vt);
+    this.u = rowB; this.vt = colB;
 
-    if (U.getRowDimension() == S.getRowDimension() && VT.getRowDimension() == S.getColumnDimension())
-    { this.S = U.transpose().times(S).times(VT); }
-    else if (U.getColumnDimension() == S.getRowDimension() && VT.getColumnDimension() == S.getColumnDimension())
-    { this.S = S; }
+    if (u.getRowDimension() == s.getRowDimension() && vt.getRowDimension() == s.getColumnDimension())
+    { this.s = u.transpose().times(s).times(vt); }
+    else if (u.getColumnDimension() == s.getRowDimension() && vt.getColumnDimension() == s.getColumnDimension())
+    { this.s = s; }
     else
-    { System.out.print("Invalid Low-Rank Construction."); System.exit(-1); }
+    { PsplHMatrixPack.errorOut("Invalid Low-Rank Construction."); }
   }
 
-  public LowRank (ClusterBasis U, ClusterBasis VT, LowRank lr) {
-    this.U = U; this.VT = VT;
-    S = new ClusterBasisProduct(U, lr.U).getProduct().times(lr.S).times(new ClusterBasisProduct(VT, lr.VT).getProduct());
+  public LowRank (ClusterBasis u, ClusterBasis vt, LowRank lr) {
+    this.u = u; this.vt = vt;
+    s = new ClusterBasisProduct(u, lr.u).getProduct().times(lr.s).times(new ClusterBasisProduct(vt, lr.vt).getProduct());
   }
 
 
   @Override
   public int getRowDimension() 
-  { return U.getDimension(); }
+  { return u.getDimension(); }
 
   @Override
   public int getColumnDimension() 
-  { return VT.getDimension(); }
+  { return vt.getDimension(); }
 
   public int getRank()
-  { return Integer.max(S.getRowDimension(), S.getColumnDimension()); }
+  { return Integer.max(s.getRowDimension(), s.getColumnDimension()); }
 
   @Override
   public Block_t getType() 
@@ -67,8 +64,8 @@ public class LowRank implements Block {
 
   @Override
   public Dense toDense() {
-    Matrix m1 = U.toMatrix(S.getRowDimension()).times(S);
-    Matrix m2 = m1.times(VT.toMatrix(S.getColumnDimension()).transpose());
+    Matrix m1 = u.toMatrix(s.getRowDimension()).times(s);
+    Matrix m2 = m1.times(vt.toMatrix(s.getColumnDimension()).transpose());
     return new Dense(m2.getArray());
   }
 
@@ -126,23 +123,23 @@ public class LowRank implements Block {
     int n = getColumnDimension();
     int r = getRank();
     byte[] data;
-    double[][] data_ptr = U.toMatrix().getArray();
+    double[][] dataPtr = u.toMatrix().getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
         data = stream.readNBytes(8);
-        data_ptr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
+        dataPtr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
       }
     }
 
-    S = Matrix.identity(r, r);
+    s = Matrix.identity(r, r);
 
-    data_ptr = VT.toMatrix().getArray();
+    dataPtr = vt.toMatrix().getArray();
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < r; j++) {
         data = stream.readNBytes(8);
-        data_ptr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
+        dataPtr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
       }
     }
   }
@@ -153,20 +150,20 @@ public class LowRank implements Block {
     int n = getColumnDimension();
     int r = getRank();
     byte[] data = new byte[8];
-    double[][] data_ptr = U.toMatrix().getArray();
+    double[][] dataPtr = u.toMatrix().getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
-        ByteBuffer.wrap(data).putDouble(0, data_ptr[i][j] * S.get(j, j));
+        ByteBuffer.wrap(data).putDouble(0, dataPtr[i][j] * s.get(j, j));
         stream.write(data);
       }
     }
 
-    data_ptr = VT.toMatrix().getArray();
+    dataPtr = vt.toMatrix().getArray();
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < r; j++) {
-        ByteBuffer.wrap(data).putDouble(0, data_ptr[i][j]);
+        ByteBuffer.wrap(data).putDouble(0, dataPtr[i][j]);
         stream.write(data);
       }
     }
@@ -175,12 +172,11 @@ public class LowRank implements Block {
 
   @Override
   public void print (int w, int d)
-  { U.toMatrix().print(w, d); S.print(w, d); VT.toMatrix().print(w, d); }
+  { u.toMatrix().print(w, d); s.print(w, d); vt.toMatrix().print(w, d); }
 
   @Override
   public Block getrf () {
-    System.out.println("error LU on LR");
-    System.exit(-1);
+    PsplHMatrixPack.errorOut("error Lu on LR");
     return null;
   }
 
@@ -194,16 +190,16 @@ public class LowRank implements Block {
   public LowRank trsm (Dense d, boolean lower) {
 
     if (lower) {
-      Matrix vt = getVT().toMatrix(S.getColumnDimension()).times(S.transpose());
-      Matrix vt_prime = d.getU().solveTranspose(vt.transpose());
-      ClusterBasisProduct vt_proj = VT.updateAdditionalBasis(vt_prime);
-      S = vt_proj.getProduct().transpose();
+      Matrix vtp = getVT().toMatrix(s.getColumnDimension()).times(s.transpose());
+      Matrix vtPrime = d.getU().solveTranspose(vtp.transpose());
+      ClusterBasisProduct vtProj = vt.updateAdditionalBasis(vtPrime);
+      s = vtProj.getProduct().transpose();
     }
     else {
-      Matrix u = getU().toMatrix(S.getRowDimension()).times(S);
-      Matrix u_prime = d.getL().solve(u);
-      ClusterBasisProduct u_proj = U.updateAdditionalBasis(u_prime);
-      S = u_proj.getProduct();
+      Matrix up = getU().toMatrix(s.getRowDimension()).times(s);
+      Matrix uPrime = d.getL().solve(up);
+      ClusterBasisProduct uProj = u.updateAdditionalBasis(uPrime);
+      s = uProj.getProduct();
     }
 
     return this;
@@ -233,9 +229,9 @@ public class LowRank implements Block {
   }
 
   @Override
-  public Block scalarEquals (double s) {
-    if (s != 1.)
-    { S.timesEquals(s); }
+  public Block scalarEquals (double a) {
+    if (a != 1.)
+    { s.timesEquals(a); }
     return this;
   }
 
@@ -248,60 +244,60 @@ public class LowRank implements Block {
     else if (b.getType() == Block_t.DENSE)
     { return times(b.toDense()); }
     else
-    { System.out.println("Error partition."); System.exit(-1); return null; }
+    { PsplHMatrixPack.errorOut("error partition"); return null; }
   }
 
   public LowRankBasic times (Dense d) {
-    int rank = S.getColumnDimension();
-    Matrix u = getUS();
-    Matrix vt = d.transpose().times(VT.toMatrix(rank));
-    return new LowRankBasic (u, vt);
+    int rank = s.getColumnDimension();
+    Matrix us = getUS();
+    Matrix vtp = d.transpose().times(vt.toMatrix(rank));
+    return new LowRankBasic (us, vtp);
   }
 
   public LowRankBasic times (LowRank lr) {
-    Matrix p = new ClusterBasisProduct(VT, lr.U).getProduct();
-    int left = S.getColumnDimension();
-    int right = lr.S.getRowDimension();
+    Matrix p = new ClusterBasisProduct(vt, lr.u).getProduct();
+    int left = s.getColumnDimension();
+    int right = lr.s.getRowDimension();
     Matrix q = p.getMatrix(0, left - 1, 0, right - 1);
-    Matrix u = getUS().times(q).times(lr.S);
-    Matrix vt = lr.VT.toMatrix(lr.S.getColumnDimension());
-    return new LowRankBasic (u, vt);
+    Matrix uss = getUS().times(q).times(lr.s);
+    Matrix vtp = lr.vt.toMatrix(lr.s.getColumnDimension());
+    return new LowRankBasic (uss, vtp);
   }
 
   public LowRankBasic times (H2Matrix h) {
     Matrix us = getUS();
-    Matrix vt = VT.h2matrixTimes(h, true);
-    return new LowRankBasic(us, vt);
+    Matrix vtp = vt.h2matrixTimes(h, true);
+    return new LowRankBasic(us, vtp);
   }
 
   @Override
   public Block accum (LowRankBasic accm) {
-    ClusterBasisProduct u_proj = U.updateAdditionalBasis(accm.getU());
-    ClusterBasisProduct vt_proj = VT.updateAdditionalBasis(accm.getVT());
+    ClusterBasisProduct uProj = u.updateAdditionalBasis(accm.getU());
+    ClusterBasisProduct vtProj = vt.updateAdditionalBasis(accm.getVT());
 
-    Matrix S_prime = new Matrix(U.getRank(), VT.getRank());
-    S_prime.setMatrix(0, S.getRowDimension() - 1, 0, S.getColumnDimension() - 1, S);
+    Matrix sPrime = new Matrix(u.getRank(), vt.getRank());
+    sPrime.setMatrix(0, s.getRowDimension() - 1, 0, s.getColumnDimension() - 1, s);
 
-    Matrix U_proj = u_proj.getProduct();
-    Matrix V_proj = vt_proj.getProduct().transpose();
-    S_prime.plusEquals(U_proj.times(V_proj));
+    Matrix uProjP = uProj.getProduct();
+    Matrix vProj = vtProj.getProduct().transpose();
+    sPrime.plusEquals(uProjP.times(vProj));
 
-    S = S_prime;
+    s = sPrime;
     return this;
   }
 
 
   public ClusterBasis getU ()
-  { return U; }
+  { return u; }
 
   public Matrix getS ()
-  { return S; }
+  { return s; }
   
   public ClusterBasis getVT ()
-  { return VT; }
+  { return vt; }
 
   public Matrix getUS ()
-  { return U.toMatrix(S.getRowDimension()).times(S); }
+  { return u.toMatrix(s.getRowDimension()).times(s); }
 
 
 }

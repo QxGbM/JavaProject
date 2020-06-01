@@ -89,7 +89,7 @@ public interface Block {
       reader.close();
     }
     catch (IOException e) {
-      PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+      PsplHMatrixPack.errorOut(e.getMessage());
     }
 
     if (b != null) {
@@ -98,7 +98,7 @@ public interface Block {
         b.loadBinary(stream);
       }
       catch (IOException e) {
-        PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+        PsplHMatrixPack.errorOut(e.getMessage());
       }
     }
     return b;
@@ -115,7 +115,7 @@ public interface Block {
       writer.flush();
     }
     catch (IOException e) {
-      PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+      PsplHMatrixPack.errorOut(e.getMessage());
     }
 
     try (BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"))) {
@@ -123,7 +123,7 @@ public interface Block {
       stream.flush();
     }
     catch (IOException e) {
-      PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+      PsplHMatrixPack.errorOut(e.getMessage());
     }
   }
 

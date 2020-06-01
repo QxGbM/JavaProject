@@ -8,45 +8,45 @@ import Jama.SingularValueDecomposition;
 
 public class LowRankBasic implements Block {
 		
-  private Matrix U;
-  private Matrix VT;
+  private Matrix u;
+  private Matrix vt;
 
   public LowRankBasic () {
-    U = null; VT = null;
+    u = null; vt = null;
   }
 
   public LowRankBasic (int m, int n, int r) {
-    U = new Matrix(m, r);
-    VT = new Matrix(n, r);
+    u = new Matrix(m, r);
+    vt = new Matrix(n, r);
   }
 
-  public LowRankBasic (Matrix U, Matrix VT) {
-    this.U = new Matrix(U.getArrayCopy());
-    this.VT = new Matrix(VT.getArrayCopy());
+  public LowRankBasic (Matrix u, Matrix vt) {
+    this.u = new Matrix(u.getArrayCopy());
+    this.vt = new Matrix(vt.getArrayCopy());
   }
 
   public LowRankBasic (LowRank lr) {
-    U = lr.getUS();
-    VT = lr.getVT().toMatrix(U.getColumnDimension());
+    u = lr.getUS();
+    vt = lr.getVT().toMatrix(u.getColumnDimension());
   }
 
 
   @Override
   public int getRowDimension() 
-  { return U == null ? 0 : U.getRowDimension(); }
+  { return u == null ? 0 : u.getRowDimension(); }
 
   @Override
   public int getColumnDimension() 
-  { return VT == null ? 0 : VT.getRowDimension(); }
+  { return vt == null ? 0 : vt.getRowDimension(); }
 
   public int getRank()
-  { return U == null ? 0 : U.getColumnDimension(); }
+  { return u == null ? 0 : u.getColumnDimension(); }
   
   public Matrix getU () 
-  { return U; }
+  { return u; }
 
   public Matrix getVT () 
-  { return VT; }
+  { return vt; }
 
   @Override
   public Block_t getType() 
@@ -54,15 +54,15 @@ public class LowRankBasic implements Block {
 
   @Override
   public Dense toDense() {
-    if (U == null || VT == null)
+    if (u == null || vt == null)
     { return null; }
     else
-    { return new Dense(U.times(VT.transpose()).getArray()); }
+    { return new Dense(u.times(vt.transpose()).getArray()); }
   }
 
   @Override
   public LowRank toLowRank() { 
-    return new LowRank(U, Matrix.identity(U.getColumnDimension(), VT.getColumnDimension()), VT); 
+    return new LowRank(u, Matrix.identity(u.getColumnDimension(), vt.getColumnDimension()), vt); 
   }
   
   @Override
@@ -115,21 +115,21 @@ public class LowRankBasic implements Block {
     int n = getColumnDimension();
     int r = getRank();
     byte[] data;
-    double[][] data_ptr = U.getArray();
+    double[][] dataPtr = u.getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
         data = stream.readNBytes(8);
-        data_ptr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
+        dataPtr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
       }
     }
 
-    data_ptr = VT.getArray();
+    dataPtr = vt.getArray();
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < r; j++) {
         data = stream.readNBytes(8);
-        data_ptr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
+        dataPtr[i][j] = ByteBuffer.wrap(data).getDouble(0); 
       }
     }
   }
@@ -140,20 +140,20 @@ public class LowRankBasic implements Block {
     int n = getColumnDimension();
     int r = getRank();
     byte[] data = new byte[8];
-    double[][] data_ptr = U.getArray();
+    double[][] dataPtr = u.getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < r; j++) {
-        ByteBuffer.wrap(data).putDouble(0, data_ptr[i][j]);
+        ByteBuffer.wrap(data).putDouble(0, dataPtr[i][j]);
         stream.write(data);
       }
     }
 
-    data_ptr = VT.getArray();
+    dataPtr = vt.getArray();
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < r; j++) {
-        ByteBuffer.wrap(data).putDouble(0, data_ptr[i][j]);
+        ByteBuffer.wrap(data).putDouble(0, dataPtr[i][j]);
         stream.write(data);
       }
     }
@@ -162,17 +162,16 @@ public class LowRankBasic implements Block {
 
   @Override
   public void print (int w, int d)
-  { U.print(w, d); VT.print(w, d); }
+  { u.print(w, d); vt.print(w, d); }
 
   @Override
   public Block getrf () {
-    System.out.println("error LU on LR");
-    System.exit(-1);
+    PsplHMatrixPack.errorOut("error Lu on LR");
     return null;
   }
 
   @Override
-  public Block trsm (Block b, boolean up_low) {
+  public Block trsm (Block b, boolean lower) {
     return null;
   }
 
@@ -190,43 +189,43 @@ public class LowRankBasic implements Block {
 
   public LowRankBasic plusEquals (LowRankBasic lr) {
 
-    if (U == null || VT == null)
-    { U = new Matrix (lr.U.getArrayCopy()); VT = new Matrix (lr.VT.getArrayCopy()); return this; }
+    if (u == null || vt == null)
+    { u = new Matrix (lr.u.getArrayCopy()); vt = new Matrix (lr.vt.getArrayCopy()); return this; }
 
-    int length = U.getColumnDimension() + lr.U.getColumnDimension();
+    int length = u.getColumnDimension() + lr.u.getColumnDimension();
 
-    Matrix U_p = new Matrix (getRowDimension(), length);
-    U_p.setMatrix(0, getRowDimension() - 1, 0, U.getColumnDimension() - 1, U);
-    U_p.setMatrix(0, getRowDimension() - 1, U.getColumnDimension(), length - 1, lr.U);
+    Matrix uPrime = new Matrix (getRowDimension(), length);
+    uPrime.setMatrix(0, getRowDimension() - 1, 0, u.getColumnDimension() - 1, u);
+    uPrime.setMatrix(0, getRowDimension() - 1, u.getColumnDimension(), length - 1, lr.u);
 
-    Matrix VT_p = new Matrix (getColumnDimension(), length);
-    VT_p.setMatrix(0, getColumnDimension() - 1, 0, VT.getColumnDimension() - 1, VT);
-    VT_p.setMatrix(0, getColumnDimension() - 1, VT.getColumnDimension(), length - 1, lr.VT);
+    Matrix vtPrime = new Matrix (getColumnDimension(), length);
+    vtPrime.setMatrix(0, getColumnDimension() - 1, 0, vt.getColumnDimension() - 1, vt);
+    vtPrime.setMatrix(0, getColumnDimension() - 1, vt.getColumnDimension(), length - 1, lr.vt);
 
-    QRDecomposition qr_ = U_p.qr();
+    QRDecomposition qrd = uPrime.qr();
 
-    Matrix Q = qr_.getQ().getMatrix(0, getRowDimension() - 1, 0, length - 1);
-    Matrix R = qr_.getR().getMatrix(0, length - 1, 0, length - 1);
+    Matrix q = qrd.getQ().getMatrix(0, getRowDimension() - 1, 0, length - 1);
+    Matrix r = qrd.getR().getMatrix(0, length - 1, 0, length - 1);
 
-    SingularValueDecomposition svd_ = R.svd();
-    double[] s = svd_.getSingularValues();
+    SingularValueDecomposition svdd = r.svd();
+    double[] s = svdd.getSingularValues();
     int rank = 0;
     while(rank < length && s[rank] >= PsplHMatrixPack.EPI) 
     { rank++; }
 
-    Matrix U_s = svd_.getU().getMatrix(0, length - 1, 0, rank - 1);
-    Matrix S_s = svd_.getS().getMatrix(0, rank - 1, 0, rank - 1);
-    Matrix V_s = svd_.getV().getMatrix(0, length - 1, 0, rank - 1);
+    Matrix uS = svdd.getU().getMatrix(0, length - 1, 0, rank - 1);
+    Matrix sS = svdd.getS().getMatrix(0, rank - 1, 0, rank - 1);
+    Matrix vS = svdd.getV().getMatrix(0, length - 1, 0, rank - 1);
 
-    U = Q.times(U_s).times(S_s);
-    VT = VT_p.times(V_s);
+    u = q.times(uS).times(sS);
+    vt = vtPrime.times(vS);
     return this;
   }
 
   @Override
   public Block scalarEquals (double s) {
-    if (s != 1. && U != null)
-    { U.timesEquals(s); }
+    if (s != 1. && u != null)
+    { u.timesEquals(s); }
     return this;
   }
 
@@ -241,14 +240,14 @@ public class LowRankBasic implements Block {
   }
 
   public LowRankBasic multLeft (Matrix m) {
-    Matrix U_p = m.times(U);
-    U = U_p;
+    Matrix uPrime = m.times(u);
+    u = uPrime;
     return this;
   }
 
   public LowRankBasic multRight (Matrix m) {
-    Matrix VT_p = m.transpose().times(VT);
-    VT = VT_p;
+    Matrix vtPrime = m.transpose().times(vt);
+    vt = vtPrime;
     return this;
   }
 

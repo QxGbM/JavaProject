@@ -26,22 +26,22 @@ public class ClusterBasis {
     parent = null;
   }
 
-  public ClusterBasis (int xyStart, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.DataFunction func) {
+  public ClusterBasis (int xyStart, int mn, boolean rowB, int nleaf, int partStrat, int rank, double admis, PsplHMatrixPack.DataFunction func) {
 
-    if (row_col)
+    if (rowB)
     { basis = Dense.getBasisU(xyStart, mn, rank, admis, func); }
     else
     { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func); }
 
     if (mn > nleaf) {
-      int mn_block = mn / part_strat;
-      int mn_remain = mn - (part_strat - 1) * mn_block;
-      children = new ClusterBasis[part_strat];
+      int mnBlock = mn / partStrat;
+      int mnRemain = mn - (partStrat - 1) * mnBlock;
+      children = new ClusterBasis[partStrat];
   
-      for (int i = 0; i < part_strat; i++) {
-        int mn_e = i == part_strat - 1 ? mn_remain : mn_block;
-        int xy_e = xyStart + mn_block * i;
-        children[i] = new ClusterBasis (xy_e, mn_e, row_col, nleaf, part_strat, rank, admis, func);
+      for (int i = 0; i < partStrat; i++) {
+        int mnE = i == partStrat - 1 ? mnRemain : mnBlock;
+        int xyE = xyStart + mnBlock * i;
+        children[i] = new ClusterBasis (xyE, mnE, rowB, nleaf, partStrat, rank, admis, func);
         children[i].parent = this;
       }
     }
@@ -93,12 +93,12 @@ public class ClusterBasis {
     if (children == null && m > 0) {
       children = new ClusterBasis[m];
       int y = basis.getRowDimension();
-      int y_step = y / m;
-      int y_start = 0;
+      int yStep = y / m;
+      int yStart = 0;
       for (int i = 0; i < m; i++) {
-        int y_end = Integer.min(y_start + y_step, y) - 1;
-        children[i] = new ClusterBasis(basis.getMatrix(y_start, y_end, 0, basis.getColumnDimension() - 1));
-        y_start = y_end + 1;
+        int yEnd = Integer.min(yStart + yStep, y) - 1;
+        children[i] = new ClusterBasis(basis.getMatrix(yStart, yEnd, 0, basis.getColumnDimension() - 1));
+        yStart = yEnd + 1;
       }
     }
   }
@@ -137,9 +137,9 @@ public class ClusterBasis {
       return basis.getMatrix(startY, endY, 0, basis.getColumnDimension() - 1);
     }
     else if (childDim == null)
-    { System.out.println("Not in reduced storage form when retrieving Trans."); return null; }
+    { PsplHMatrixPack.errorOut("Not in reduced storage form when retrieving Trans."); return null; }
     else
-    { System.out.println("No children or invalid children index when retrieving Trans."); return null; }
+    { PsplHMatrixPack.errorOut("No children or invalid children index when retrieving Trans."); return null; }
   }
 
   public Matrix toMatrix() {
@@ -165,10 +165,10 @@ public class ClusterBasis {
     }
   }
 
-  public Matrix toMatrix (int max_rank) {
+  public Matrix toMatrix (int maxRank) {
     Matrix m = toMatrix();
-    if (m.getColumnDimension() > max_rank)
-    { m = m.getMatrix(0, m.getRowDimension() - 1, 0, max_rank - 1); }
+    if (m.getColumnDimension() > maxRank)
+    { m = m.getMatrix(0, m.getRowDimension() - 1, 0, maxRank - 1); }
     return m;
   }
 
@@ -276,26 +276,26 @@ public class ClusterBasis {
   }
 
   private ClusterBasisProduct updateAdditionalBasisLeaf (Matrix m) {
-    Matrix V = basis.times(basis.transpose());
+    Matrix v = basis.times(basis.transpose());
 
     int size = basis.getRowDimension();
-    Matrix F = m.times(m.transpose());
+    Matrix f = m.times(m.transpose());
 
-    Matrix proj_left = Matrix.identity(size, size).minus(V);
-    Matrix proj_right = proj_left.transpose();
+    Matrix projLeft = Matrix.identity(size, size).minus(v);
+    Matrix projRight = projLeft.transpose();
 
-    Matrix G = proj_left.times(F).times(proj_right);
+    Matrix g = projLeft.times(f).times(projRight);
 
-    if (G.normF() / size / size <= PsplHMatrixPack.EPI)
+    if (g.normF() / size / size <= PsplHMatrixPack.EPI)
     { return new ClusterBasisProduct(getBasis().transpose().times(m)); }
 
-    SingularValueDecomposition svd_ = G.svd();
-    double[] s = svd_.getSingularValues(); 
+    SingularValueDecomposition svdd = g.svd();
+    double[] s = svdd.getSingularValues(); 
     int rank = 0;
     while (rank < s.length && s[rank] > PsplHMatrixPack.EPI)
     { rank++; }
 
-    Matrix newBasis = appendAdditionalBasis(svd_.getU().getMatrix(0, size - 1, 0, rank));
+    Matrix newBasis = appendAdditionalBasis(svdd.getU().getMatrix(0, size - 1, 0, rank));
     return new ClusterBasisProduct(newBasis.transpose().times(m));
   }
 
@@ -313,36 +313,36 @@ public class ClusterBasis {
   }
 
   public Matrix h2matrixTimes (H2Matrix h2, boolean transpose) {
-    ClusterBasis col_t = transpose ? h2.getRowBasis() : h2.getColBasis();
-    ClusterBasisProduct forward = new ClusterBasisProduct(col_t, this);
+    ClusterBasis col = transpose ? h2.getRowBasis() : h2.getColBasis();
+    ClusterBasisProduct forward = new ClusterBasisProduct(col, this);
     forward.forwardTrans(this);
 
     ClusterBasis row = transpose ? h2.getColBasis() : h2.getRowBasis();
-    ClusterBasisProduct accm_admis = new ClusterBasisProduct();
-    Matrix accm_y = h2matrixTimes_interact(h2, forward, accm_admis, row, transpose);
+    ClusterBasisProduct accmAdmis = new ClusterBasisProduct();
+    Matrix accmY = h2matrixTimesInteract(h2, forward, accmAdmis, row, transpose);
     
-    if (accm_y == null)
-    { accm_y = new Matrix(row.getDimension(), getRank()); }
-    accm_y = h2matrixTimes_backward(accm_admis, row, accm_y);
-    return accm_y;
+    if (accmY == null)
+    { accmY = new Matrix(row.getDimension(), getRank()); }
+    accmY = h2matrixTimesBackward(accmAdmis, row, accmY);
+    return accmY;
   }
 
-  private Matrix h2matrixTimes_interact (H2Matrix h2, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, ClusterBasis row, boolean transpose) {
+  private Matrix h2matrixTimesInteract (H2Matrix h2, ClusterBasisProduct forward, ClusterBasisProduct accmAdmis, ClusterBasis row, boolean transpose) {
     int m = transpose ? h2.getNColumnBlocks() : h2.getNRowBlocks();
     int n = transpose ? h2.getNRowBlocks() : h2.getNColumnBlocks();
     int rank = getRank();
     Matrix[] accm = new Matrix[m];
     boolean skipDense = true;
-    ClusterBasisProduct[] accm_children = accm_admis.setChildren(m);
+    ClusterBasisProduct[] accmChildren = accmAdmis.setChildren(m);
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
-        Block e_ij = transpose ? h2.getElement(j, i) : h2.getElement(i, j);
-        Matrix accm_ij = children[j].h2matrixTimes_interact(e_ij, forward.getChildren(j), accm_children[i], row.children[i], transpose);
-        if (accm_ij != null) {
+        Block eIJ = transpose ? h2.getElement(j, i) : h2.getElement(i, j);
+        Matrix accmIJ = children[j].h2matrixTimesInteract(eIJ, forward.getChildren(j), accmChildren[i], row.children[i], transpose);
+        if (accmIJ != null) {
           skipDense = false;
-          Matrix accm_e = accm_ij.times(getTrans(j));
-          accm[i] = accm[i] == null ? accm_e : accm[i].plusEquals(accm_e);
+          Matrix accmE = accmIJ.times(getTrans(j));
+          accm[i] = accm[i] == null ? accmE : accm[i].plusEquals(accmE);
         }
       }
     }
@@ -352,15 +352,15 @@ public class ClusterBasis {
 
     int y = 0;
     int dim = transpose ? h2.getColumnDimension() : h2.getRowDimension();
-    Matrix accm_y = new Matrix(dim, rank);
+    Matrix accmY = new Matrix(dim, rank);
     for (int i = 0; i < m; i++) {
       dim = transpose ? h2.getColumnDimension(i) : h2.getRowDimension(i);
-      int y_end = y + dim - 1;
+      int yEnd = y + dim - 1;
       if (accm[i] != null)
-      { accm_y.setMatrix(y, y_end, 0, accm[i].getColumnDimension() - 1, accm[i]); }
-      y = y_end + 1;
+      { accmY.setMatrix(y, yEnd, 0, accm[i].getColumnDimension() - 1, accm[i]); }
+      y = yEnd + 1;
     }
-    return accm_y;
+    return accmY;
   }
 
   private Matrix alignRank (Matrix s, int row, int col) {
@@ -379,10 +379,10 @@ public class ClusterBasis {
     { return s; }
   }
 
-  private Matrix h2matrixTimes_interact (Block b, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, ClusterBasis row, boolean transpose) {
+  private Matrix h2matrixTimesInteract (Block b, ClusterBasisProduct forward, ClusterBasisProduct accmAdmis, ClusterBasis row, boolean transpose) {
     if (b.castH2Matrix() != null) {
       H2Matrix h2 = b.castH2Matrix();
-      return h2matrixTimes_interact(h2, forward, accm_admis, row, transpose);
+      return h2matrixTimesInteract(h2, forward, accmAdmis, row, transpose);
     }
     else if (b.getType() == Block.Block_t.DENSE) {
       Matrix d = transpose ? b.toDense().transpose() : b.toDense();
@@ -393,7 +393,7 @@ public class ClusterBasis {
       Matrix s = transpose ? lr.getS().transpose() : lr.getS();
       Matrix r = alignRank(s, row.getRank(), forward.getProduct().getRowDimension());
       Matrix m = r.times(forward.getProduct());
-      accm_admis.accumProduct(m);
+      accmAdmis.accumProduct(m);
       return null;
     }
     else {
@@ -401,26 +401,26 @@ public class ClusterBasis {
     }
   }
 
-  private Matrix h2matrixTimes_backward (ClusterBasisProduct accm_admis, ClusterBasis row, Matrix accm) {
-    if (accm_admis.childrenLength() > 0 && row.childrenLength() > 0) {
+  private Matrix h2matrixTimesBackward (ClusterBasisProduct accmAdmis, ClusterBasis row, Matrix accm) {
+    if (accmAdmis.childrenLength() > 0 && row.childrenLength() > 0) {
       int y = 0;
       for (int i = 0; i < children.length; i++) {
-        Matrix p = accm_admis.getProduct();
+        Matrix p = accmAdmis.getProduct();
         if (p != null) { 
-          Matrix E_i = row.getTrans(i);
-          accm_admis.accumProduct(i, E_i.times(p));
+          Matrix eI = row.getTrans(i);
+          accmAdmis.accumProduct(i, eI.times(p));
         }
-        int y_end = y + row.getChildren()[i].getDimension() - 1;
-        Matrix accm_sub = accm.getMatrix(y, y_end, 0, accm.getColumnDimension() - 1);
-        accm_sub = h2matrixTimes_backward(accm_admis.getChildren(i), row.getChildren()[i], accm_sub);
-        if (accm_sub != null)
-        { accm.setMatrix(y, y_end, 0, accm.getColumnDimension() - 1, accm_sub); }
-        y = y_end + 1;
+        int yEnd = y + row.getChildren()[i].getDimension() - 1;
+        Matrix accmSub = accm.getMatrix(y, yEnd, 0, accm.getColumnDimension() - 1);
+        accmSub = h2matrixTimesBackward(accmAdmis.getChildren(i), row.getChildren()[i], accmSub);
+        if (accmSub != null)
+        { accm.setMatrix(y, yEnd, 0, accm.getColumnDimension() - 1, accmSub); }
+        y = yEnd + 1;
       }
       return accm;
     }
-    else if (accm_admis.getProduct() != null) {
-      accm.plusEquals(row.toMatrix().times(accm_admis.getProduct()));
+    else if (accmAdmis.getProduct() != null) {
+      accm.plusEquals(row.toMatrix().times(accmAdmis.getProduct()));
       return accm;
     }
     else {

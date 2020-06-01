@@ -9,30 +9,30 @@ public class Hierarchical implements Block {
   public Hierarchical (int m, int n)
   { e = new Block[m][n]; }
 
-  public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.DataFunction func) {
-    int mBlock = m / part_strat;
-    int m_remain = m - (part_strat - 1) * mBlock;
-    int nBlock = n / part_strat;
-    int n_remain = n - (part_strat - 1) * nBlock;
+  public Hierarchical (int m, int n, int nleaf, int partStrat, double admis, int yStart, int xStart, PsplHMatrixPack.DataFunction func) {
+    int mBlock = m / partStrat;
+    int mRemain = m - (partStrat - 1) * mBlock;
+    int nBlock = n / partStrat;
+    int nRemain = n - (partStrat - 1) * nBlock;
 
-    e = new Block[part_strat][part_strat];
+    e = new Block[partStrat][partStrat];
 
-    for (int i = 0; i < part_strat; i++) {
-      int m_e = i == part_strat - 1 ? m_remain : mBlock;
-      int y_e = y_start + mBlock * i;
+    for (int i = 0; i < partStrat; i++) {
+      int mE = i == partStrat - 1 ? mRemain : mBlock;
+      int yE = yStart + mBlock * i;
 
-      for (int j = 0; j < part_strat; j++) {
-        int n_e = j == part_strat - 1 ? n_remain : nBlock;
-        int x_e = x_start + nBlock * j;
+      for (int j = 0; j < partStrat; j++) {
+        int nE = j == partStrat - 1 ? nRemain : nBlock;
+        int xE = xStart + nBlock * j;
 
-        boolean admisible = Integer.max(m_e, n_e) <= admis * Math.abs(x_e - y_e);
+        boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
 
         if (admisible)
-        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func).toLowRank(); }
-        else if (m_e <= nleaf || n_e <= nleaf)
-        { e[i][j] = new Dense(m_e, n_e, y_e, x_e, func); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRank(); }
+        else if (mE <= nleaf || nE <= nleaf)
+        { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new Hierarchical(m_e, n_e, nleaf, part_strat, admis, y_e, x_e, func); }
+        { e[i][j] = new Hierarchical(mE, nE, nleaf, partStrat, admis, yE, xE, func); }
 
       }
     }
@@ -77,10 +77,10 @@ public class Hierarchical implements Block {
       int i1 = 0;
       int j0 = 0;
       for (int j = 0; j < getNColumnBlocks(); j++) {
-        Dense X = e[i][j].toDense(); 
-        int j1 = j0 + X.getColumnDimension() - 1;
-        i1 = i0 + X.getRowDimension() - 1;
-        d.setMatrix(i0, i1, j0, j1, X);
+        Dense x = e[i][j].toDense(); 
+        int j1 = j0 + x.getColumnDimension() - 1;
+        i1 = i0 + x.getRowDimension() - 1;
+        d.setMatrix(i0, i1, j0, j1, x);
         j0 = j1 + 1;
       }
       i0 = i1 + 1;
@@ -137,7 +137,7 @@ public class Hierarchical implements Block {
 
   @Override
   public double getCompressionRatioNoBasis () {
-    PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, "This method shouldn't be used in non-shared H-matrix.");
+    PsplHMatrixPack.errorOut("This method shouldn't be used in non-shared H-matrix.");
     return -1;
   }
 

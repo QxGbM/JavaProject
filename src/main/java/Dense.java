@@ -53,7 +53,7 @@ public class Dense extends Matrix implements Block
     int n = getColumnDimension();
     int step = n < 4 ? 1 : n / 4;
     int r = 0;
-    step = n > PsplHMatrixPack.rank * 4 ? PsplHMatrixPack.rank : step;
+    step = n > 64 ? 16 : step;
 
     boolean approx;
     Matrix q;
@@ -100,9 +100,9 @@ public class Dense extends Matrix implements Block
     return null;
   }
 
-  public LowRank toLowRankFromBasis (ClusterBasis row_basis, ClusterBasis col_basis_t) {
-    Matrix S = row_basis.toMatrix().transpose().times(this).times(col_basis_t.toMatrix());
-    return new LowRank(row_basis, S, col_basis_t);
+  public LowRank toLowRankFromBasis (ClusterBasis rowBasis, ClusterBasis colBasisT) {
+    Matrix s = rowBasis.toMatrix().transpose().times(this).times(colBasisT.toMatrix());
+    return new LowRank(rowBasis, s, colBasisT);
   }
 
   @Override
@@ -158,11 +158,11 @@ public class Dense extends Matrix implements Block
     int m = getRowDimension();
     int n = getColumnDimension();
     byte[] data = new byte[8];
-    double[][] data_ptr = getArray();
+    double[][] dataPtr = getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) { 
-        ByteBuffer.wrap(data).putDouble(0, data_ptr[i][j]);
+        ByteBuffer.wrap(data).putDouble(0, dataPtr[i][j]);
         stream.write(data);
       }
     }
@@ -173,34 +173,34 @@ public class Dense extends Matrix implements Block
   public Block getrf () {
     if (getAccumulator() != null)
     { accum(accm); }
-    LUDecomposition lu_ = lu();
-    Matrix L = lu_.getL();
-    Matrix U = lu_.getU();
+    LUDecomposition lud = lu();
+    Matrix l = lud.getL();
+    Matrix u = lud.getU();
     for (int i = 0; i < getRowDimension(); i++) {
       for (int j = 0; j < getColumnDimension(); j++) {
-        set(i, j, i > j ? L.get(i, j) : U.get(i, j));
+        set(i, j, i > j ? l.get(i, j) : u.get(i, j));
       }
     }
     return this;
   }
 
   public Matrix getL() {
-    Matrix L = new Matrix(getArrayCopy());
+    Matrix l = new Matrix(getArrayCopy());
     for (int i = 0; i < getRowDimension(); i++) {
-      L.set(i, i, 1);
+      l.set(i, i, 1);
       for (int j = i + 1; j < getColumnDimension(); j++) 
-      { L.set(i, j, 0); }
+      { l.set(i, j, 0); }
     }
-    return L;
+    return l;
   }
 
   public Matrix getU() {
-    Matrix U = new Matrix(getArrayCopy());
+    Matrix u = new Matrix(getArrayCopy());
     for (int i = 0; i < getRowDimension(); i++) {
       for (int j = 0; j < i; j++) 
-      { U.set(i, j, 0); }
+      { u.set(i, j, 0); }
     }
-    return U;
+    return u;
   }
 
   @Override
@@ -263,8 +263,8 @@ public class Dense extends Matrix implements Block
   }
 
   public Dense times (Dense d) {
-    Matrix R = super.times(d);
-    return new Dense (R.getArrayCopy());
+    Matrix r = super.times(d);
+    return new Dense (r.getArrayCopy());
   }
 
   public LowRankBasic times (LowRank lr) {
@@ -280,19 +280,19 @@ public class Dense extends Matrix implements Block
   }
 
   public static Matrix getBasisU (int yStart, int m, int rank, double admis, PsplHMatrixPack.DataFunction func) {
-    int minimal_sep = Integer.max((int) (admis * m * m / rank), PsplHMatrixPack.MINIMAL_SEP); 
-    Dense d1 = new Dense(m, m, yStart, yStart + minimal_sep, func);
+    int minimalSep = Integer.max((int) (admis * m * m / rank), PsplHMatrixPack.MINIMAL_SEP); 
+    Dense d1 = new Dense(m, m, yStart, yStart + minimalSep, func);
     Dense d2 = new Dense(d1.times(Matrix.random(m, rank)).getArray());
-    QRDecomposition qr_ = d2.qr();
-    return qr_.getQ();
+    QRDecomposition qrd = d2.qr();
+    return qrd.getQ();
   }
 
   public static Matrix getBasisVT (int xStart, int n, int rank, double admis, PsplHMatrixPack.DataFunction func) {
-    int minimal_sep = Integer.max((int) (admis * n * n / rank), PsplHMatrixPack.MINIMAL_SEP);
-    Dense d1 = new Dense(n, n, xStart + minimal_sep, xStart, func);
+    int minimalSep = Integer.max((int) (admis * n * n / rank), PsplHMatrixPack.MINIMAL_SEP);
+    Dense d1 = new Dense(n, n, xStart + minimalSep, xStart, func);
     Dense d2 = new Dense(Matrix.random(rank, n).times(d1).getArray());
-    QRDecomposition qr_ = d2.transpose().qr();
-    return qr_.getQ();
+    QRDecomposition qrd = d2.transpose().qr();
+    return qrd.getQ();
   }
 
 

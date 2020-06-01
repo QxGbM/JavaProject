@@ -3,20 +3,21 @@ import java.lang.System.Logger;
 
 public class PsplHMatrixPack {
 
-  static final double EPI = 1.e-10;
-  static final int MINIMAL_SEP = 512;
-  static int rank = 16;
-  static int level = 3;
-  static int nblocks = 2;
-  static int nleaf = 128;
-  static int dim = nleaf * (int) Math.pow (nblocks, level);
-  static double admis = 0.5;
-  static String hName = "test";
-  static String dName = "ref";
-  static boolean writeH = true;
-  static boolean writeD = false;
+  public static final double EPI = 1.e-10;
+  public static final int MINIMAL_SEP = 512;
 
-  static final Logger logger = System.getLogger("logger");
+  private static int rank = 16;
+  private static int level = 3;
+  private static int nblocks = 2;
+  private static int nleaf = 128;
+  private static int dim = nleaf * (int) Math.pow (nblocks, level);
+  private static double admis = 0.5;
+  private static String hName = "test";
+  private static String dName = "ref";
+  private static boolean writeH = true;
+  private static boolean writeD = false;
+
+  private static final Logger logger = System.getLogger("logger");
 
   @FunctionalInterface
   public interface DataFunction
@@ -76,36 +77,45 @@ public class PsplHMatrixPack {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
       H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
-      System.out.println("compress: " + h2.toDense().minus(d).normF() / dim / dim);
+      infoOut("compress: " + h2.toDense().minus(d).normF() / dim / dim);
 
       d = h2.toDense();
       long startTime = System.nanoTime();
       h2.getrf();
       long endTime = System.nanoTime();
-      System.out.println("H2-LU time: " +  (endTime - startTime) / 1000000);
+      infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
 
       d.getrf();
-      System.out.println(h2.compareDense(d, ""));
-      System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
+      infoOut(h2.compareDense(d, ""));
+      infoOut("LU: " + h2.toDense().minus(d).normF() / dim / dim);
 
 
       if (writeH) {
         Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
         double compress = h.getCompressionRatio();
-        System.out.println("h Storage Compression Ratio: " + Double.toString(compress));
+        infoOut("h Storage Compression Ratio: " + Double.toString(compress));
 
-        System.out.print("Writing H... ");
+        infoOut("Writing H... ");
         h.writeToFile(hName);
-        System.out.println("Done.");
+        infoOut("Done.");
       }
 
       if (writeD) {
-        System.out.print("Writing D... ");
+        infoOut("Writing D... ");
         d.writeToFile(dName); 
-        System.out.println("Done.");
+        infoOut("Done.");
       }
     }
 
+  }
+
+  public static void infoOut (String msg) {
+    logger.log(System.Logger.Level.INFO, msg);
+  }
+
+  public static void errorOut (String msg) {
+    logger.log(System.Logger.Level.ERROR, msg);
+    System.exit(-1);
   }
 
 
