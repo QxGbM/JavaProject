@@ -250,8 +250,12 @@ public class LowRank implements Block {
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
     if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
-      H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta);
-      LowRank lr = h.toLowRank(); S = lr.S;
+      /*H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta);
+      LowRank lr = h.toLowRank(); S = lr.S;*/
+      scalarEquals(beta);
+      Block c = a.times(b);
+      c.scalarEquals(alpha);
+      plusEquals(c);
     }
     else if (a.getType() == Block_t.DENSE) {
       scalarEquals(beta);

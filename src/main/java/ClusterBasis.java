@@ -316,17 +316,17 @@ public class ClusterBasis {
     ClusterBasisProduct forward = new ClusterBasisProduct(col_t, this);
     forward.forwardTrans(this);
 
-    ClusterBasisProduct accm_admis = new ClusterBasisProduct();
-    Matrix accm_y = h2matrixTimes_interact(h2, forward, accm_admis, transpose);
-    
     ClusterBasis row = transpose ? h2.getColBasis() : h2.getRowBasis();
+    ClusterBasisProduct accm_admis = new ClusterBasisProduct();
+    Matrix accm_y = h2matrixTimes_interact(h2, forward, accm_admis, row, transpose);
+    
     if (accm_y == null)
     { accm_y = new Matrix(row.getDimension(), getRank()); }
     accm_y = h2matrixTimes_backward(accm_admis, row, accm_y);
     return accm_y;
   }
 
-  private Matrix h2matrixTimes_interact (H2Matrix h2, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, boolean transpose) {
+  private Matrix h2matrixTimes_interact (H2Matrix h2, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, ClusterBasis row, boolean transpose) {
     int m = transpose ? h2.getNColumnBlocks() : h2.getNRowBlocks();
     int n = transpose ? h2.getNRowBlocks() : h2.getNColumnBlocks();
     int rank = getRank();
@@ -337,7 +337,7 @@ public class ClusterBasis {
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
         Block e_ij = transpose ? h2.getElement(j, i) : h2.getElement(i, j);
-        Matrix accm_ij = children[j].h2matrixTimes_interact(e_ij, forward.getChildren(j), accm_children[i], transpose);
+        Matrix accm_ij = children[j].h2matrixTimes_interact(e_ij, forward.getChildren(j), accm_children[i], row.children[i], transpose);
         if (accm_ij != null) {
           skipDense = false;
           Matrix accm_e = accm_ij.times(getTrans(j));
@@ -362,23 +362,26 @@ public class ClusterBasis {
     return accm_y;
   }
 
-  private Matrix alignRank (Matrix s, int rank) {
-    int rankS = s.getColumnDimension();
-    if (rankS > rank) 
-    { return s.getMatrix(0, s.getRowDimension() - 1, 0, rank - 1); }
-    else if (rankS < rank) {
-      Matrix r = new Matrix(s.getRowDimension(), rank);
-      r.setMatrix(0, s.getRowDimension() - 1, 0, rankS - 1, s); 
+  private Matrix alignRank (Matrix s, int row, int col) {
+    int rowS = s.getRowDimension();
+    int colS = s.getColumnDimension();
+    if (rowS > row && colS > col) 
+    { return s.getMatrix(0, row - 1, 0, col - 1); }
+    else if (rowS < row || colS < col) {
+      Matrix r = new Matrix(row, col);
+      rowS = Integer.min(rowS, row);
+      colS = Integer.min(colS, col);
+      r.setMatrix(0, rowS - 1, 0, colS - 1, s); 
       return r; 
     }
     else
     { return s; }
   }
 
-  private Matrix h2matrixTimes_interact (Block b, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, boolean transpose) {
+  private Matrix h2matrixTimes_interact (Block b, ClusterBasisProduct forward, ClusterBasisProduct accm_admis, ClusterBasis row, boolean transpose) {
     if (b.castH2Matrix() != null) {
       H2Matrix h2 = b.castH2Matrix();
-      return h2matrixTimes_interact(h2, forward, accm_admis, transpose);
+      return h2matrixTimes_interact(h2, forward, accm_admis, row, transpose);
     }
     else if (b.getType() == Block.Block_t.DENSE) {
       Matrix d = transpose ? b.toDense().transpose() : b.toDense();
@@ -387,7 +390,7 @@ public class ClusterBasis {
     else if (b.getType() == Block.Block_t.LOW_RANK) {
       LowRank lr = b.toLowRank();
       Matrix s = transpose ? lr.getS().transpose() : lr.getS();
-      Matrix r = alignRank(s, forward.getProduct().getRowDimension());
+      Matrix r = alignRank(s, row.getRank(), forward.getProduct().getRowDimension());
       Matrix m = r.times(forward.getProduct());
       accm_admis.accumProduct(m);
       return null;
@@ -401,9 +404,10 @@ public class ClusterBasis {
     if (accm_admis.childrenLength() > 0 && row.childrenLength() > 0) {
       int y = 0;
       for (int i = 0; i < children.length; i++) {
-        if (accm_admis.getProduct() != null) { 
+        Matrix p = accm_admis.getProduct();
+        if (p != null) { 
           Matrix E_i = row.getTrans(i);
-          accm_admis.accumProduct(i, E_i.times(accm_admis.getProduct()));
+          accm_admis.accumProduct(i, E_i.times(p));
         }
         int y_end = y + row.getChildren()[i].getDimension() - 1;
         Matrix accm_sub = accm.getMatrix(y, y_end, 0, accm.getColumnDimension() - 1);
