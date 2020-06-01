@@ -134,12 +134,6 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public boolean equals (Block b) {
-    double norm = compare(b.toDense());
-    return norm <= PsplHMatrixPack.EPI; 
-  }
-
-  @Override
   public double compare (Matrix m) {
     return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
   }
@@ -250,45 +244,6 @@ public class Hierarchical implements Block {
   public void setElement (int m, int n, Block b) {
     if (m < getNRowBlocks() && n < getNColumnBlocks())
     { e[m][n] = b; }
-  }
-
-  public static Hierarchical readStructureFromFile (BufferedReader reader) throws IOException {
-    String str = reader.readLine();
-    String[] args = str.split("\\s+");
-    int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
-
-    if (str.startsWith("D")) {
-      reader.close();
-      return null;
-    }
-    else if (str.startsWith("LR")) {
-      reader.close();
-      return null;
-    }
-    else if (str.startsWith("H")) {
-      Hierarchical h = new Hierarchical(m, n);
-
-      for (int i = 0; i < m; i++) {
-        for (int j = 0; j < n; j++)
-        { h.e[i][j] = Block.readStructureFromFile(reader); }
-      }
-      return h;
-    }
-    else { 
-      reader.close();
-      return null;
-    }  
-  }
-
-  public static Hierarchical readFromFile (String name) throws IOException {
-    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
-    Hierarchical h = readStructureFromFile(reader);
-    reader.close();
-
-    BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
-    h.loadBinary(stream);
-    stream.close();
-    return h;
   }
 
 

@@ -173,12 +173,6 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public boolean equals (Block b) {
-    double norm = compare(b.toDense());
-    return norm <= PsplHMatrixPack.EPI; 
-  }
-
-  @Override
   public double compare (Matrix m) {
     return this.minus(m).normF() / getColumnDimension() / getRowDimension();
   }
@@ -228,36 +222,6 @@ public class Dense extends Matrix implements Block
   @Override
   public void print (int w, int d)
   { super.print(w, d); }
-
-  public static Dense readFromFile (String name) throws IOException {
-    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
-    String str = reader.readLine();
-    reader.close();
-
-    if (str.startsWith("H")) {
-      Hierarchical h = Hierarchical.readFromFile(name);
-      return h.toDense();
-    }
-    else if (str.startsWith("LR")) {
-      LowRank lr = LowRank.readFromFile(name);
-      return lr.toDense();
-    }
-    else if (str.startsWith("D")) {
-      String[] args = str.split("\\s+");
-      int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]);
-      Dense d = new Dense(m, n);
-
-      BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
-      d.loadBinary(stream);
-      stream.close();
-
-      return d;
-    }
-    else
-    { return null; }
-
-
-  }
 
   @Override
   public Block LU () {

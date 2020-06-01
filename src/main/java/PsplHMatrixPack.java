@@ -11,10 +11,10 @@ public class PsplHMatrixPack {
   static int nleaf = 128;
   static int dim = nleaf * (int) Math.pow (nblocks, level);
   static double admis = 0.5;
-  static String h_name = "test";
-  static String d_name = "ref";
-  static boolean write_h = true;
-  static boolean write_d = false;
+  static String hName = "test";
+  static String dName = "ref";
+  static boolean writeH = true;
+  static boolean writeD = false;
 
   static final Logger logger = System.getLogger("logger");
 
@@ -22,10 +22,12 @@ public class PsplHMatrixPack {
   public interface DataFunction
   { public double body (int i, int j); }
 
-  static final DataFunction testFunc = (int i, int j) -> 
-  { return 1. / (1. + Math.abs(i - j)); };
+  static final DataFunction testFunc = (int i, int j) -> {
+    int diff = Math.abs(i - j);
+    return 1. / (1. + diff); 
+  };
 
-  private static void parse (String args[]) {
+  private static void parse (String[] args) {
     StringBuilder sum = new StringBuilder();
 
     for (int i = 0; i < args.length; i++)
@@ -43,13 +45,13 @@ public class PsplHMatrixPack {
       else if (args[i].startsWith("-rank="))
       { rank = Integer.parseInt(args[i].substring(6)); }
       else if (args[i].startsWith("-h="))
-      { write_h = true; h_name = args[i].substring(3); }
+      { writeH = true; hName = args[i].substring(3); }
       else if (args[i].startsWith("-d="))
-      { write_d = true; d_name = args[i].substring(3); }
+      { writeD = true; dName = args[i].substring(3); }
       else if (args[i].startsWith("-skiph"))
-      { write_h = false; }
+      { writeH = false; }
       else if (args[i].startsWith("-skipd"))
-      { write_d = false; }
+      { writeD = false; }
       else 
       { sum.append("Ignored arg: " + args[i] + "\n"); }
     }
@@ -64,7 +66,7 @@ public class PsplHMatrixPack {
     logger.log(System.Logger.Level.INFO, sum.toString());
   }
   
-  public static void main (String args[]) {
+  public static void main (String[] args) {
 
     parse(args);
 
@@ -87,19 +89,19 @@ public class PsplHMatrixPack {
       System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
 
 
-      if (write_h) {
+      if (writeH) {
         Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
         double compress = h.getCompressionRatio();
         System.out.println("h Storage Compression Ratio: " + Double.toString(compress));
 
         System.out.print("Writing H... ");
-        h.writeToFile(h_name);
+        h.writeToFile(hName);
         System.out.println("Done.");
       }
 
-      if (write_d) {
+      if (writeD) {
         System.out.print("Writing D... ");
-        d.writeToFile(d_name); 
+        d.writeToFile(dName); 
         System.out.println("Done.");
       }
     }

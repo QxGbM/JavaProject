@@ -120,12 +120,6 @@ public class LowRank implements Block {
   }
 
   @Override
-  public boolean equals (Block b) {
-    double norm = compare(b.toDense());
-    return norm <= PsplHMatrixPack.EPI; 
-  }
-
-  @Override
   public double compare (Matrix m) {
     return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
   }
@@ -373,34 +367,5 @@ public class LowRank implements Block {
   public Matrix getUS ()
   { return U.toMatrix(S.getRowDimension()).times(S); }
 
-
-  public static LowRank readFromFile (String name) throws IOException {
-    BufferedReader reader = new BufferedReader(new FileReader("bin/" + name + ".struct"));
-    String str = reader.readLine();
-    reader.close();
-
-    if (str.startsWith("H")) {
-      Hierarchical h = Hierarchical.readFromFile(name);
-      return h.toLowRank();
-    }
-    else if (str.startsWith("D")) {
-      Dense d = Dense.readFromFile(name);
-      return d.toLowRank();
-    }
-    else if (str.startsWith("LR")) {
-      String[] args = str.split("\\s+");
-      int m = Integer.parseInt(args[1]), n = Integer.parseInt(args[2]), r = Integer.parseInt(args[3]);
-      LowRank lr = new LowRank(m, n, r);
-
-      BufferedInputStream stream = new BufferedInputStream(new FileInputStream("bin/" + name + ".bin"));
-      lr.loadBinary(stream);
-      stream.close();
-
-      return lr;
-    }
-    else
-    { return null; }
-    
-  }
 
 }

@@ -31,8 +31,6 @@ public interface Block {
 
   public abstract LowRankBasic getAccumulator();
 
-  public abstract boolean equals (Block b);
-
   public abstract double compare (Matrix m);
 
   public abstract double getCompressionRatio ();
@@ -70,13 +68,11 @@ public interface Block {
     int n = Integer.parseInt(args[2]);
 
     if (str.startsWith("D")) {
-      Dense d = new Dense(m, n);
-      return d;
+      return new Dense(m, n);
     }
     else if (str.startsWith("LR")) {
       int r = Integer.parseInt(args[3]);
-      LowRank lr = new LowRank(m, n, r);
-      return lr;
+      return new LowRank(m, n, r);
     }
     else if (str.startsWith("H")) {
       Hierarchical h = new Hierarchical(m, n);
@@ -91,6 +87,29 @@ public interface Block {
     else
     { return null; } 
 
+  }
+
+  public static Block readFromFile (String name) {
+    Block b = null;
+    try (FileReader fileS = new FileReader("bin/" + name + ".struct")) {
+      BufferedReader reader = new BufferedReader(fileS);
+      b = readStructureFromFile(reader);
+      reader.close();
+    }
+    catch (IOException e) {
+      PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+    }
+
+    if (b != null) {
+      try (FileInputStream fileB = new FileInputStream("bin/" + name + ".bin")) {
+        BufferedInputStream stream = new BufferedInputStream(fileB);
+        b.loadBinary(stream);
+      }
+      catch (IOException e) {
+        PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+      }
+    }
+    return b;
   }
 
   public default void writeToFile (String name) {

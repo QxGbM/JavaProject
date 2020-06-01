@@ -287,12 +287,6 @@ public class H2Matrix implements Block {
   }
 
   @Override
-  public boolean equals (Block b) {
-    double norm = compare(b.toDense());
-    return norm <= PsplHMatrixPack.EPI; 
-  }
-
-  @Override
   public double compare (Matrix m) {
     return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
   }
