@@ -5,65 +5,63 @@ public interface Block {
 
   enum Block_t { DENSE, LOW_RANK, HIERARCHICAL }
 
-  abstract public int getXCenter();
+  public abstract int getXCenter();
 
-  abstract public int getYCenter();
+  public abstract int getYCenter();
 
-  abstract public void setClusterStart(int x_start, int y_start);
+  public abstract void setClusterStart(int x_start, int y_start);
 
-  abstract public int getRowDimension();
+  public abstract int getRowDimension();
 
-  abstract public int getColumnDimension();
+  public abstract int getColumnDimension();
 
-  abstract public Block_t getType();
+  public abstract Block_t getType();
 		
-  abstract public Dense toDense();
+  public abstract Dense toDense();
 
-  abstract public LowRank toLowRank();
+  public abstract LowRank toLowRank();
 
-  abstract public LowRankBasic toLowRankBasic();
+  public abstract LowRankBasic toLowRankBasic();
 
-  abstract public Hierarchical castHierarchical();
+  public abstract Hierarchical castHierarchical();
 
-  abstract public H2Matrix castH2Matrix();
+  public abstract H2Matrix castH2Matrix();
 
-  abstract public void setAccumulator(LowRankBasic accm);
+  public abstract void setAccumulator(LowRankBasic accm);
 
-  abstract public LowRankBasic getAccumulator();
+  public abstract LowRankBasic getAccumulator();
 
-  abstract public boolean equals (Block b);
+  public abstract boolean equals (Block b);
 
   public abstract double compare (Matrix m);
 
-  abstract public double getCompressionRatio ();
+  public abstract double getCompressionRatio ();
 
-  abstract public double getCompressionRatio_NoBasis ();
+  public abstract double getCompressionRatio_NoBasis ();
 
-  abstract public String structure ();
+  public abstract String structure ();
 
-  abstract public void loadBinary (InputStream stream) throws IOException;
+  public abstract Block LU ();
 
-  abstract public void writeBinary (OutputStream stream) throws IOException;
-
-  abstract public void writeToFile (String name) throws IOException;
-
-  abstract public void print (int w, int d);
-
-  abstract public Block LU ();
-
-  abstract public Block triangularSolve (Block b, boolean up_low);
+  public abstract Block triangularSolve (Block b, boolean up_low);
   
-  abstract public Block GEMatrixMult (Block a, Block b, double alpha, double beta);
+  public abstract Block GEMatrixMult (Block a, Block b, double alpha, double beta);
 
-  abstract public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc);
+  public abstract Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc);
 
-  abstract public Block plusEquals (Block b);
+  public abstract Block plusEquals (Block b);
 
-  abstract public Block scalarEquals (double s);
+  public abstract Block scalarEquals (double s);
 
-  abstract public Block times (Block b);
+  public abstract Block times (Block b);
 
-  abstract public Block accum (LowRankBasic accm);
+  public abstract Block accum (LowRankBasic accm);
+
+  public abstract void loadBinary (InputStream stream) throws IOException;
+
+  public abstract void writeBinary (OutputStream stream) throws IOException;
+
+  public abstract void print (int w, int d);
 
   public static Block readStructureFromFile (BufferedReader reader) throws IOException {
     String str = reader.readLine();
@@ -93,6 +91,29 @@ public interface Block {
     else
     { return null; } 
 
+  }
+
+  public default void writeToFile (String name) {
+    File directory = new File("bin");
+    if (!directory.exists())
+    { directory.mkdir(); }
+    
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"))) {
+      String struct = structure();
+      writer.write(struct);
+      writer.flush();
+    }
+    catch (IOException e) {
+      PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+    }
+
+    try (BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"))) {
+      writeBinary(stream);
+      stream.flush();
+    }
+    catch (IOException e) {
+      PsplHMatrixPack.logger.log(System.Logger.Level.ERROR, e.getMessage());
+    }
   }
 
 }

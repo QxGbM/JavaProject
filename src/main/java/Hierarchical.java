@@ -11,7 +11,7 @@ public class Hierarchical implements Block {
   public Hierarchical (int m, int n)
   { e = new Block[m][n]; }
 
-  public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
+  public Hierarchical (int m, int n, int nleaf, int part_strat, double admis, int y_start, int x_start, PsplHMatrixPack.DataFunction func) {
     int m_block = m / part_strat, m_remain = m - (part_strat - 1) * m_block;
     int n_block = n / part_strat, n_remain = n - (part_strat - 1) * n_block;
 
@@ -190,23 +190,6 @@ public class Hierarchical implements Block {
     }
   }
 
-  @Override
-  public void writeToFile (String name) throws IOException {
-    File directory = new File("bin");
-    if (!directory.exists())
-    { directory.mkdir(); }
-    
-    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
-    String struct = structure();
-    writer.write(struct);
-    writer.flush();
-    writer.close();
-
-    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
-    writeBinary(stream);
-    stream.flush();
-    stream.close();
-  }
 
   @Override
   public void print (int w, int d) {

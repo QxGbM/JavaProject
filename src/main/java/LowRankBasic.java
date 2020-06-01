@@ -181,24 +181,6 @@ public class LowRankBasic implements Block {
   }
 
   @Override
-  public void writeToFile (String name) throws IOException {
-    File directory = new File("bin");
-    if (!directory.exists())
-    { directory.mkdir(); }
-    
-    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
-    String struct = structure();
-    writer.write(struct);
-    writer.flush();
-    writer.close();
-
-    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
-    writeBinary(stream);
-    stream.flush();
-    stream.close();
-  }
-
-  @Override
   public void print (int w, int d)
   { U.print(w, d); VT.print(w, d); }
 

@@ -96,18 +96,18 @@ public class ClusterBasisProduct {
   public void forwardTrans (ClusterBasis cb) {
     if (children != null && cb.childrenLength() > 0) {
       for (int i = 0; i < children.length; i++) {
-        Matrix e_i = cb.getTrans(i);
-        children[i].forwardTrans_mat(cb.getChildren()[i], e_i);
+        Matrix e = cb.getTrans(i);
+        children[i].forwardTransRecur(cb.getChildren()[i], e);
       }
     }
   }
 
-  private void forwardTrans_mat (ClusterBasis cb, Matrix e) {
+  private void forwardTransRecur (ClusterBasis cb, Matrix e) {
     product = product.times(e);
     if (children != null && cb.childrenLength() > 0) {
       for (int i = 0; i < children.length; i++) {
-        Matrix e_i = cb.getTrans(i).times(e);
-        children[i].forwardTrans_mat(cb.getChildren()[i], e_i);
+        Matrix ee = cb.getTrans(i).times(e);
+        children[i].forwardTransRecur(cb.getChildren()[i], ee);
       }
     }
   }

@@ -26,7 +26,7 @@ public class ClusterBasis {
     parent = null;
   }
 
-  public ClusterBasis (int xyStart, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+  public ClusterBasis (int xyStart, int mn, boolean row_col, int nleaf, int part_strat, int rank, double admis, PsplHMatrixPack.DataFunction func) {
 
     if (row_col)
     { basis = Dense.getBasisU(xyStart, mn, rank, admis, func); }

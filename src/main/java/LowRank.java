@@ -194,24 +194,6 @@ public class LowRank implements Block {
   }
 
   @Override
-  public void writeToFile (String name) throws IOException {
-    File directory = new File("bin");
-    if (!directory.exists())
-    { directory.mkdir(); }
-    
-    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
-    String struct = structure();
-    writer.write(struct);
-    writer.flush();
-    writer.close();
-
-    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
-    writeBinary(stream);
-    stream.flush();
-    stream.close();
-  }
-
-  @Override
   public void print (int w, int d)
   { U.toMatrix().print(w, d); S.print(w, d); VT.toMatrix().print(w, d); }
 
@@ -249,27 +231,10 @@ public class LowRank implements Block {
 
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
-      /*H2Matrix h = new H2Matrix(this); h.GEMatrixMult(a, b, alpha, beta);
-      LowRank lr = h.toLowRank(); S = lr.S;*/
-      scalarEquals(beta);
-      Block c = a.times(b);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
-    else if (a.getType() == Block_t.DENSE) {
-      scalarEquals(beta);
-      Block c = a.toDense().times(b);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
-    else if (a.getType() == Block_t.LOW_RANK) {
-      scalarEquals(beta);
-      Block c = a.toLowRank().times(b);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
-
+    scalarEquals(beta);
+    Block c = a.times(b);
+    c.scalarEquals(alpha);
+    plusEquals(c);
     return this;
   }
 

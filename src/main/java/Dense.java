@@ -12,7 +12,7 @@ public class Dense extends Matrix implements Block
   private static final long serialVersionUID = 1;
   private int x_start = 0;
   private int y_start = 0;
-  private LowRankBasic accm = null;
+  private transient LowRankBasic accm = null;
 
   public Dense (double[][] A)
   { super(A); }
@@ -26,7 +26,7 @@ public class Dense extends Matrix implements Block
   public Dense (int m, int n)
   { super(m, n); }
 
-  public Dense (int m, int n, int y_start, int x_start, PsplHMatrixPack.dataFunction func)
+  public Dense (int m, int n, int y_start, int x_start, PsplHMatrixPack.DataFunction func)
   {
     super(m, n);
     this.x_start = x_start;
@@ -77,8 +77,11 @@ public class Dense extends Matrix implements Block
 
   @Override
   public LowRank toLowRank() {
-    int m = getRowDimension(), n = getColumnDimension();
-    int step = n > PsplHMatrixPack.rank * 4 ? PsplHMatrixPack.rank : (n < 4 ? 1 : n / 4), r = 0;
+    int m = getRowDimension();
+    int n = getColumnDimension();
+    int step = n < 4 ? 1 : n / 4;
+    int r = 0;
+    step = n > PsplHMatrixPack.rank * 4 ? PsplHMatrixPack.rank : step;
 
     boolean approx;
     Matrix Q, Y;
@@ -223,24 +226,6 @@ public class Dense extends Matrix implements Block
   }
 
   @Override
-  public void writeToFile (String name) throws IOException {
-    File directory = new File("bin");
-    if (!directory.exists())
-    { directory.mkdir(); }
-
-    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
-    String struct = structure();
-    writer.write(struct);
-    writer.flush();
-    writer.close();
-
-    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
-    writeBinary(stream);
-    stream.flush();
-    stream.close();
-  }
-
-  @Override
   public void print (int w, int d)
   { super.print(w, d); }
 
@@ -322,22 +307,10 @@ public class Dense extends Matrix implements Block
 
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    if (a.castH2Matrix() != null || b.castH2Matrix() != null) { 
-      System.out.println("bad partition"); System.exit(-1);
-    }
-    else if (a.getType() == Block_t.DENSE) {
-      scalarEquals(beta);
-      Block c = a.toDense().times(b);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
-    else if (a.getType() == Block_t.LOW_RANK) {
-      scalarEquals(beta);
-      Block c = a.toLowRank().times(b);
-      c.scalarEquals(alpha);
-      plusEquals(c);
-    }
-
+    scalarEquals(beta);
+    Block c = a.times(b);
+    c.scalarEquals(alpha);
+    plusEquals(c);
     return this;
   }
 
@@ -473,7 +446,7 @@ public class Dense extends Matrix implements Block
     return plusEquals(accm.toDense());
   }
 
-  public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+  public static Matrix getBasisU (int y_start, int m, int rank, double admis, PsplHMatrixPack.DataFunction func) {
     int minimal_sep = Integer.max((int) (admis * m * m / rank), PsplHMatrixPack.MINIMAL_SEP); 
     Dense d1 = new Dense(m, m, y_start, y_start + minimal_sep, func);
     Dense d2 = new Dense(d1.times(Matrix.random(m, rank)).getArray());
@@ -481,7 +454,7 @@ public class Dense extends Matrix implements Block
     return qr_.getQ();
   }
 
-  public static Matrix getBasisVT (int x_start, int n, int rank, double admis, PsplHMatrixPack.dataFunction func) {
+  public static Matrix getBasisVT (int x_start, int n, int rank, double admis, PsplHMatrixPack.DataFunction func) {
     int minimal_sep = Integer.max((int) (admis * n * n / rank), PsplHMatrixPack.MINIMAL_SEP);
     Dense d1 = new Dense(n, n, x_start + minimal_sep, x_start, func);
     Dense d2 = new Dense(Matrix.random(rank, n).times(d1).getArray());

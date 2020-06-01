@@ -17,7 +17,7 @@ public class H2Matrix implements Block {
     e = null;
   }
 
-  public H2Matrix (int m, int n, int nleaf, int part_strat, int rank, double admis, int y_start, int x_start, PsplHMatrixPack.dataFunction func) {
+  public H2Matrix (int m, int n, int nleaf, int part_strat, int rank, double admis, int y_start, int x_start, PsplHMatrixPack.DataFunction func) {
     row_basis = new ClusterBasis(y_start, m, true, nleaf, part_strat, rank, admis, func);
     col_basis = new ClusterBasis(x_start, n, false, nleaf, part_strat, rank, admis, func);
     this.x_start = x_start; this.y_start = y_start;
@@ -54,7 +54,7 @@ public class H2Matrix implements Block {
     col_basis.convertReducedStorageForm();
   }
 
-  private H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.dataFunction func) {
+  private H2Matrix (ClusterBasis row_basis, ClusterBasis col_basis, double admis, PsplHMatrixPack.DataFunction func) {
     this.row_basis = row_basis;
     this.col_basis = col_basis;
     y_start = row_basis.getStart(); x_start = col_basis.getStart();
@@ -350,23 +350,6 @@ public class H2Matrix implements Block {
     }
   }
 
-  @Override
-  public void writeToFile (String name) throws IOException {
-    File directory = new File("bin");
-    if (!directory.exists())
-    { directory.mkdir(); }
-    
-    BufferedWriter writer = new BufferedWriter(new FileWriter("bin/" + name + ".struct"));
-    String struct = structure();
-    writer.write(struct);
-    writer.flush();
-    writer.close();
-
-    BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream("bin/" + name + ".bin"));
-    writeBinary(stream);
-    stream.flush();
-    stream.close();
-  }
 
   @Override
   public void print (int w, int d) {
@@ -436,11 +419,10 @@ public class H2Matrix implements Block {
 
   @Override
   public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    Block p = a.times(b);
-    p.scalarEquals(alpha);
-    if (beta != 1.)
-    { scalarEquals(beta); }
-    plusEquals(p);
+    scalarEquals(beta);
+    Block c = a.times(b);
+    c.scalarEquals(alpha);
+    plusEquals(c);
     return this;
   }
 
@@ -526,16 +508,6 @@ public class H2Matrix implements Block {
 
     return this;
   }
-
-  /*public H2Matrix plusEquals (H2Matrix h) {
-    ClusterBasisProduct X = new ClusterBasisProduct(row_basis, h.row_basis);
-    ClusterBasisProduct Y = new ClusterBasisProduct(h.col_basis, col_basis);
-    H2Approx Sa = new H2Approx(row_basis, col_basis, X, Y, h);
-    H2Approx Sb = new H2Approx(getNRowBlocks(), getNColumnBlocks());
-    plusEquals(h, Sa, Sb);
-    matrixBack(h.row_basis, h.col_basis, X, Y, Sb);
-    return this;
-  }*/
 
   public H2Matrix plusEquals (H2Matrix h, H2Approx Sa, H2Approx Sb) {
     for (int i = 0; i < getNRowBlocks(); i++) {
