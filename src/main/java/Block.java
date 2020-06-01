@@ -5,12 +5,6 @@ public interface Block {
 
   enum Block_t { DENSE, LOW_RANK, HIERARCHICAL }
 
-  public abstract int getXCenter();
-
-  public abstract int getYCenter();
-
-  public abstract void setClusterStart(int x_start, int y_start);
-
   public abstract int getRowDimension();
 
   public abstract int getColumnDimension();
@@ -35,17 +29,15 @@ public interface Block {
 
   public abstract double getCompressionRatio ();
 
-  public abstract double getCompressionRatio_NoBasis ();
+  public abstract double getCompressionRatioNoBasis ();
 
   public abstract String structure ();
 
-  public abstract Block LU ();
+  public abstract Block getrf ();
 
-  public abstract Block triangularSolve (Block b, boolean up_low);
+  public abstract Block trsm (Block b, boolean up_low);
   
-  public abstract Block GEMatrixMult (Block a, Block b, double alpha, double beta);
-
-  public abstract Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc);
+  public abstract Block gemm (Block a, Block b, double alpha, double beta);
 
   public abstract Block plusEquals (Block b);
 

@@ -80,11 +80,11 @@ public class PsplHMatrixPack {
 
       d = h2.toDense();
       long startTime = System.nanoTime();
-      h2.LU();
+      h2.getrf();
       long endTime = System.nanoTime();
       System.out.println("H2-LU time: " +  (endTime - startTime) / 1000000);
 
-      d.LU();
+      d.getrf();
       h2.compareDense(d, "");
       System.out.println("LU: " + h2.toDense().minus(d).normF() / dim / dim);
 

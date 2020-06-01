@@ -10,8 +10,6 @@ public class LowRankBasic implements Block {
 		
   private Matrix U;
   private Matrix VT;
-  private int x_start = 0;
-  private int y_start = 0;
 
   public LowRankBasic () {
     U = null; VT = null;
@@ -30,22 +28,6 @@ public class LowRankBasic implements Block {
   public LowRankBasic (LowRank lr) {
     U = lr.getUS();
     VT = lr.getVT().toMatrix(U.getColumnDimension());
-  }
-
-  @Override
-  public int getXCenter() {
-    return x_start + getRowDimension() / 2;
-  }
-
-  @Override
-  public int getYCenter() {
-    return y_start + getColumnDimension() / 2;
-  }
-
-  @Override
-  public void setClusterStart (int x_start, int y_start) {
-    this.x_start = x_start;
-    this.y_start = y_start;
   }
 
 
@@ -119,7 +101,7 @@ public class LowRankBasic implements Block {
   }
 
   @Override
-  public double getCompressionRatio_NoBasis () {
+  public double getCompressionRatioNoBasis () {
     return (double) getRank() * getRank() / (getColumnDimension() * getRowDimension());
   }
 
@@ -179,30 +161,22 @@ public class LowRankBasic implements Block {
   { U.print(w, d); VT.print(w, d); }
 
   @Override
-  public Block LU () {
+  public Block getrf () {
     System.out.println("error LU on LR");
     System.exit(-1);
     return null;
   }
 
   @Override
-  public Block triangularSolve (Block b, boolean up_low) {
+  public Block trsm (Block b, boolean up_low) {
     return null;
   }
 
 
   @Override
-  public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
-
+  public Block gemm (Block a, Block b, double alpha, double beta) {
     return null;
   }
-
-  @Override
-  public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
-
-    return null;
-  }
-
 
 
   @Override

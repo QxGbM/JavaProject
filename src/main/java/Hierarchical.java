@@ -4,8 +4,6 @@ import Jama.Matrix;
 public class Hierarchical implements Block {
 
   private Block e[][];
-  private int x_start = 0;
-  private int y_start = 0;
   private LowRankBasic accm = null;
 
   public Hierarchical (int m, int n)
@@ -47,21 +45,6 @@ public class Hierarchical implements Block {
   public Block[][] getElements ()
   { return e; }
 
-  @Override
-  public int getXCenter() {
-    return x_start + getRowDimension() / 2;
-  }
-
-  @Override
-  public int getYCenter() {
-    return y_start + getColumnDimension() / 2;
-  }
-
-  @Override
-  public void setClusterStart (int x_start, int y_start) {
-    this.x_start = x_start;
-    this.y_start = y_start;
-  }
 
   @Override
   public int getRowDimension() {
@@ -86,7 +69,6 @@ public class Hierarchical implements Block {
   @Override
   public Dense toDense() {
     Dense d = new Dense(getRowDimension(), getColumnDimension());
-    d.setClusterStart(x_start, y_start);
     int i0 = 0;
 
     for (int i = 0; i < getNRowBlocks(); i++) {
@@ -151,7 +133,7 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public double getCompressionRatio_NoBasis () {
+  public double getCompressionRatioNoBasis () {
     System.out.println("This method shouldn't be used in non-shared H-matrix.");
     return -1;
   }
@@ -194,23 +176,17 @@ public class Hierarchical implements Block {
   }
 
   @Override
-  public Block LU () {
+  public Block getrf () {
     return this;
   }
 
   @Override
-  public Block triangularSolve (Block b, boolean up_low) {
+  public Block trsm (Block b, boolean up_low) {
     return this;
   }
 
   @Override
-  public Block GEMatrixMult (Block a, Block b, double alpha, double beta) {
-    System.exit(1);
-    return null;
-  }
-
-  @Override
-  public Block GEMatrixMult (Block a, Block b, double alpha, double beta, ClusterBasisProduct X, ClusterBasisProduct Y, ClusterBasisProduct Z, H2Approx Sa, H2Approx Sb, H2Approx Sc) {
+  public Block gemm (Block a, Block b, double alpha, double beta) {
     System.exit(1);
     return null;
   }
