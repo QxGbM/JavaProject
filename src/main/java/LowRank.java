@@ -184,22 +184,43 @@ public class LowRank implements Block {
   public Block trsm (Block b, boolean lower) {
     if (getAccumulator() != null)
     { accum(accm); }
-    return trsm(b.toDense(), lower); // TODO
+    if (b.castH2Matrix() != null)
+    { return trsm(b.castH2Matrix(), lower); }
+    else
+    { return trsm(b.toDense(), lower); }
   }
 
   public LowRank trsm (Dense d, boolean lower) {
 
     if (lower) {
+      Matrix up = getU().toMatrix(s.getRowDimension()).times(s);
+      Matrix uPrime = Dense.trsml(d, up);
+      ClusterBasisProduct uProj = u.updateAdditionalBasis(uPrime);
+      s = uProj.getProduct();
+    }
+    else {
       Matrix vtp = getVT().toMatrix(s.getColumnDimension()).times(s.transpose());
-      Matrix vtPrime = d.getU().solveTranspose(vtp.transpose());
+      Matrix vtPrime = Dense.trsmr(d, vtp.transpose());
       ClusterBasisProduct vtProj = vt.updateAdditionalBasis(vtPrime);
       s = vtProj.getProduct().transpose();
     }
-    else {
+
+    return this;
+  }
+
+  public LowRank trsm (H2Matrix h, boolean lower) {
+    
+    if (lower) {
       Matrix up = getU().toMatrix(s.getRowDimension()).times(s);
-      Matrix uPrime = d.getL().solve(up);
+      Matrix uPrime = Dense.trsml(h, up);
       ClusterBasisProduct uProj = u.updateAdditionalBasis(uPrime);
       s = uProj.getProduct();
+    }
+    else {
+      Matrix vtp = getVT().toMatrix(s.getColumnDimension()).times(s.transpose());
+      Matrix vtPrime = Dense.trsmr(h, vtp);
+      ClusterBasisProduct vtProj = vt.updateAdditionalBasis(vtPrime);
+      s = vtProj.getProduct().transpose();
     }
 
     return this;
@@ -268,6 +289,13 @@ public class LowRank implements Block {
     Matrix us = getUS();
     Matrix vtp = vt.h2matrixTimes(h, true);
     return new LowRankBasic(us, vtp);
+  }
+
+  public Matrix times (Matrix vec, boolean transpose) {
+    int rank = s.getColumnDimension();
+    Matrix us = getUS();
+    Matrix vtp = vec.transpose().times(vt.toMatrix(rank));
+    return transpose ? vtp.times(us.transpose()) : us.times(vtp.transpose());
   }
 
   @Override

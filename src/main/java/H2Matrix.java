@@ -353,10 +353,10 @@ public class H2Matrix implements Block {
     for (int i = 0; i < iters; i++) {
       e[i][i].getrf();
       for (int j = i + 1; j < m; j++) {
-        e[j][i].trsm(e[i][i], true);
+        e[j][i].trsm(e[i][i], false);
       }
       for (int j = i + 1; j < n; j++) {
-        e[i][j].trsm(e[i][i], false);
+        e[i][j].trsm(e[i][i], true);
         for (int k = i + 1; k < m; k++) {
           e[k][j].gemm(e[k][i], e[i][j], -1., 1.);
         }
@@ -380,11 +380,11 @@ public class H2Matrix implements Block {
   public H2Matrix trsml (H2Matrix h) {
     int m = getNRowBlocks();
     int n = getNColumnBlocks();
-    for (int j = 0; j < n; j++) {
-      for (int i = 0; i < m; i++) {
-        e[i][j].trsm(h.e[j][j], true);
-        for (int k = j + 1; k < n; k++) 
-        { e[i][k].gemm(e[i][j], h.e[j][k], -1., 1.); }
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        e[i][j].trsm(h.e[i][i], true);
+        for (int k = i + 1; k < m; k++) 
+        { e[k][j].gemm(h.e[k][i], e[i][j], -1., 1.); }
       }
     }
     return this;
@@ -393,11 +393,11 @@ public class H2Matrix implements Block {
   public H2Matrix trsmr (H2Matrix h) {
     int m = getNRowBlocks();
     int n = getNColumnBlocks();
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < n; j++) {
-        e[i][j].trsm(h.e[i][i], false);
-        for (int k = i + 1; k < m; k++) 
-        { e[k][j].gemm(h.e[k][i], e[i][j], -1., 1.); }
+    for (int j = 0; j < n; j++) {
+      for (int i = 0; i < m; i++) {
+        e[i][j].trsm(h.e[j][j], false);
+        for (int k = j + 1; k < n; k++) 
+        { e[i][k].gemm(e[i][j], h.e[j][k], -1., 1.); }
       }
     }
     return this;
@@ -499,6 +499,20 @@ public class H2Matrix implements Block {
     Matrix us = u.times(lr.getS());
     Matrix vt = lr.getVT().toMatrix(rank);
     return new LowRankBasic(us, vt);
+  }
+
+  public Matrix times (Matrix vec, boolean transpose) {
+    ClusterBasis col = transpose ? getRowBasis() : getColBasis();
+    ClusterBasisProduct forward = new ClusterBasisProduct(col, vec);
+
+    ClusterBasis row = transpose ? getColBasis() : getRowBasis();
+    ClusterBasisProduct accmAdmis = new ClusterBasisProduct();
+    Matrix accmY = ClusterBasisProduct.basisInteract(vec, this, forward, accmAdmis, row, transpose);
+    
+    if (accmY == null)
+    { accmY = new Matrix(row.getDimension(), vec.getColumnDimension()); }
+    accmY = accmAdmis.accmAdmisBackward(row, accmY);
+    return accmY;
   }
 
   @Override

@@ -51,15 +51,6 @@ public class PsplHMatrixPack {
       infoOut(h2.compareDense(d, ""));
       infoOut("LU: " + h2.toDense().minus(d).normF() / dim / dim);
 
-      ClusterBasis cb = h2.getRowBasis();
-      Matrix test = Matrix.random(cb.getDimension(), 16);
-
-      Matrix ref = cb.toMatrix().transpose().times(test);
-      Matrix res = new ClusterBasisProduct(cb, test).getProduct();
-
-      infoOut("test: " + ref.minus(res).normF() / ref.getRowDimension() / ref.getColumnDimension());
-
-
 
       if (writeH) {
         Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);

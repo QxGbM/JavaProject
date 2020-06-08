@@ -319,90 +319,12 @@ public class ClusterBasis {
 
     ClusterBasis row = transpose ? h2.getColBasis() : h2.getRowBasis();
     ClusterBasisProduct accmAdmis = new ClusterBasisProduct();
-    //Matrix accmY = h2matrixTimesInteract(h2, forward, accmAdmis, row, transpose);
     Matrix accmY = ClusterBasisProduct.basisInteract(toMatrix(), h2, forward, accmAdmis, row, transpose);
     
     if (accmY == null)
     { accmY = new Matrix(row.getDimension(), getRank()); }
     accmY = accmAdmis.accmAdmisBackward(row, accmY);
     return accmY;
-  }
-
-  private Matrix h2matrixTimesInteract (H2Matrix h2, ClusterBasisProduct forward, ClusterBasisProduct accmAdmis, ClusterBasis row, boolean transpose) {
-    int m = transpose ? h2.getNColumnBlocks() : h2.getNRowBlocks();
-    int n = transpose ? h2.getNRowBlocks() : h2.getNColumnBlocks();
-    int rank = getRank();
-    Matrix[] accm = new Matrix[m];
-    boolean skipDense = true;
-    ClusterBasisProduct[] accmChildren = accmAdmis.setChildren(m);
-    int[] dims = new int[m];
-    int dim = 0;
-
-    for (int i = 0; i < m; i++) {
-      dims[i] = transpose ? h2.getColumnDimension(i) : h2.getRowDimension(i);
-      dim += dims[i];
-      Matrix accmI = new Matrix(dims[i], rank);
-      for (int j = 0; j < n; j++) {
-        Block eIJ = transpose ? h2.getElement(j, i) : h2.getElement(i, j);
-        Matrix accmIJ = children[j].h2matrixTimesInteract(eIJ, forward.getChildren(j), accmChildren[i], row.children[i], transpose);
-        if (accmIJ != null) {
-          skipDense = false;
-          Matrix accmE = accmIJ.times(getTrans(j));
-          accmI.plusEquals(accmE);
-        }
-      }
-      accm[i] = accmI;
-    }
-
-    if (skipDense)
-    { return null; }
-
-    int y = 0;
-    Matrix accmY = new Matrix(dim, rank);
-    for (int i = 0; i < m; i++) {
-      int yEnd = y + dims[i] - 1;
-      accmY.setMatrix(y, yEnd, 0, accm[i].getColumnDimension() - 1, accm[i]);
-      y = yEnd + 1;
-    }
-    return accmY;
-  }
-
-  private static Matrix alignRank (Matrix s, int row, int col) {
-    int rowS = s.getRowDimension();
-    int colS = s.getColumnDimension();
-    if (rowS > row && colS > col) 
-    { return s.getMatrix(0, row - 1, 0, col - 1); }
-    else if (rowS < row || colS < col) {
-      Matrix r = new Matrix(row, col);
-      rowS = Integer.min(rowS, row);
-      colS = Integer.min(colS, col);
-      r.setMatrix(0, rowS - 1, 0, colS - 1, s); 
-      return r; 
-    }
-    else
-    { return s; }
-  }
-
-  private Matrix h2matrixTimesInteract (Block b, ClusterBasisProduct forward, ClusterBasisProduct accmAdmis, ClusterBasis row, boolean transpose) {
-    if (b.castH2Matrix() != null) {
-      H2Matrix h2 = b.castH2Matrix();
-      return h2matrixTimesInteract(h2, forward, accmAdmis, row, transpose);
-    }
-    else if (b.getType() == Block.Block_t.DENSE) {
-      Matrix d = transpose ? b.toDense().transpose() : b.toDense();
-      return d.times(toMatrix());
-    }
-    else if (b.getType() == Block.Block_t.LOW_RANK) {
-      LowRank lr = b.toLowRank();
-      Matrix s = transpose ? lr.getS().transpose() : lr.getS();
-      Matrix r = alignRank(s, row.getRank(), forward.getProduct().getRowDimension());
-      Matrix m = r.times(forward.getProduct());
-      accmAdmis.accumProduct(m);
-      return null;
-    }
-    else {
-      return null;
-    }
   }
 
 

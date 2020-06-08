@@ -207,13 +207,96 @@ public class Dense extends Matrix implements Block
   public Block trsm (Block b, boolean lower) {
     if (getAccumulator() != null)
     { accum(accm); }
-    return trsm(b.toDense(), lower);
+    if (b.castH2Matrix() != null)
+    { return trsm(b.castH2Matrix(), lower); }
+    else
+    { return trsm(b.toDense(), lower); }
   }
 
   public Dense trsm (Dense d, boolean lower) {
-    Matrix m = lower ? d.getU().solveTranspose(this).transpose() : d.getL().solve(this);
+    Matrix m = lower ? trsml(d, this) : trsmr(d, this);
     setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
     return this;
+  }
+
+  public Dense trsm (H2Matrix h, boolean lower) {
+    Matrix m = lower ? trsml(h, this) : trsmr(h, this);
+    setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
+    return this;
+  }
+
+  public static Matrix trsml (Dense d, Matrix vec) {
+    return d.getL().solve(vec);
+  }
+
+  public static Matrix trsmr (Dense d, Matrix vec) {
+    return d.getU().solveTranspose(vec).transpose();
+  }
+
+  public static Matrix trsml (H2Matrix h, Matrix vec) {
+    int m = h.getNRowBlocks();
+    int n = h.getNColumnBlocks();
+    Matrix[] vecP = h.getRowBasis().partitionMatrix(vec);
+    for (int i = 0; i < n; i++) {
+      Block b = h.getElement(i, i);
+      if (b.castH2Matrix() != null)
+      { vecP[i] = Dense.trsml(b.castH2Matrix(), vecP[i]); }
+      else
+      { vecP[i] = Dense.trsml(b.toDense(), vecP[i]); }
+      for (int j = i + 1; j < m; j++) { 
+        Block bJ = h.getElement(j, i);
+        Matrix s;
+        if (bJ.castH2Matrix() != null)
+        { s = bJ.castH2Matrix().times(vecP[i], false); }
+        else if (bJ.getType() == Block_t.LOW_RANK)
+        { s = bJ.toLowRank().times(vecP[i], false); }
+        else
+        { s = bJ.toDense().times(vecP[i]); }
+        vecP[j].minusEquals(s);
+      }
+    }
+
+    Matrix ret = new Matrix(vec.getRowDimension(), vec.getColumnDimension());
+    int y = 0;
+    for (int i = 0; i < vecP.length; i++) {
+      int yEnd = y + vecP[i].getRowDimension() - 1;
+      ret.setMatrix(y, yEnd, 0, vec.getColumnDimension() - 1, vecP[i]);
+      y = yEnd + 1;
+    }
+    return ret;
+  }
+
+  public static Matrix trsmr (H2Matrix h, Matrix vecT) {
+    int m = h.getNRowBlocks();
+    int n = h.getNColumnBlocks();
+    Matrix[] vecP = h.getRowBasis().partitionMatrix(vecT);
+    for (int i = 0; i < m; i++) {
+      Block b = h.getElement(i, i);
+      if (b.castH2Matrix() != null)
+      { vecP[i] = Dense.trsmr(b.castH2Matrix(), vecP[i]); }
+      else
+      { vecP[i] = Dense.trsmr(b.toDense(), vecP[i].transpose()).transpose(); }
+      for (int j = i + 1; j < n; j++) { 
+        Block bJ = h.getElement(i, j);
+        Matrix s;
+        if (bJ.castH2Matrix() != null)
+        { s = bJ.castH2Matrix().times(vecP[i], true); }
+        else if (bJ.getType() == Block_t.LOW_RANK)
+        { s = bJ.toLowRank().times(vecP[i], true); }
+        else
+        { s = bJ.toDense().transpose().times(vecP[i]); }
+        vecP[j].minusEquals(s);
+      }
+    }
+
+    Matrix ret = new Matrix(vecT.getRowDimension(), vecT.getColumnDimension());
+    int y = 0;
+    for (int i = 0; i < vecP.length; i++) {
+      int yEnd = y + vecP[i].getRowDimension() - 1;
+      ret.setMatrix(y, yEnd, 0, vecT.getColumnDimension() - 1, vecP[i]);
+      y = yEnd + 1;
+    }
+    return ret;
   }
 
   @Override
