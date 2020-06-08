@@ -1,6 +1,8 @@
 
 import java.lang.System.Logger;
 
+import Jama.Matrix;
+
 public class PsplHMatrixPack {
 
   public static final double EPI = 1.e-10;
@@ -27,7 +29,58 @@ public class PsplHMatrixPack {
     int diff = Math.abs(i - j);
     return 1. / (1. + diff); 
   };
+  
+  public static void main (String[] args) {
 
+    parse(args);
+
+    boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
+
+    if (integrity) {
+      Dense d = new Dense (dim, dim, 0, 0, testFunc);
+
+      H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+      infoOut("compress: " + h2.toDense().minus(d).normF() / dim / dim);
+
+      long startTime = System.nanoTime();
+      h2.getrf();
+      long endTime = System.nanoTime();
+      infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
+
+      d.getrf();
+      infoOut(h2.compareDense(d, ""));
+      infoOut("LU: " + h2.toDense().minus(d).normF() / dim / dim);
+
+      ClusterBasis cb = h2.getRowBasis();
+      Matrix test = Matrix.random(cb.getDimension(), 16);
+
+      Matrix ref = cb.toMatrix().transpose().times(test);
+      Matrix res = new ClusterBasisProduct(cb, test).getProduct();
+
+      infoOut("test: " + ref.minus(res).normF() / ref.getRowDimension() / ref.getColumnDimension());
+
+
+
+      if (writeH) {
+        Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
+        double compress = h.getCompressionRatio();
+        infoOut("h Storage Compression Ratio: " + Double.toString(compress));
+
+        infoOut("Writing H... ");
+        h.writeToFile(hName);
+        infoOut("Done.");
+      }
+
+      if (writeD) {
+        infoOut("Writing D... ");
+        d.writeToFile(dName); 
+        infoOut("Done.");
+      }
+    }
+
+  }
+
+  
   private static void parse (String[] args) {
     StringBuilder sum = new StringBuilder();
 
@@ -65,48 +118,6 @@ public class PsplHMatrixPack {
     sum.append("rank: " + Integer.toString(rank) + "\n");
 
     logger.log(System.Logger.Level.INFO, sum.toString());
-  }
-  
-  public static void main (String[] args) {
-
-    parse(args);
-
-    boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
-
-    if (integrity) {
-      Dense d = new Dense (dim, dim, 0, 0, testFunc);
-
-      H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
-      infoOut("compress: " + h2.toDense().minus(d).normF() / dim / dim);
-
-      d = h2.toDense();
-      long startTime = System.nanoTime();
-      h2.getrf();
-      long endTime = System.nanoTime();
-      infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
-
-      d.getrf();
-      infoOut(h2.compareDense(d, ""));
-      infoOut("LU: " + h2.toDense().minus(d).normF() / dim / dim);
-
-
-      if (writeH) {
-        Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
-        double compress = h.getCompressionRatio();
-        infoOut("h Storage Compression Ratio: " + Double.toString(compress));
-
-        infoOut("Writing H... ");
-        h.writeToFile(hName);
-        infoOut("Done.");
-      }
-
-      if (writeD) {
-        infoOut("Writing D... ");
-        d.writeToFile(dName); 
-        infoOut("Done.");
-      }
-    }
-
   }
 
   public static void infoOut (String msg) {

@@ -240,7 +240,7 @@ public class ClusterBasis {
     return product;
   }
 
-  private Matrix[] partitionMatrix (Matrix m) {
+  public Matrix[] partitionMatrix (Matrix m) {
     Matrix[] mPart = new Matrix[children.length];
     int startY = 0;
     for (int i = 0; i < children.length; i++) {
@@ -319,11 +319,12 @@ public class ClusterBasis {
 
     ClusterBasis row = transpose ? h2.getColBasis() : h2.getRowBasis();
     ClusterBasisProduct accmAdmis = new ClusterBasisProduct();
-    Matrix accmY = h2matrixTimesInteract(h2, forward, accmAdmis, row, transpose);
+    //Matrix accmY = h2matrixTimesInteract(h2, forward, accmAdmis, row, transpose);
+    Matrix accmY = ClusterBasisProduct.basisInteract(toMatrix(), h2, forward, accmAdmis, row, transpose);
     
     if (accmY == null)
     { accmY = new Matrix(row.getDimension(), getRank()); }
-    accmY = h2matrixTimesBackward(accmAdmis, row, accmY);
+    accmY = accmAdmis.accmAdmisBackward(row, accmY);
     return accmY;
   }
 
@@ -366,7 +367,7 @@ public class ClusterBasis {
     return accmY;
   }
 
-  private Matrix alignRank (Matrix s, int row, int col) {
+  private static Matrix alignRank (Matrix s, int row, int col) {
     int rowS = s.getRowDimension();
     int colS = s.getColumnDimension();
     if (rowS > row && colS > col) 
@@ -398,33 +399,6 @@ public class ClusterBasis {
       Matrix m = r.times(forward.getProduct());
       accmAdmis.accumProduct(m);
       return null;
-    }
-    else {
-      return null;
-    }
-  }
-
-  private Matrix h2matrixTimesBackward (ClusterBasisProduct accmAdmis, ClusterBasis row, Matrix accm) {
-    if (accmAdmis.childrenLength() > 0 && row.childrenLength() > 0) {
-      int y = 0;
-      for (int i = 0; i < children.length; i++) {
-        Matrix p = accmAdmis.getProduct();
-        if (p != null) { 
-          Matrix eI = row.getTrans(i);
-          accmAdmis.accumProduct(i, eI.times(p));
-        }
-        int yEnd = y + row.getChildren()[i].getDimension() - 1;
-        Matrix accmSub = accm.getMatrix(y, yEnd, 0, accm.getColumnDimension() - 1);
-        accmSub = h2matrixTimesBackward(accmAdmis.getChildren(i), row.getChildren()[i], accmSub);
-        if (accmSub != null)
-        { accm.setMatrix(y, yEnd, 0, accm.getColumnDimension() - 1, accmSub); }
-        y = yEnd + 1;
-      }
-      return accm;
-    }
-    else if (accmAdmis.getProduct() != null) {
-      accm.plusEquals(row.toMatrix().times(accmAdmis.getProduct()));
-      return accm;
     }
     else {
       return null;
