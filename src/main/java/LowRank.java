@@ -66,6 +66,8 @@ public class LowRank implements Block {
   public Dense toDense() {
     Matrix m1 = u.toMatrix(s.getRowDimension()).times(s);
     Matrix m2 = m1.times(vt.toMatrix(s.getColumnDimension()).transpose());
+    /*if (accm != null)
+    { m2.plusEquals(accm.toDense()); }*/
     return new Dense(m2.getArray());
   }
 
@@ -251,6 +253,8 @@ public class LowRank implements Block {
 
   @Override
   public Block scalarEquals (double a) {
+    if (accm != null)
+    { accm.scalarEquals(a); }
     if (a != 1.)
     { s.timesEquals(a); }
     return this;

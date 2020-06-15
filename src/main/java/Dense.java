@@ -44,8 +44,11 @@ public class Dense extends Matrix implements Block
   { return Block_t.DENSE; }
 
   @Override
-  public Dense toDense()
-  { return this; }
+  public Dense toDense() {
+    /*if (accm != null)
+    { accum(accm); }*/
+    return this; 
+  }
 
   @Override
   public LowRank toLowRank() {
@@ -220,7 +223,7 @@ public class Dense extends Matrix implements Block
   }
 
   public Dense trsm (H2Matrix h, boolean lower) {
-    Matrix m = lower ? trsml(h, this) : trsmr(h, this);
+    Matrix m = lower ? trsml(h, this) : trsmr(h, this.transpose());
     setMatrix(0, getRowDimension() - 1, 0, getColumnDimension() - 1, m);
     return this;
   }
@@ -332,6 +335,8 @@ public class Dense extends Matrix implements Block
 
   @Override
   public Block scalarEquals (double s) {
+    if (accm != null)
+    { accm.scalarEquals(s); }
     if (s != 1.)
     { super.timesEquals(s); }
     return this;

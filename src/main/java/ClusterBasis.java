@@ -1,5 +1,6 @@
 
 import Jama.Matrix;
+import Jama.QRDecomposition;
 import Jama.SingularValueDecomposition;
 
 public class ClusterBasis {
@@ -266,27 +267,38 @@ public class ClusterBasis {
     updateTrans();
 
     int rank = m.getColumnDimension();
-    Matrix l = new Matrix (childDim[children.length], rank);
+    int size = childDim[children.length];
+    Matrix l = new Matrix (size, rank);
     for (int i = 0; i < children.length; i++) 
     { l.setMatrix(childDim[i], childDim[i + 1] - 1, 0, rank - 1, projChild[i].getProduct()); }
 
-    ClusterBasisProduct proj = updateAdditionalBasisLeaf(l);
+    QRDecomposition qrb = basis.qr();
+    Matrix basisQ = qrb.getQ();
+    Matrix g = projectExcludeBasis(l, basisQ);
+
+    ClusterBasisProduct proj;
+    if (g.normF() <= PsplHMatrixPack.EPI * size * size)
+    { proj = new ClusterBasisProduct(qrb.solve(l)); }
+    else {
+      SingularValueDecomposition svdd = g.svd();
+      double[] s = svdd.getSingularValues(); 
+      int rankAdd = 0;
+      while (rankAdd < s.length && s[rankAdd] > PsplHMatrixPack.EPI)
+      { rankAdd++; }
+
+      Matrix newBasis = appendAdditionalBasis(svdd.getU().getMatrix(0, size - 1, 0, rankAdd));
+      proj = new ClusterBasisProduct(newBasis.solve(l));
+    }
+
     proj.setChildren(projChild);
     return proj;
   }
 
   private ClusterBasisProduct updateAdditionalBasisLeaf (Matrix m) {
-    Matrix v = basis.times(basis.transpose());
-
+    Matrix g = projectExcludeBasis(m, basis);
     int size = basis.getRowDimension();
-    Matrix f = m.times(m.transpose());
 
-    Matrix projLeft = Matrix.identity(size, size).minus(v);
-    Matrix projRight = projLeft.transpose();
-
-    Matrix g = projLeft.times(f).times(projRight);
-
-    if (g.normF() / size / size <= PsplHMatrixPack.EPI)
+    if (g.normF() <= PsplHMatrixPack.EPI * size * size)
     { return new ClusterBasisProduct(getBasis().transpose().times(m)); }
 
     SingularValueDecomposition svdd = g.svd();
@@ -298,6 +310,17 @@ public class ClusterBasis {
     Matrix newBasis = appendAdditionalBasis(svdd.getU().getMatrix(0, size - 1, 0, rank));
     return new ClusterBasisProduct(newBasis.transpose().times(m));
   }
+
+  private Matrix projectExcludeBasis (Matrix m, Matrix basisQ) {
+    Matrix v = basisQ.times(basisQ.transpose());
+    int size = basisQ.getRowDimension();
+    Matrix f = m.times(m.transpose());
+
+    Matrix projLeft = Matrix.identity(size, size).minus(v);
+    Matrix projRight = projLeft.transpose();
+
+    return projLeft.times(f).times(projRight);
+  } 
 
   public Matrix appendAdditionalBasis (Matrix add) {
     if (basis == null) { 

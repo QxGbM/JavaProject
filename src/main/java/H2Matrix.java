@@ -205,6 +205,9 @@ public class H2Matrix implements Block {
 
   @Override
   public Dense toDense() {
+    /*if (accm != null)
+    { accum(accm); }*/
+
     Dense d = new Dense(getRowDimension(), getColumnDimension());
     int i0 = 0;
 
@@ -445,6 +448,8 @@ public class H2Matrix implements Block {
 
   @Override
   public Block scalarEquals (double s) {
+    if (accm != null)
+    { accm.scalarEquals(s); }
     for (int i = 0; i < getNRowBlocks(); i++) {
       for (int j = 0; j < getNColumnBlocks(); j++) {
         e[i][j].scalarEquals(s);
@@ -455,7 +460,7 @@ public class H2Matrix implements Block {
 
   @Override
   public Block times (Block b) {
-    if (b.castH2Matrix() != null)
+    if (b.castH2Matrix() != null) 
     { return times(b.castH2Matrix()); }
     else if (b.getType() == Block_t.DENSE) 
     { return null; }

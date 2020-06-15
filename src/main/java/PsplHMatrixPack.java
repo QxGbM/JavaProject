@@ -50,6 +50,7 @@ public class PsplHMatrixPack {
       d.getrf();
       infoOut(h2.compareDense(d, ""));
       infoOut("LU: " + h2.toDense().minus(d).normF() / dim / dim);
+      infoOut(h2.structure());
 
 
       if (writeH) {
