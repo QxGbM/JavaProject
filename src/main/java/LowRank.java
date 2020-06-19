@@ -66,8 +66,6 @@ public class LowRank implements Block {
   public Dense toDense() {
     Matrix m1 = u.toMatrix(s.getRowDimension()).times(s);
     Matrix m2 = m1.times(vt.toMatrix(s.getColumnDimension()).transpose());
-    /*if (accm != null)
-    { m2.plusEquals(accm.toDense()); }*/
     return new Dense(m2.getArray());
   }
 
@@ -318,6 +316,13 @@ public class LowRank implements Block {
     return this;
   }
 
+  @Override
+  public Block copyBlock () {
+    LowRank lr = new LowRank(u, s.copy(), vt);
+    if (accm != null)
+    { lr.setAccumulator(accm.copyBlock().toLowRankBasic()); }
+    return lr;
+  }
 
   public ClusterBasis getU ()
   { return u; }

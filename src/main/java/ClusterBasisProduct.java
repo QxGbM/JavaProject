@@ -209,7 +209,7 @@ public class ClusterBasisProduct {
   }
 
 
-  private static Matrix alignRank (Matrix s, int row, int col) {
+  public static Matrix alignRank (Matrix s, int row, int col) {
     int rowS = s.getRowDimension();
     int colS = s.getColumnDimension();
     if (rowS > row && colS > col) 

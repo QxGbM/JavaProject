@@ -1,4 +1,6 @@
 
+import java.util.Arrays;
+
 import Jama.Matrix;
 import Jama.QRDecomposition;
 import Jama.SingularValueDecomposition;
@@ -52,6 +54,23 @@ public class ClusterBasis {
     this.xyStart = xyStart;
     childDim = null;
     parent = null;
+  }
+
+  public ClusterBasis copyClusterBasis () {
+    ClusterBasis c = new ClusterBasis(basis);
+    c.xyStart = xyStart;
+    int l = childrenLength();
+    if (l > 0) {
+      c.children = new ClusterBasis[l];
+      for (int i = 0; i < l; i++) { 
+        c.children[i] = children[i].copyClusterBasis(); 
+        c.children[i].parent = c; 
+      }
+    }
+    if (childDim != null) {
+      c.childDim = Arrays.copyOf(childDim, l + 1);
+    }
+    return c;
   }
 
   public int getDimension () {

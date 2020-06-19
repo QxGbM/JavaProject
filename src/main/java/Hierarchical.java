@@ -217,6 +217,11 @@ public class Hierarchical implements Block {
     return null;
   }
 
+  @Override
+  public Block copyBlock () {
+    return null;
+  }
+
   public Block getElement (int m, int n)
   { return e[m][n]; }
 

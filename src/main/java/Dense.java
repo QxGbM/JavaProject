@@ -45,8 +45,6 @@ public class Dense extends Matrix implements Block
 
   @Override
   public Dense toDense() {
-    /*if (accm != null)
-    { accum(accm); }*/
     return this; 
   }
 
@@ -285,7 +283,7 @@ public class Dense extends Matrix implements Block
         if (bJ.castH2Matrix() != null)
         { s = bJ.castH2Matrix().times(vecP[i], true); }
         else if (bJ.getType() == Block_t.LOW_RANK)
-        { s = bJ.toLowRank().times(vecP[i], true); }
+        { s = bJ.toLowRank().times(vecP[i], true).transpose(); }
         else
         { s = bJ.toDense().transpose().times(vecP[i]); }
         vecP[j].minusEquals(s);
@@ -365,6 +363,14 @@ public class Dense extends Matrix implements Block
   @Override
   public Block accum (LowRankBasic accm) {
     return plusEquals(accm.toDense());
+  }
+
+  @Override
+  public Block copyBlock () {
+    Dense d = new Dense(getArrayCopy());
+    if (accm != null)
+    { d.setAccumulator(accm.copyBlock().toLowRankBasic()); }
+    return d;
   }
 
   public static Matrix getBasisU (int yStart, int m, int rank, double admis, PsplHMatrixPack.DataFunction func) {

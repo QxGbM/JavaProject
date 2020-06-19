@@ -239,6 +239,11 @@ public class LowRankBasic implements Block {
     return plusEquals(accm);
   }
 
+  @Override
+  public Block copyBlock () {
+    return new LowRankBasic(u, vt);
+  }
+
   public LowRankBasic multLeft (Matrix m) {
     Matrix uPrime = m.times(u);
     u = uPrime;

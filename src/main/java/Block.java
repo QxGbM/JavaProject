@@ -47,6 +47,8 @@ public interface Block {
 
   public abstract Block accum (LowRankBasic accm);
 
+  public abstract Block copyBlock ();
+
   public abstract void loadBinary (InputStream stream) throws IOException;
 
   public abstract void writeBinary (OutputStream stream) throws IOException;

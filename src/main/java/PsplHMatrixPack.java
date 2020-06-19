@@ -1,22 +1,20 @@
 
 import java.lang.System.Logger;
 
-import Jama.Matrix;
-
 public class PsplHMatrixPack {
 
   public static final double EPI = 1.e-10;
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 3;
+  private static int level = 4;
   private static int nblocks = 2;
-  private static int nleaf = 128;
+  private static int nleaf = 256;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
-  private static double admis = 0.5;
+  private static double admis = 0.3;
   private static String hName = "test";
   private static String dName = "ref";
-  private static boolean writeH = true;
+  private static boolean writeH = false;
   private static boolean writeD = false;
 
   private static final Logger logger = System.getLogger("logger");
@@ -49,8 +47,8 @@ public class PsplHMatrixPack {
 
       d.getrf();
       infoOut(h2.compareDense(d, ""));
-      infoOut("LU: " + h2.toDense().minus(d).normF() / dim / dim);
-      infoOut(h2.structure());
+      infoOut("LU Err: " + h2.toDense().minus(d).normF() / dim / dim);
+      //infoOut(h2.structure());
 
 
       if (writeH) {

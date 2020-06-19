@@ -205,9 +205,6 @@ public class H2Matrix implements Block {
 
   @Override
   public Dense toDense() {
-    /*if (accm != null)
-    { accum(accm); }*/
-
     Dense d = new Dense(getRowDimension(), getColumnDimension());
     int i0 = 0;
 
@@ -233,11 +230,13 @@ public class H2Matrix implements Block {
     Matrix[][] approx = new Matrix[getNRowBlocks()][getNColumnBlocks()];
 
     for (int i = 0; i < getNRowBlocks(); i++) {
+      ClusterBasis rb = rowBasis.getChildren()[i];
       for (int j = 0; j < getNColumnBlocks(); j++) {
-        if (e[i][j].getType() == Block_t.DENSE)
-        { approx[i][j] = e[i][j].toDense().toLowRankFromBasis(rowBasis.getChildren()[i], colBasis.getChildren()[j]).getS(); }
+        ClusterBasis cb = colBasis.getChildren()[j];
+        if (e[i][j].getType() == Block_t.LOW_RANK)
+        { approx[i][j] = ClusterBasisProduct.alignRank(e[i][j].toLowRank().getS(), rb.getRank(), cb.getRank()); }
         else
-        { approx[i][j] = e[i][j].toLowRank().getS(); }
+        { approx[i][j] = e[i][j].toDense().toLowRankFromBasis(rb, cb).getS(); }
       }
     }
 
@@ -446,6 +445,24 @@ public class H2Matrix implements Block {
     return this;
   }
 
+  public H2Matrix plusEqualsDeep (H2Matrix h) {
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        if (h.e[i][j].getAccumulator() != null)
+        { e[i][j].plusEquals(h.e[i][j].getAccumulator()); }
+        if (h.e[i][j].castH2Matrix() != null && e[i][j].getType() == Block_t.LOW_RANK) { 
+          H2Matrix b = h.e[i][j].copyBlock().castH2Matrix();
+          e[i][j] = b.plusEquals(e[i][j].toLowRankBasic());
+        }
+        else if (h.e[i][j].castH2Matrix() != null && e[i][j].castH2Matrix() != null)
+        { e[i][j].castH2Matrix().plusEqualsDeep(h.e[i][j].castH2Matrix()); }
+        else
+        { e[i][j].plusEquals(h.e[i][j]); }
+      }
+    }
+    return this;
+  }
+
   @Override
   public Block scalarEquals (double s) {
     if (accm != null)
@@ -490,6 +507,8 @@ public class H2Matrix implements Block {
           Block b = e[i][k].times(h.e[k][j]);
           if (product.e[i][j].getType() == Block_t.LOW_RANK && b.castH2Matrix() != null)
           { product.e[i][j] = b.plusEquals(product.e[i][j]); }
+          else if (product.e[i][j].castH2Matrix() != null && b.castH2Matrix() != null)
+          { product.e[i][j].castH2Matrix().plusEqualsDeep(b.castH2Matrix()); }
           else
           { product.e[i][j].plusEquals(b); }
         }
@@ -523,6 +542,24 @@ public class H2Matrix implements Block {
   @Override
   public Block accum (LowRankBasic accm) {
     return plusEquals(new H2Matrix(accm, getNRowBlocks(), getNColumnBlocks()));
+  }
+
+  @Override
+  public Block copyBlock () {
+    H2Matrix h = new H2Matrix();
+    h.rowBasis = rowBasis;
+    h.colBasis = colBasis;
+    int m = getNRowBlocks();
+    int n = getNColumnBlocks();
+    h.e = new Block[m][n];
+    if (accm != null)
+    { h.setAccumulator(accm.copyBlock().toLowRankBasic()); }
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        h.e[i][j] = e[i][j].copyBlock();
+      }
+    }
+    return h;
   }
 
   public Block getElement (int m, int n)
