@@ -45,7 +45,7 @@ public class H2Matrix implements Block {
         else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
         { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new H2Matrix(bI, bJ, admis, func); }
+        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func); }
 
       }
     }
@@ -54,14 +54,12 @@ public class H2Matrix implements Block {
     colBasis.convertReducedStorageForm();
   }
 
-  private H2Matrix (ClusterBasis rowBasis, ClusterBasis colBasis, double admis, PsplHMatrixPack.DataFunction func) {
+  public H2Matrix (ClusterBasis rowBasis, ClusterBasis colBasis, int yStart, int xStart, double admis, PsplHMatrixPack.DataFunction func) {
     this.rowBasis = rowBasis;
     this.colBasis = colBasis;
     int m = rowBasis.getDimension();
     int n = colBasis.getDimension();
     int partStrat = rowBasis.getPartStrat();
-    int yStart = rowBasis.getStart();
-    int xStart = colBasis.getStart();
     e = new Block[partStrat][partStrat];
 
     ClusterBasis[] rowBasisLower = rowBasis.getChildren();
@@ -89,7 +87,7 @@ public class H2Matrix implements Block {
         else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
         { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new H2Matrix(bI, bJ, admis, func); }
+        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func); }
 
       }
     }

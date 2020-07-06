@@ -7,15 +7,11 @@ public class PsplHMatrixPack {
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 4;
+  private static int level = 3;
   private static int nblocks = 2;
-  private static int nleaf = 256;
+  private static int nleaf = 128;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
-  private static double admis = 0.3;
-  private static String hName = "test";
-  private static String dName = "ref";
-  private static boolean writeH = false;
-  private static boolean writeD = false;
+  private static double admis = 0.5;
 
   private static final Logger logger = System.getLogger("logger");
 
@@ -37,7 +33,17 @@ public class PsplHMatrixPack {
     if (integrity) {
       Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
-      H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
+      Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
+
+      ClusterBasis rb = new ClusterBasis(h, true, 16);
+      ClusterBasis cb = new ClusterBasis(h, false, 16);
+
+      H2Matrix h2 = new H2Matrix(rb, cb, 0, 0, admis, testFunc);
+
+      rb.convertReducedStorageForm();
+      cb.convertReducedStorageForm();
+
+      //H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
       infoOut("compress: " + h2.toDense().minus(d).normF() / dim / dim);
 
       long startTime = System.nanoTime();
@@ -46,26 +52,11 @@ public class PsplHMatrixPack {
       infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
 
       d.getrf();
-      infoOut(h2.compareDense(d, ""));
       infoOut("LU Err: " + h2.toDense().minus(d).normF() / dim / dim);
-      //infoOut(h2.structure());
 
+      double compress = h2.getCompressionRatio();
+      infoOut("h Storage Compression Ratio: " + Double.toString(compress));
 
-      if (writeH) {
-        Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
-        double compress = h.getCompressionRatio();
-        infoOut("h Storage Compression Ratio: " + Double.toString(compress));
-
-        infoOut("Writing H... ");
-        h.writeToFile(hName);
-        infoOut("Done.");
-      }
-
-      if (writeD) {
-        infoOut("Writing D... ");
-        d.writeToFile(dName); 
-        infoOut("Done.");
-      }
     }
 
   }
@@ -88,14 +79,6 @@ public class PsplHMatrixPack {
       { admis = Integer.parseInt(args[i].substring(7)); }
       else if (args[i].startsWith("-rank="))
       { rank = Integer.parseInt(args[i].substring(6)); }
-      else if (args[i].startsWith("-h="))
-      { writeH = true; hName = args[i].substring(3); }
-      else if (args[i].startsWith("-d="))
-      { writeD = true; dName = args[i].substring(3); }
-      else if (args[i].startsWith("-skiph"))
-      { writeH = false; }
-      else if (args[i].startsWith("-skipd"))
-      { writeD = false; }
       else 
       { sum.append("Ignored arg: " + args[i] + "\n"); }
     }

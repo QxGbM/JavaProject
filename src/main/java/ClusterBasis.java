@@ -9,14 +9,12 @@ public class ClusterBasis {
 
   private Matrix basis;
   private ClusterBasis[] children;
-  private int xyStart;
   private int[] childDim;
   private ClusterBasis parent;
 
   public ClusterBasis (int m, int n) {
     basis = new Matrix(m, n);
     children = null;
-    xyStart = 0;
     childDim = null;
     parent = null;
   }
@@ -24,7 +22,6 @@ public class ClusterBasis {
   public ClusterBasis (Matrix m) {
     basis = new Matrix(m.getArrayCopy());
     children = null;
-    xyStart = 0;
     childDim = null;
     parent = null;
   }
@@ -51,14 +48,103 @@ public class ClusterBasis {
     else
     { children = null; }
 
-    this.xyStart = xyStart;
     childDim = null;
     parent = null;
   }
 
+  public ClusterBasis (Hierarchical h, boolean rowB, int rank) {
+    children = null;
+    childDim = null;
+    parent = null;
+    if (rowB) {
+      basis = new Matrix(h.getRowDimension(), rank);
+      spanChildrenRow(h, rank); 
+    }
+    else {
+      basis = new Matrix(h.getColumnDimension(), rank); 
+      spanChildrenCol(h, rank); 
+    }
+    orthogonalize();
+  }
+
+  private void spanChildrenRow (Hierarchical h, int rank) {
+
+    int m = h.getNRowBlocks();
+    int n = h.getNColumnBlocks();
+
+    if (children == null) { 
+      children = new ClusterBasis[m];
+      for (int i = 0; i < m; i++) {
+        int dim = h.getElement(i, 0).getRowDimension();
+        children[i] = new ClusterBasis(dim, rank); 
+        children[i].parent = this; 
+      }
+    }
+
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        Block b = h.getElement(i, j);
+
+        if (b.getType() == Block.Block_t.LOW_RANK)
+        { children[i].accBasis(b.toDense(), rank); }
+        else if (b.getType() == Block.Block_t.HIERARCHICAL)
+        { children[i].spanChildrenRow(b.castHierarchical(), rank); }
+      }
+    }
+
+    propagateBasis();
+  }
+
+  private void spanChildrenCol (Hierarchical h, int rank) {
+
+    int m = h.getNRowBlocks();
+    int n = h.getNColumnBlocks();
+
+    if (children == null) { 
+      children = new ClusterBasis[n];
+      for (int i = 0; i < n; i++) {
+        int dim = h.getElement(0, i).getColumnDimension();
+        children[i] = new ClusterBasis(dim, rank); 
+        children[i].parent = this; 
+      }
+    }
+
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        Block b = h.getElement(i, j);
+        if (b.getType() == Block.Block_t.LOW_RANK)
+        { children[j].accBasis(b.toDense().transpose(), rank); }
+        else if (b.getType() == Block.Block_t.HIERARCHICAL)
+        { children[j].spanChildrenCol(b.castHierarchical(), rank); }
+      }
+    }
+
+    propagateBasis();
+  }
+
+  private void propagateBasis () {
+    if (basis != null) {
+      Matrix[] mPart = partitionMatrix(basis);
+      for (int i = 0; i < children.length; i++)
+      { children[i].accBasis(mPart[i]); }
+    }
+  }
+
+  private void orthogonalize () {
+    if (basis != null) {
+      int dim = basis.getRowDimension();
+      int rank = basis.getColumnDimension();
+      QRDecomposition qrd = basis.qr();
+      basis = qrd.getQ().getMatrix(0, dim - 1, 0, rank - 1);
+    }
+    if (children != null) {
+      for (int i = 0; i < childrenLength(); i++)
+      { children[i].orthogonalize(); }
+    }
+  }
+
   public ClusterBasis copyClusterBasis () {
     ClusterBasis c = new ClusterBasis(basis);
-    c.xyStart = xyStart;
     int l = childrenLength();
     if (l > 0) {
       c.children = new ClusterBasis[l];
@@ -97,10 +183,6 @@ public class ClusterBasis {
     return sum;
   }
 
-  public int getStart () {
-    return xyStart;
-  }
-
   public int childrenLength () {
     return children == null ? 0 : children.length;
   }
@@ -124,6 +206,24 @@ public class ClusterBasis {
   }
 
   public Matrix getBasis () {
+    return basis;
+  }
+
+  public Matrix accBasis (Matrix m, int rank) {
+    Matrix r = Matrix.random(m.getColumnDimension(), rank);
+    Matrix mr = m.times(r);
+    if (basis == null)
+    { basis = mr.copy(); }
+    else
+    { basis.plusEquals(mr); }
+    return basis;
+  }
+
+  public Matrix accBasis (Matrix m) {
+    if (basis == null)
+    { basis = m.copy(); }
+    else
+    { basis.plusEquals(m); }
     return basis;
   }
 
