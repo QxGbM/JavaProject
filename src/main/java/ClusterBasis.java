@@ -64,6 +64,7 @@ public class ClusterBasis {
       basis = new Matrix(h.getColumnDimension(), rank); 
       spanChildrenCol(h, rank); 
     }
+    propagateBasis();
     orthogonalize();
   }
 
@@ -92,7 +93,6 @@ public class ClusterBasis {
       }
     }
 
-    propagateBasis();
   }
 
   private void spanChildrenCol (Hierarchical h, int rank) {
@@ -119,14 +119,17 @@ public class ClusterBasis {
       }
     }
 
-    propagateBasis();
   }
 
   private void propagateBasis () {
-    if (basis != null) {
+    if (basis != null && children != null) {
       Matrix[] mPart = partitionMatrix(basis);
       for (int i = 0; i < children.length; i++)
       { children[i].accBasis(mPart[i]); }
+    }
+    if (children != null) {
+      for (int i = 0; i < childrenLength(); i++)
+      { children[i].propagateBasis(); }
     }
   }
 
