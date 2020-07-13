@@ -26,12 +26,12 @@ public class ClusterBasis {
     parent = null;
   }
 
-  public ClusterBasis (int xyStart, int mn, boolean rowB, int nleaf, int partStrat, int rank, double admis, PsplHMatrixPack.DataFunction func) {
+  public ClusterBasis (int xyStart, int mn, boolean rowB, int nleaf, int partStrat, int rank, double admis, PsplHMatrixPack.DataFunction func, double[] rand) {
 
     if (rowB)
-    { basis = Dense.getBasisU(xyStart, mn, rank, admis, func); }
+    { basis = Dense.getBasisU(xyStart, mn, rank, admis, func, rand); }
     else
-    { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func); }
+    { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func, rand); }
 
     if (mn > nleaf) {
       int mnBlock = mn / partStrat;
@@ -41,7 +41,7 @@ public class ClusterBasis {
       for (int i = 0; i < partStrat; i++) {
         int mnE = i == partStrat - 1 ? mnRemain : mnBlock;
         int xyE = xyStart + mnBlock * i;
-        children[i] = new ClusterBasis (xyE, mnE, rowB, nleaf, partStrat, rank, admis, func);
+        children[i] = new ClusterBasis (xyE, mnE, rowB, nleaf, partStrat, rank, admis, func, rand);
         children[i].parent = this;
       }
     }
@@ -405,7 +405,7 @@ public class ClusterBasis {
       SingularValueDecomposition svdd = g.svd();
       double[] s = svdd.getSingularValues(); 
       int rankAdd = 0;
-      while (rankAdd < s.length && s[rankAdd] > PsplHMatrixPack.EPI)
+      while (rankAdd < s.length && s[rankAdd] > PsplHMatrixPack.EPI * size * size)
       { rankAdd++; }
 
       Matrix newBasis = appendAdditionalBasis(svdd.getU().getMatrix(0, size - 1, 0, rankAdd));
@@ -426,11 +426,12 @@ public class ClusterBasis {
     SingularValueDecomposition svdd = g.svd();
     double[] s = svdd.getSingularValues(); 
     int rank = 0;
-    while (rank < s.length && s[rank] > PsplHMatrixPack.EPI)
+    while (rank < s.length && s[rank] > PsplHMatrixPack.EPI * size * size)
     { rank++; }
 
-    Matrix newBasis = appendAdditionalBasis(svdd.getU().getMatrix(0, size - 1, 0, rank));
-    return new ClusterBasisProduct(newBasis.transpose().times(m));
+    Matrix newBasis = appendAdditionalBasis(svdd.getV().getMatrix(0, size - 1, 0, rank));
+    //return new ClusterBasisProduct(newBasis.transpose().times(m));
+    return new ClusterBasisProduct(newBasis.solve(m));
   }
 
   private Matrix projectExcludeBasis (Matrix m, Matrix basisQ) {

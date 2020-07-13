@@ -1,5 +1,7 @@
 
 import java.lang.System.Logger;
+import java.util.Arrays;
+import java.util.Random;
 
 public class PsplHMatrixPack {
 
@@ -7,7 +9,7 @@ public class PsplHMatrixPack {
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 3;
+  private static int level = 4;
   private static int nblocks = 2;
   private static int nleaf = 128;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
@@ -17,11 +19,11 @@ public class PsplHMatrixPack {
 
   @FunctionalInterface
   public interface DataFunction
-  { public double body (int i, int j); }
+  { public double body (int i, int j, double[] rand); }
 
-  static final DataFunction testFunc = (int i, int j) -> {
-    int diff = Math.abs(i - j);
-    return 1. / (1. + diff); 
+  static final DataFunction testFunc = (int i, int j, double[] rand) -> {
+    double diff = Math.abs(rand[i] - rand[j]);
+    return 1. / (1.e-3 + diff); 
   };
   
   public static void main (String[] args) {
@@ -31,20 +33,22 @@ public class PsplHMatrixPack {
     boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
 
     if (integrity) {
-      Dense d = new Dense (dim, dim, 0, 0, testFunc);
+      double[] v = rand(dim);
 
-      Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
+      Dense d = new Dense (dim, dim, 0, 0, testFunc, v);
+
+      Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc, v);
 
       ClusterBasis rb = new ClusterBasis(h, true, 16);
       ClusterBasis cb = new ClusterBasis(h, false, 16);
 
-      H2Matrix h2 = new H2Matrix(rb, cb, 0, 0, admis, testFunc);
+      H2Matrix h2 = new H2Matrix(rb, cb, 0, 0, admis, testFunc, v);
 
       rb.convertReducedStorageForm();
       cb.convertReducedStorageForm();
 
-      //H2Matrix h2 = new H2Matrix(dim, dim, nleaf, nblocks, rank, admis, 0, 0, testFunc);
-      infoOut("compress: " + h2.toDense().minus(d).normF() / dim / dim);
+      double normD = d.normF();
+      infoOut("compress: " + h2.toDense().minus(d).normF() / normD);
 
       long startTime = System.nanoTime();
       h2.getrf();
@@ -59,6 +63,15 @@ public class PsplHMatrixPack {
 
     }
 
+  }
+
+  private static double[] rand (int dim) {
+    double[] v = new double[dim];
+    Random r = new Random(100);
+    for (int i = 0; i < dim; i++)
+    { v[i] = r.nextDouble(); }
+    Arrays.sort(v);
+    return v;
   }
 
   
