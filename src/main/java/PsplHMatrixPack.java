@@ -9,9 +9,9 @@ public class PsplHMatrixPack {
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 4;
+  private static int level = 2;
   private static int nblocks = 2;
-  private static int nleaf = 128;
+  private static int nleaf = 256;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
   private static double admis = 0.5;
 
@@ -37,8 +37,12 @@ public class PsplHMatrixPack {
 
       Dense d = new Dense (dim, dim, 0, 0, testFunc, v);
 
+      long startTime = System.nanoTime();
       Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc, v);
+      long endTime = System.nanoTime();
+      infoOut("H const time: " +  (endTime - startTime) / 1000000);
 
+      startTime = System.nanoTime();
       ClusterBasis rb = new ClusterBasis(h, true, 16);
       ClusterBasis cb = new ClusterBasis(h, false, 16);
 
@@ -46,19 +50,23 @@ public class PsplHMatrixPack {
 
       rb.convertReducedStorageForm();
       cb.convertReducedStorageForm();
+      endTime = System.nanoTime();
+      infoOut("H2 const time: " +  (endTime - startTime) / 1000000);
 
-      double normD = d.normF();
-      infoOut("compress: " + h2.toDense().minus(d).normF() / normD);
 
-      long startTime = System.nanoTime();
+      infoOut("compress: " + h2.compare(d) / dim / dim);
+      double compress = h2.getCompressionRatio();
+      infoOut("h Storage Compression Ratio: " + Double.toString(compress));
+
+      startTime = System.nanoTime();
       h2.getrf();
-      long endTime = System.nanoTime();
+      endTime = System.nanoTime();
       infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
 
       d.getrf();
       infoOut("LU Err: " + h2.toDense().minus(d).normF() / dim / dim);
 
-      double compress = h2.getCompressionRatio();
+      compress = h2.getCompressionRatio();
       infoOut("h Storage Compression Ratio: " + Double.toString(compress));
 
     }

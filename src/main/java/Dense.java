@@ -123,7 +123,7 @@ public class Dense extends Matrix implements Block
 
   @Override
   public double compare (Matrix m) {
-    return this.minus(m).normF() / getColumnDimension() / getRowDimension();
+    return this.minus(m).normF();
   }
 
   @Override

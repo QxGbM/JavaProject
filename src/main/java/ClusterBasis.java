@@ -421,7 +421,7 @@ public class ClusterBasis {
     int size = basis.getRowDimension();
 
     if (g.normF() <= PsplHMatrixPack.EPI * size * size)
-    { return new ClusterBasisProduct(getBasis().transpose().times(m)); }
+    { return new ClusterBasisProduct(getBasis().solve(m)); /*return new ClusterBasisProduct(getBasis().transpose().times(m));*/ }
 
     SingularValueDecomposition svdd = g.svd();
     double[] s = svdd.getSingularValues(); 

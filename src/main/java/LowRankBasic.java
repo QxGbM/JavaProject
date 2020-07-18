@@ -92,7 +92,7 @@ public class LowRankBasic implements Block {
 
   @Override
   public double compare (Matrix m) {
-    return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
+    return this.toDense().minus(m).normF();
   }
 
   @Override

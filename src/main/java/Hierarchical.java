@@ -120,7 +120,22 @@ public class Hierarchical implements Block {
 
   @Override
   public double compare (Matrix m) {
-    return this.toDense().minus(m).normF() / getColumnDimension() / getRowDimension();
+    double norm = 0.;
+    int i0 = 0;
+    for (int i = 0; i < getNRowBlocks(); i++) {
+      int i1 = 0;
+      int j0 = 0;
+      for (int j = 0; j < getNColumnBlocks(); j++) {
+        int l = e[i][j].getRowDimension();
+        int n = e[i][j].getColumnDimension();
+        int j1 = j0 + n - 1;
+        i1 = i0 + l - 1;
+        norm += e[i][j].compare(m.getMatrix(i0, i1, j0, j1));
+        j0 = j1 + 1;
+      }
+      i0 = i1 + 1;
+    }
+    return norm;
   }
 
   @Override
