@@ -9,11 +9,11 @@ public class PsplHMatrixPack {
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 2;
-  private static int nblocks = 2;
-  private static int nleaf = 256;
+  private static int level = 1;
+  private static int nblocks = 4;
+  private static int nleaf = 128;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
-  private static double admis = 0.5;
+  private static double admis = 1;
 
   private static final Logger logger = System.getLogger("logger");
 
@@ -53,8 +53,9 @@ public class PsplHMatrixPack {
       endTime = System.nanoTime();
       infoOut("H2 const time: " +  (endTime - startTime) / 1000000);
 
+      double normD = d.normF();
 
-      infoOut("compress: " + h2.compare(d) / dim / dim);
+      infoOut("compress: " + h2.compare(d) / normD);
       double compress = h2.getCompressionRatio();
       infoOut("h Storage Compression Ratio: " + Double.toString(compress));
 
@@ -63,8 +64,15 @@ public class PsplHMatrixPack {
       endTime = System.nanoTime();
       infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
 
-      d.getrf();
-      infoOut("LU Err: " + h2.toDense().minus(d).normF() / dim / dim);
+      //d.getrf();
+      Dense vec = new Dense(v, v.length);
+      Dense vecB = new Dense(v, v.length);
+      vec = d.times(vec);
+      d.trsm(vec, false);
+      d.trsm(vec, true);
+      double normV = vecB.normF();
+
+      infoOut("LU Err: " + vec.minus(vecB).normF() / normV);
 
       compress = h2.getCompressionRatio();
       infoOut("h Storage Compression Ratio: " + Double.toString(compress));
