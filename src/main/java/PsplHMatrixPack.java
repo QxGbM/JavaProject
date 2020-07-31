@@ -2,6 +2,7 @@
 import java.lang.System.Logger;
 import java.util.Arrays;
 import java.util.Random;
+import Jama.Matrix;
 
 public class PsplHMatrixPack {
 
@@ -9,21 +10,26 @@ public class PsplHMatrixPack {
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 1;
-  private static int nblocks = 4;
+  private static int level = 3;
+  private static int nblocks = 2;
   private static int nleaf = 128;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
-  private static double admis = 1;
+  private static double admis = 0.5;
+  private static double[] rand;
 
   private static final Logger logger = System.getLogger("logger");
 
   @FunctionalInterface
   public interface DataFunction
-  { public double body (int i, int j, double[] rand); }
+  { public double body (int i, int j); }
 
-  static final DataFunction testFunc = (int i, int j, double[] rand) -> {
+  static final DataFunction testFunc = (int i, int j) -> {
     double diff = Math.abs(rand[i] - rand[j]);
     return 1. / (1.e-3 + diff); 
+  };
+
+  static final DataFunction readMat = (int i, int j) -> {
+    return 0;
   };
   
   public static void main (String[] args) {
@@ -33,12 +39,12 @@ public class PsplHMatrixPack {
     boolean integrity = level >= 1 && nblocks >= 1 && dim >= 0 && admis >= 0;
 
     if (integrity) {
-      double[] v = rand(dim);
+      rand(dim);
 
-      Dense d = new Dense (dim, dim, 0, 0, testFunc, v);
+      Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
       long startTime = System.nanoTime();
-      Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc, v);
+      Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
       long endTime = System.nanoTime();
       infoOut("H const time: " +  (endTime - startTime) / 1000000);
 
@@ -46,7 +52,7 @@ public class PsplHMatrixPack {
       ClusterBasis rb = new ClusterBasis(h, true, 16);
       ClusterBasis cb = new ClusterBasis(h, false, 16);
 
-      H2Matrix h2 = new H2Matrix(rb, cb, 0, 0, admis, testFunc, v);
+      H2Matrix h2 = new H2Matrix(rb, cb, 0, 0, admis, testFunc);
 
       rb.convertReducedStorageForm();
       cb.convertReducedStorageForm();
@@ -64,15 +70,15 @@ public class PsplHMatrixPack {
       endTime = System.nanoTime();
       infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
 
-      //d.getrf();
-      Dense vec = new Dense(v, v.length);
+      d.getrf();
+      /*Dense vec = new Dense(v, v.length);
       Dense vecB = new Dense(v, v.length);
       vec = d.times(vec);
       d.trsm(vec, false);
       d.trsm(vec, true);
-      double normV = vecB.normF();
+      double normV = vecB.normF();*/
 
-      infoOut("LU Err: " + vec.minus(vecB).normF() / normV);
+      infoOut("LU Err: " + h2.compare(d) / dim / dim);
 
       compress = h2.getCompressionRatio();
       infoOut("h Storage Compression Ratio: " + Double.toString(compress));
@@ -82,12 +88,12 @@ public class PsplHMatrixPack {
   }
 
   private static double[] rand (int dim) {
-    double[] v = new double[dim];
+    rand = new double[dim];
     Random r = new Random(100);
     for (int i = 0; i < dim; i++)
-    { v[i] = r.nextDouble(); }
-    Arrays.sort(v);
-    return v;
+    { rand[i] = r.nextDouble(); }
+    Arrays.sort(rand);
+    return rand;
   }
 
   

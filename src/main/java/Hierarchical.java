@@ -9,7 +9,7 @@ public class Hierarchical implements Block {
   public Hierarchical (int m, int n)
   { e = new Block[m][n]; }
 
-  public Hierarchical (int m, int n, int nleaf, int partStrat, double admis, int yStart, int xStart, PsplHMatrixPack.DataFunction func, double[] rand) {
+  public Hierarchical (int m, int n, int nleaf, int partStrat, double admis, int yStart, int xStart, PsplHMatrixPack.DataFunction func) {
     int mBlock = m / partStrat;
     int mRemain = m - (partStrat - 1) * mBlock;
     int nBlock = n / partStrat;
@@ -28,11 +28,11 @@ public class Hierarchical implements Block {
         boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
 
         if (admisible)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func, rand).toLowRank(); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRank(); }
         else if (mE <= nleaf || nE <= nleaf)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func, rand); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new Hierarchical(mE, nE, nleaf, partStrat, admis, yE, xE, func, rand); }
+        { e[i][j] = new Hierarchical(mE, nE, nleaf, partStrat, admis, yE, xE, func); }
 
       }
     }

@@ -26,12 +26,12 @@ public class ClusterBasis {
     parent = null;
   }
 
-  public ClusterBasis (int xyStart, int mn, boolean rowB, int nleaf, int partStrat, int rank, double admis, PsplHMatrixPack.DataFunction func, double[] rand) {
+  public ClusterBasis (int xyStart, int mn, boolean rowB, int nleaf, int partStrat, int rank, double admis, PsplHMatrixPack.DataFunction func) {
 
     if (rowB)
-    { basis = Dense.getBasisU(xyStart, mn, rank, admis, func, rand); }
+    { basis = Dense.getBasisU(xyStart, mn, rank, admis, func); }
     else
-    { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func, rand); }
+    { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func); }
 
     if (mn > nleaf) {
       int mnBlock = mn / partStrat;
@@ -41,7 +41,7 @@ public class ClusterBasis {
       for (int i = 0; i < partStrat; i++) {
         int mnE = i == partStrat - 1 ? mnRemain : mnBlock;
         int xyE = xyStart + mnBlock * i;
-        children[i] = new ClusterBasis (xyE, mnE, rowB, nleaf, partStrat, rank, admis, func, rand);
+        children[i] = new ClusterBasis (xyE, mnE, rowB, nleaf, partStrat, rank, admis, func);
         children[i].parent = this;
       }
     }

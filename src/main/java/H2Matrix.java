@@ -15,9 +15,9 @@ public class H2Matrix implements Block {
     e = null;
   }
 
-  public H2Matrix (int m, int n, int nleaf, int partStrat, int rank, double admis, int yStart, int xStart, PsplHMatrixPack.DataFunction func, double[] rand) {
-    rowBasis = new ClusterBasis(yStart, m, true, nleaf, partStrat, rank, admis, func, rand);
-    colBasis = new ClusterBasis(xStart, n, false, nleaf, partStrat, rank, admis, func, rand);
+  public H2Matrix (int m, int n, int nleaf, int partStrat, int rank, double admis, int yStart, int xStart, PsplHMatrixPack.DataFunction func) {
+    rowBasis = new ClusterBasis(yStart, m, true, nleaf, partStrat, rank, admis, func);
+    colBasis = new ClusterBasis(xStart, n, false, nleaf, partStrat, rank, admis, func);
     e = new Block[partStrat][partStrat];
 
     ClusterBasis[] rowBasisLower = rowBasis.getChildren();
@@ -41,11 +41,11 @@ public class H2Matrix implements Block {
         boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
 
         if (admisible)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func, rand).toLowRankFromBasis(bI, bJ); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(bI, bJ); }
         else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func, rand); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func, rand); }
+        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func); }
 
       }
     }
@@ -54,7 +54,7 @@ public class H2Matrix implements Block {
     colBasis.convertReducedStorageForm();
   }
 
-  public H2Matrix (ClusterBasis rowBasis, ClusterBasis colBasis, int yStart, int xStart, double admis, PsplHMatrixPack.DataFunction func, double[] rand) {
+  public H2Matrix (ClusterBasis rowBasis, ClusterBasis colBasis, int yStart, int xStart, double admis, PsplHMatrixPack.DataFunction func) {
     this.rowBasis = rowBasis;
     this.colBasis = colBasis;
     int m = rowBasis.getDimension();
@@ -83,11 +83,11 @@ public class H2Matrix implements Block {
         boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
 
         if (admisible)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func, rand).toLowRankFromBasis(bI, bJ); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(bI, bJ); }
         else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func, rand); }
+        { e[i][j] = new Dense(mE, nE, yE, xE, func); }
         else
-        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func, rand); }
+        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func); }
 
       }
     }

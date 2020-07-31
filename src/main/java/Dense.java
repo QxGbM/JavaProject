@@ -24,14 +24,14 @@ public class Dense extends Matrix implements Block
   public Dense (int m, int n)
   { super(m, n); }
 
-  public Dense (int m, int n, int yStart, int xStart, PsplHMatrixPack.DataFunction func, double[] rand)
+  public Dense (int m, int n, int yStart, int xStart, PsplHMatrixPack.DataFunction func)
   {
     super(m, n);
     double[][] data = getArray();
 
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++)
-      { data[i][j] = func.body(yStart + i, xStart + j, rand); }
+      { data[i][j] = func.body(yStart + i, xStart + j); }
     }
 
   }
@@ -373,17 +373,17 @@ public class Dense extends Matrix implements Block
     return d;
   }
 
-  public static Matrix getBasisU (int yStart, int m, int rank, double admis, PsplHMatrixPack.DataFunction func, double[] rand) {
+  public static Matrix getBasisU (int yStart, int m, int rank, double admis, PsplHMatrixPack.DataFunction func) {
     int minimalSep = Integer.max((int) (admis * m * m / rank), PsplHMatrixPack.MINIMAL_SEP); 
-    Dense d1 = new Dense(m, m, yStart, yStart + minimalSep, func, rand);
+    Dense d1 = new Dense(m, m, yStart, yStart + minimalSep, func);
     Dense d2 = new Dense(d1.times(Matrix.random(m, rank)).getArray());
     QRDecomposition qrd = d2.qr();
     return qrd.getQ();
   }
 
-  public static Matrix getBasisVT (int xStart, int n, int rank, double admis, PsplHMatrixPack.DataFunction func, double[] rand) {
+  public static Matrix getBasisVT (int xStart, int n, int rank, double admis, PsplHMatrixPack.DataFunction func) {
     int minimalSep = Integer.max((int) (admis * n * n / rank), PsplHMatrixPack.MINIMAL_SEP);
-    Dense d1 = new Dense(n, n, xStart + minimalSep, xStart, func, rand);
+    Dense d1 = new Dense(n, n, xStart + minimalSep, xStart, func);
     Dense d2 = new Dense(Matrix.random(rank, n).times(d1).getArray());
     QRDecomposition qrd = d2.transpose().qr();
     return qrd.getQ();
