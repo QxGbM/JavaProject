@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\dense.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\element.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hierarchical.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lowrank.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\clusterbasis.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{58e51a20-76e3-4e07-b3c5-e8ae4a07913b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{9881b83c-80b9-44bc-81dc-78663663cfde}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\dense.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\element.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hierarchical.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\lowrank.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\clusterbasis.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\definitions.h">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

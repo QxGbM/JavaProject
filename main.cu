@@ -82,7 +82,7 @@ int main(int argc, char * argv[])
   }
 
   test0 (test_name, blocks, threads, kernel_size, ref, ref_name, rank);
-
+  
   return 0;
 }
 

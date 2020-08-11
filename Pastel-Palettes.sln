@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30330.147
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pastel-Palettes", "Pastel-Palettes.vcxproj", "{9370D3FB-1D50-482C-8F1B-96519AAD11AD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "H2Matrix", "H2Matrix\H2Matrix.vcxproj", "{B4710DBF-3683-438A-9B25-72C4E6A7D17B}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HMatrix", "HMatrix\HMatrix.vcxproj", "{B4710DBF-3683-438A-9B25-72C4E6A7D17B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
