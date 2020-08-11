@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <cstring>
+#include <math.h>
 #define real_t double
 
 #endif

@@ -1,26 +1,26 @@
+
 #pragma once
-#ifndef _DEV_DENSE_CUH
-#define _DEV_DENSE_CUH
+#ifndef _DENSE_H
+#define _DENSE_H
 
 #include <definitions.h>
 
-class dense
+class Dense 
 {
 private:
   int m;
   int n;
   int ld;
 
-  real_t* elements;
-
+  real_t * elements;
 
 public:
+  
+  Dense(const int M, const int N);
 
-  dense(const int M, const int N);
+  Dense(const int M, const int N, const int LD);
 
-  dense(const int M, const int N, const int LD);
-
-  ~dense();
+  ~Dense();
 
   int getRowDimension() const;
 
@@ -30,17 +30,23 @@ public:
 
   real_t* getElements(const int offset = 0) const;
 
-  void resize(const int ld_in, const int ny_in);
+  void resize(const int LD, const int M);
 
-  void resizeColumn(const int ld_in);
+  void resizeColumn(const int LD);
 
-  void resizeRow(const int ny_in);
+  void resizeRow(const int M);
 
   void print() const;
 
+  void print(const int y, const int x, const int M, const int N) const;
+
   real_t sqrSum() const;
 
-  real_t L2Error(const dense* matrix) const;
+  real_t L2Error(const Dense* matrix) const;
+
+  real_t* copyToArray(real_t* arr = nullptr) const;
+
+  real_t* copyToCudaArray(real_t* arr = nullptr) const;
 
 };
 
