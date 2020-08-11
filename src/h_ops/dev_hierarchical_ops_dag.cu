@@ -18,8 +18,8 @@ h_ops_dag::h_ops_dag (const h_ops_tree * ops, const int start_index, const int l
 
   deps_graph_from = new dependency_linked_list * [length];
   deps_graph_to = new dependency_linked_list * [length];
-  /*
-//#pragma omp parallel for
+  
+#pragma omp parallel for
   for (int i = 0; i < length; i++)
   {
     dependency_linked_list * list = nullptr;
@@ -34,7 +34,7 @@ h_ops_dag::h_ops_dag (const h_ops_tree * ops, const int start_index, const int l
     deps_graph_from[i] = list;
   }
 
-//#pragma omp parallel for
+#pragma omp parallel for
   for (int i = 0; i < length; i++)
   {
     dependency_linked_list * list = nullptr;
@@ -45,9 +45,9 @@ h_ops_dag::h_ops_dag (const h_ops_tree * ops, const int start_index, const int l
       { list = new dependency_linked_list(j, dep, list); }
     }
     deps_graph_to[i] = list;
-  }*/
+  }
   
-  build(4096, 4096);
+  //build(4096, 4096);
 
 }
 
