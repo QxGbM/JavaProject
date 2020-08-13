@@ -8,6 +8,9 @@
     <CudaCompile Include="src\dense_gpu.cu">
       <Filter>src</Filter>
     </CudaCompile>
+    <CudaCompile Include="src\lowrank.cpp">
+      <Filter>src</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="include">
@@ -24,5 +27,16 @@
     <ClInclude Include="include\dense.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\lowrank.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\clusterbasis.h">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\clusterbasis.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

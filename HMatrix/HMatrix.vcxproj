@@ -83,10 +83,16 @@
     <CudaCompile Include="main.cu" />
     <CudaCompile Include="src\dense.cpp" />
     <CudaCompile Include="src\dense_gpu.cu" />
+    <CudaCompile Include="src\lowrank.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\clusterbasis.h" />
     <ClInclude Include="include\definitions.h" />
     <ClInclude Include="include\dense.h" />
+    <ClInclude Include="include\lowrank.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\clusterbasis.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

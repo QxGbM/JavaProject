@@ -3,7 +3,11 @@
 #include <dense.h>
 
 Dense::Dense(const int M, const int N) {
-  Dense(M, N, N);
+  m = M;
+  n = N;
+  ld = N;
+  elements = new real_t[(size_t)M * N];
+  memset(elements, 0, (size_t)M * N);
 }
 
 Dense::Dense (const int M, const int N, const int LD) {
