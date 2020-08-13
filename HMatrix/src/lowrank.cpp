@@ -49,10 +49,11 @@ void LowRank::print() const {
 }
 
 void LowRank::print(const int y, const int x, const int M, const int N) const {
-  int rank = getRank();
-  U->print(y, 0, M, rank);
-  VT->print(x, 0, N, rank);
-  S->print(0, 0, rank, rank);
+  int rankl = S->getRowDimension();
+  int rankr = S->getColumnDimension();
+  U->print(y, 0, M, rankl);
+  VT->print(x, 0, N, rankr);
+  S->print(0, 0, rankl, rankr);
 }
 
 LowRank* LowRank::getElementLowRank() {

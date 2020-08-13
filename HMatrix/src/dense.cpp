@@ -6,21 +6,17 @@ Dense::Dense(const int M, const int N) {
   m = M;
   n = N;
   ld = N;
-  elements = new real_t[(size_t)M * N];
-  memset(elements, 0, (size_t)M * N);
+  elements = vector<real_t>((size_t)M * N, 0);
 }
 
 Dense::Dense (const int M, const int N, const int LD) {
   m = M;
   n = N;
   ld = LD;
-  elements = new real_t[(size_t) M * LD];
-  memset(elements, 0, (size_t) M * LD);
+  elements = vector<real_t>((size_t)M * LD, 0);
 }
 
-Dense::~Dense () {
-  delete[] elements;
-}
+Dense::~Dense () {}
 
 int Dense::getRowDimension () const { 
   return m; 
@@ -34,46 +30,12 @@ int Dense::getLeadingDimension () const {
   return ld; 
 }
 
-real_t* Dense::getElements (const int offset) const { 
+real_t* Dense::getElements() {
+  return elements.data();
+}
+
+real_t* Dense::getElements(const int offset) { 
   return &elements[offset]; 
-}
-
-void Dense::resize (const int LD, const int M) {
-  resizeColumn(LD);
-  resizeRow(M);
-}
-
-void Dense::resizeColumn (const int LD) {
-  if (LD > 0 && LD != ld) {
-    real_t* e = new real_t[(size_t) m * LD];
-
-    for (int y = 0; y < m; y++) {
-      for (int x = 0; x < n && x < LD; x++) {
-        e[y * LD + x] = elements[y * ld + x];
-      }
-    }
-
-    delete[] elements;
-    ld = LD;
-    n = n > ld ? ld : n;
-    elements = e;
-  }
-}
-
-void Dense::resizeRow (const int M) {
-  if (M > 0 && M != m) {
-    real_t * e = new real_t[(size_t) M * ld];
-
-    for (int y = 0; y < M && y < m; y++) {
-      for (int x = 0; x < n; x++) {
-        e[y * ld + x] = elements[y * ld + x];
-      }
-    }
-
-    delete[] elements;
-    elements = e;
-    m = M;
-  }
 }
 
 void Dense::print() const {
@@ -85,7 +47,7 @@ void Dense::print (const int y, const int x, const int M, const int N) const {
   using std::endl;
   using std::fixed;
 
-  cout << "-- " << m << " x " << n << " | ld: " << ld << " | addr: " << elements << " --" << endl << fixed;
+  cout << "-- " << m << " x " << n << " | ld: " << ld << " | addr: " << elements.data() << " --" << endl << fixed;
   const int y_end_in = y + M, x_end_in = x + N;
   const int y_end = (y_end_in > m || y_end_in <= y) ? m : y_end_in, x_end = (x_end_in > n || x_end_in <= x) ? n : x_end_in;
 
@@ -93,7 +55,7 @@ void Dense::print (const int y, const int x, const int M, const int N) const {
   {
     for (int j = x > 0 ? x : 0; j < x_end; j++)
     {
-      real_t e = elements[i * ld + j];
+      real_t e = elements[(size_t)i * ld + j];
       cout << e << " ";
     }
     cout << endl;
@@ -107,7 +69,7 @@ real_t Dense::sqrSum() const {
   real_t sum = 0.0;
   for (int y = 0; y < m; y++) {
     for (int x = 0; x < n; x++) {
-      real_t t = (real_t) elements[y * ld + x];
+      real_t t = (real_t) elements[(size_t)y * ld + x];
       sum += t * t;
     }
   }
@@ -124,8 +86,8 @@ real_t Dense::L2Error(const Dense* matrix) const {
   int error_count = 0;
   for(int y = 0; y < m; y++) {
     for(int x = 0; x < n; x++) {
-      real_t val1 = elements[y * ld + x];
-      real_t val2 = (matrix->elements)[y * (matrix->ld) + x];
+      real_t val1 = elements[(size_t)y * ld + x];
+      real_t val2 = (matrix->elements)[(size_t)y * (matrix->ld) + x];
       real_t t = val1 - val2;
       if (fabs(t) > 1.e-8) {
         if (error_count < 10) { 
@@ -143,16 +105,6 @@ real_t Dense::L2Error(const Dense* matrix) const {
   return sqrt(norm / sqrSum());
 }
 
-
-real_t* Dense::copyToArray(real_t* arr) const {
-  real_t* e = arr == nullptr ? new real_t[(size_t)m * n] : arr;
-  for (int y = 0; y < m; y++) {
-    for (int x = 0; x < n; x++) {
-      e[y * n + x] = elements[y * ld + x];
-    }
-  }
-  return e;
-}
 
 Dense* Dense::getElementDense() {
   return this;

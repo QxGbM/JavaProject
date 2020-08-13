@@ -3,7 +3,7 @@
 #define _DEF_H
 
 #include <iostream>
-#include <cstring>
+#include <vector>
 #include <math.h>
 #define real_t double
 

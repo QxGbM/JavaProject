@@ -7,7 +7,9 @@
 int main() {
   Dense d = Dense(4, 4);
   LowRank lr = LowRank(4, 4, 2);
-  double* a = d.copyToCudaArray();
+  double* a = d.copyToCudaArray(nullptr, 8);
   d.print();
+  lr.print();
+  d.copyFromCudaArray(a, 8);
 }
 

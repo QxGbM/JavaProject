@@ -90,10 +90,12 @@
     <ClInclude Include="include\definitions.h" />
     <ClInclude Include="include\dense.h" />
     <ClInclude Include="include\element.h" />
+    <ClInclude Include="include\hierarchical.h" />
     <ClInclude Include="include\lowrank.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\clusterbasis.cpp" />
+    <ClCompile Include="src\hierarchical.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

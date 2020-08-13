@@ -36,9 +36,15 @@
     <ClInclude Include="include\element.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\hierarchical.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\clusterbasis.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hierarchical.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

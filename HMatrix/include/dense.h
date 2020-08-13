@@ -6,6 +6,8 @@
 #include <definitions.h>
 #include <element.h>
 
+using std::vector;
+
 class Dense: public Element
 {
 private:
@@ -13,7 +15,7 @@ private:
   int n;
   int ld;
 
-  real_t * elements;
+  vector<real_t> elements;
 
 public:
   
@@ -29,13 +31,9 @@ public:
 
   int getLeadingDimension() const;
 
-  real_t* getElements(const int offset = 0) const;
+  real_t* getElements();
 
-  void resize(const int LD, const int M);
-
-  void resizeColumn(const int LD);
-
-  void resizeRow(const int M);
+  real_t* getElements(const int offset);
 
   virtual void print() const override;
 
@@ -45,9 +43,11 @@ public:
 
   real_t L2Error(const Dense* matrix) const;
 
-  real_t* copyToArray(real_t* arr = nullptr) const;
+  real_t* copyToCudaArray() const;
 
-  real_t* copyToCudaArray(real_t* arr = nullptr) const;
+  real_t* copyToCudaArray(real_t* arr, const int ld_arr) const;
+
+  void copyFromCudaArray(real_t* arr, const int ld_arr);
 
   virtual Dense* getElementDense() override;
 

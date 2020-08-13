@@ -12,9 +12,7 @@ class Element
 {
 public:
   
-  Element() {}
-
-  ~Element() {}
+  virtual ~Element() {}
 
   virtual int getRowDimension() const {
     return 0;
