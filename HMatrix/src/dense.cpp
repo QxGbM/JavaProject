@@ -81,7 +81,11 @@ void Dense::print() const {
 }
    
 void Dense::print (const int y, const int x, const int M, const int N) const {
-  printf("-- %d x %d | ld: %d | addr: %p --\n", m, n, ld, elements);
+  using std::cout;
+  using std::endl;
+  using std::fixed;
+
+  cout << "-- " << m << " x " << n << " | ld: " << ld << " | addr: " << elements << " --" << endl << fixed;
   const int y_end_in = y + M, x_end_in = x + N;
   const int y_end = (y_end_in > m || y_end_in <= y) ? m : y_end_in, x_end = (x_end_in > n || x_end_in <= x) ? n : x_end_in;
 
@@ -90,12 +94,12 @@ void Dense::print (const int y, const int x, const int M, const int N) const {
     for (int j = x > 0 ? x : 0; j < x_end; j++)
     {
       real_t e = elements[i * ld + j];
-      printf("%.6e ", e);
+      cout << e << " ";
     }
-    printf("\n");
+    cout << endl;
   }
     
-  printf("\n");
+  cout << endl;
 }
 
 
@@ -110,26 +114,32 @@ real_t Dense::sqrSum() const {
   return sum;
 }
 
-real_t Dense::L2Error (const Dense* matrix) const
-{
+real_t Dense::L2Error(const Dense* matrix) const {
+  using std::cout;
+  using std::endl;
+  using std::scientific;
+  cout << scientific;
+
   real_t norm = 0.0; 
   int error_count = 0;
   for(int y = 0; y < m; y++) {
     for(int x = 0; x < n; x++) {
       real_t val1 = elements[y * ld + x];
       real_t val2 = (matrix->elements)[y * (matrix->ld) + x];
-      real_t t = (real_t) (val1 - val2);
+      real_t t = val1 - val2;
       if (fabs(t) > 1.e-8) {
-        if (error_count < 10)
-        { printf("Error Location: (%d, %d). M1: %.6e M2: %.6e\n", y, x, val1, val2); }
+        if (error_count < 10) { 
+          cout << "Error Location: (" << y << ", " << x << "). M1: " << val1 << "M2: " << val2 << endl; 
+        }
         error_count ++;
       }
       norm += t * t;
     }
   }
 
-  if (error_count > 0)
-  { printf("Total Error Locations: %d.\n", error_count); }
+  if (error_count > 0) { 
+    cout << "Total Error Locations: " << error_count << endl; 
+  }
   return sqrt(norm / sqrSum());
 }
 
@@ -144,3 +154,6 @@ real_t* Dense::copyToArray(real_t* arr) const {
   return e;
 }
 
+Dense* Dense::getElementDense() {
+  return this;
+}

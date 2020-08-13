@@ -7,7 +7,7 @@
 #include <dense.h>
 #include <clusterbasis.h>
 
-class LowRank 
+class LowRank: public Element
 {
 private:
   ClusterBasis* U;
@@ -22,9 +22,9 @@ public:
 
   ~LowRank ();
 
-  int getRowDimension () const;
+  virtual int getRowDimension() const override;
 
-  int getColumnDimension () const;
+  virtual int getColumnDimension() const override;
 
   int getRank () const;
 
@@ -34,9 +34,11 @@ public:
 
   Dense* getS() const;
 
-  void print() const;
+  virtual void print() const override;
 
-  void print(const int y, const int x, const int M, const int N) const;
+  virtual void print(const int y, const int x, const int M, const int N) const override;
+
+  virtual LowRank* getElementLowRank() override;
 };
 
 

@@ -4,8 +4,9 @@
 #define _DENSE_H
 
 #include <definitions.h>
+#include <element.h>
 
-class Dense 
+class Dense: public Element
 {
 private:
   int m;
@@ -22,9 +23,9 @@ public:
 
   ~Dense();
 
-  int getRowDimension() const;
+  virtual int getRowDimension() const override;
 
-  int getColumnDimension() const;
+  virtual int getColumnDimension() const override;
 
   int getLeadingDimension() const;
 
@@ -36,9 +37,9 @@ public:
 
   void resizeRow(const int M);
 
-  void print() const;
+  virtual void print() const override;
 
-  void print(const int y, const int x, const int M, const int N) const;
+  virtual void print(const int y, const int x, const int M, const int N) const override;
 
   real_t sqrSum() const;
 
@@ -47,6 +48,8 @@ public:
   real_t* copyToArray(real_t* arr = nullptr) const;
 
   real_t* copyToCudaArray(real_t* arr = nullptr) const;
+
+  virtual Dense* getElementDense() override;
 
 };
 

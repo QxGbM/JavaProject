@@ -33,6 +33,9 @@
     <ClInclude Include="include\clusterbasis.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\element.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\clusterbasis.cpp">

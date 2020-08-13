@@ -55,3 +55,6 @@ void LowRank::print(const int y, const int x, const int M, const int N) const {
   S->print(0, 0, rank, rank);
 }
 
+LowRank* LowRank::getElementLowRank() {
+  return this;
+}

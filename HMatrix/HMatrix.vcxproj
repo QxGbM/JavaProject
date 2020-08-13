@@ -89,6 +89,7 @@
     <ClInclude Include="include\clusterbasis.h" />
     <ClInclude Include="include\definitions.h" />
     <ClInclude Include="include\dense.h" />
+    <ClInclude Include="include\element.h" />
     <ClInclude Include="include\lowrank.h" />
   </ItemGroup>
   <ItemGroup>
