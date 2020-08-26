@@ -19,6 +19,9 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
+#include <cublas_v2.h>
+#include <cusolverDn.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -90,10 +93,10 @@ enum opcode_t { execute, signal_wait, finish };
 enum operation_length { nop_l = 3, getrf_l = 8, trsml_l = 13, trsmr_l = 13, gemm_l = 17, gemm_plus_l = 17, gemm_3x_l = 23, gemm_4x_l = 29, accum_l = 21, accum_dense_l = -1, pivot_l = -1 };
 
 
-class dev_dense;
-class dev_low_rank;
-class dev_hierarchical;
-class dev_h_element;
+class Dense;
+class LowRank;
+class Hierarchical;
+class Element;
 class dev_temp;
 
 class h_index;

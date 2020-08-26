@@ -246,6 +246,17 @@ cudaError_t instructions_manager::getLaunchArgs (int *** dev_insts, void *** dev
   return cudaGetLastError();
 }
 
+void instructions_manager::getLaunchArgsCublas (int &n_streams, int &n_insts, vector<int>* &insts, vector<double*> &ptrs) const {
+  n_streams = workers;
+  n_insts = comm_length;
+  insts = new vector<int>[workers];
+  for (int i = 0; i < workers; i++) {
+    insts[i] = vector<int>(instructions_manager::insts[i], instructions_manager::insts[i] + inst_lengths[i]);
+  }
+  ptrs = vector<double*>(reinterpret_cast<double**>(instructions_manager::ptrs), reinterpret_cast<double**>(instructions_manager::ptrs) + ptrs_size);
+}
+
+
 void instructions_manager::print (const int limit, const int ptrs_limit) const
 {
   for (int i = 0; i < workers; i++)
@@ -263,4 +274,5 @@ void instructions_manager::print (const int limit, const int ptrs_limit) const
   { printf("%d: %p\n", i, ptrs[i]); }
 
 }
+
 

@@ -7,23 +7,8 @@
     <ClInclude Include="include\dev_temp.cuh">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\kernel.cuh">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="include\timer.cuh">
       <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="include\matrix\dev_dense.cuh">
-      <Filter>include\matrix</Filter>
-    </ClInclude>
-    <ClInclude Include="include\matrix\dev_hierarchical.cuh">
-      <Filter>include\matrix</Filter>
-    </ClInclude>
-    <ClInclude Include="include\matrix\dev_hierarchical_element.cuh">
-      <Filter>include\matrix</Filter>
-    </ClInclude>
-    <ClInclude Include="include\matrix\dev_low_rank.cuh">
-      <Filter>include\matrix</Filter>
     </ClInclude>
     <ClInclude Include="include\h_ops\dev_hierarchical_index.cuh">
       <Filter>include\h_ops</Filter>
@@ -55,6 +40,27 @@
     <ClInclude Include="include\h_ops\dependency_checker.cuh">
       <Filter>include\h_ops</Filter>
     </ClInclude>
+    <ClInclude Include="include\instructions\instructions.h">
+      <Filter>include\instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="include\instructions\getrf.h">
+      <Filter>include\instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="include\kernel_cublas.cuh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\Dense.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\LowRank.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\Element.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\Hierarchical.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
@@ -66,21 +72,6 @@
     </CudaCompile>
     <CudaCompile Include="src\h_ops\dev_hierarchical_ops_tree.cu">
       <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\matrix\dev_dense.cu">
-      <Filter>src\matrix</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\matrix\dev_hierarchical.cu">
-      <Filter>src\matrix</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\matrix\dev_hierarchical_element.cu">
-      <Filter>src\matrix</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\matrix\dev_low_rank.cu">
-      <Filter>src\matrix</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\kernel.cu">
-      <Filter>src</Filter>
     </CudaCompile>
     <CudaCompile Include="src\launcher.cu">
       <Filter>src</Filter>
@@ -99,6 +90,21 @@
     </CudaCompile>
     <CudaCompile Include="src\h_ops\dependency_checker.cu">
       <Filter>src\h_ops</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\kernel_cublas.cu">
+      <Filter>src</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\Dense.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\LowRank.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\Element.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\Hierarchical.cu">
+      <Filter>src\matrix</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>

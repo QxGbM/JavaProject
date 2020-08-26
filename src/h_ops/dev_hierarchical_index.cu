@@ -2,10 +2,10 @@
 
 #include <definitions.cuh>
 #include <h_ops/dev_hierarchical_index.cuh>
-#include <matrix/dev_hierarchical.cuh>
-#include <matrix/dev_hierarchical_element.cuh>
-#include <matrix/dev_low_rank.cuh>
-#include <matrix/dev_dense.cuh>
+#include <matrix/Hierarchical.cuh>
+#include <matrix/Element.cuh>
+#include <matrix/LowRank.cuh>
+#include <matrix/Dense.cuh>
 
 h_index::h_index()
 {
@@ -48,7 +48,7 @@ h_index::h_index (const h_index * index)
   { data_ptrs[i] = (index -> data_ptrs)[i]; }
 }
 
-h_index::h_index (const dev_hierarchical * h, const int abs_y_in, const int abs_x_in)
+h_index::h_index (const Hierarchical * h, const int abs_y_in, const int abs_x_in)
 {
   index_lvls = 0;
   indexs = nullptr;
@@ -67,7 +67,7 @@ h_index::h_index (const dev_hierarchical * h, const int abs_y_in, const int abs_
   root_ptr = h;
 }
 
-h_index::h_index (const dev_hierarchical * h, const h_index * index, const int y, const int x)
+h_index::h_index (const Hierarchical * h, const h_index * index, const int y, const int x)
 {
   index_lvls = index -> index_lvls + 1;
 
@@ -78,7 +78,7 @@ h_index::h_index (const dev_hierarchical * h, const h_index * index, const int y
     
   indexs[index_lvls - 1] = y * (h -> getNx_blocks()) + x;
 
-  dev_h_element * element = h -> getElement_blocks(y, x);
+  Element * element = h -> getElement_blocks(y, x);
   type = element -> getType();
   nx = element -> getNx();
   ny = element -> getNy();
@@ -95,7 +95,7 @@ h_index::h_index (const dev_hierarchical * h, const h_index * index, const int y
   else if (type == low_rank)
   {
     n_ptrs = 2;
-    dev_low_rank * lr = element -> getElementLowRank();
+    LowRank * lr = element -> getElementLowRank();
     ld_x = lr -> getUxS() -> getLd();
     ld_y = lr -> getVT() -> getLd();
     rank = lr -> getRank();
@@ -104,7 +104,7 @@ h_index::h_index (const dev_hierarchical * h, const h_index * index, const int y
   else if (type == dense)
   {
     n_ptrs = 3;
-    dev_dense * d = element -> getElementDense();
+    Dense * d = element -> getElementDense();
     ld_x = d -> getLd();
     ld_y = 0;
     rank = d -> getShadowRank();

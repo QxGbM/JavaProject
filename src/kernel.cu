@@ -1,3 +1,4 @@
+#ifdef KER
 
 #include <definitions.cuh>
 #include <kernel.cuh>
@@ -1524,3 +1525,5 @@ fin:
   return;
 }
 
+
+#endif

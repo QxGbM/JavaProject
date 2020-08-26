@@ -5,6 +5,8 @@
 
 #include <definitions.cuh>
 
+using std::vector;
+
 class instructions_manager
 {
 private:
@@ -36,6 +38,8 @@ public:
   ~instructions_manager ();
 
   cudaError_t getLaunchArgs (int *** dev_insts, void *** dev_ptrs, int ** comm_space, real_t*** block_tmps, real_t ** dev_rnd_seed, const unsigned int seed_in = 0) const;
+
+  void getLaunchArgsCublas(int &n_streams, int &n_insts, vector<int>* &insts, vector<double*> &ptrs) const;
 
   void print (const int limit = 32, const int ptrs_limit = 32) const;
 

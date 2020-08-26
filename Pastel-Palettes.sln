@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.30330.147
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pastel-Palettes", "Pastel-Palettes.vcxproj", "{9370D3FB-1D50-482C-8F1B-96519AAD11AD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HMatrix", "HMatrix\HMatrix.vcxproj", "{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,12 +19,6 @@ Global
 		{9370D3FB-1D50-482C-8F1B-96519AAD11AD}.Release|x64.ActiveCfg = Release|x64
 		{9370D3FB-1D50-482C-8F1B-96519AAD11AD}.Release|x64.Build.0 = Release|x64
 		{9370D3FB-1D50-482C-8F1B-96519AAD11AD}.Release|x86.ActiveCfg = Release|x64
-		{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}.Debug|x64.ActiveCfg = Debug|x64
-		{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}.Debug|x64.Build.0 = Debug|x64
-		{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}.Debug|x86.ActiveCfg = Debug|x64
-		{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}.Release|x64.ActiveCfg = Release|x64
-		{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}.Release|x64.Build.0 = Release|x64
-		{17D28D9B-D3BA-4D04-BBCD-AF0E7B4DED6A}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

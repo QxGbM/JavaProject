@@ -1,7 +1,7 @@
 
 #pragma once
-#ifndef _DEV_HIERARCHICAL_INDEX_CUH
-#define _DEV_HIERARCHICAL_INDEX_CUH
+#ifndef _dev_hierarchical_INDEX_CUH
+#define _dev_hierarchical_INDEX_CUH
 
 #include <definitions.cuh>
 
@@ -35,9 +35,9 @@ public:
 
   h_index(const h_index * index);
 
-  h_index(const dev_hierarchical * h, const int abs_y_in, const int abs_x_in);
+  h_index(const Hierarchical * h, const int abs_y_in, const int abs_x_in);
 
-  h_index(const dev_hierarchical * h, const h_index * index, const int y, const int x);
+  h_index(const Hierarchical * h, const h_index * index, const int y, const int x);
 
   h_index(const h_index * index, const int y_start, const int x_start, const int ny_block, const int nx_block);
 

@@ -9,10 +9,11 @@
 #include <h_ops/dev_hierarchical_ops_tree.cuh>
 #include <h_ops/dev_hierarchical_ops.cuh>
 #include <dev_temp.cuh>
-#include <matrix/dev_hierarchical.cuh>
+#include <matrix/Hierarchical.cuh>
 #include <instructions/instructions_scheduler.cuh>
 #include <instructions/instructions_manager.cuh>
-#include <kernel.cuh>
+
+#include <kernel_cublas.cuh>
 
 void print_dev_mat (real_t * dev_mat, const int nx, const int ny)
 {
@@ -74,24 +75,25 @@ cudaError_t generateLaunchArgsFromTree (int *** dev_insts, void *** dev_ptrs, in
   clock_total += clock_lapse;
   printf("Instruction generated in %f ms.\n", 1000. * clock_lapse); //ins.print();
 
-  clock_start = omp_get_wtime();
-  cudaError_t error = ins.getLaunchArgs(dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, _SEED);
-  clock_end = omp_get_wtime();
-  clock_lapse = clock_end - clock_start;
-  clock_total += clock_lapse;
+  int n_streams, n_insts;
+  using std::vector;
+  vector<int>* insts;
+  vector<double*> ptrs;
+  ins.getLaunchArgsCublas(n_streams, n_insts, insts, ptrs);
   printf("Args generated in %f ms.\n", 1000. * clock_lapse);
-  fprintf(stderr, "-- Host Args Generation: %s. --\n\n", cudaGetErrorString(error));
+
+  kernel_cublas(n_streams, n_insts, insts, ptrs);
 
   * total_lapse = clock_total;
   * flops = dag.getFlops();
-  return error;
+  return cudaSuccess;
 }
 
 cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm_space, real_t ** block_tmps, real_t * dev_rnd_seed, unsigned long long ** clocks, 
   const int workers, const int num_threads, cudaStream_t main_stream)
 {
   void ** args = new void * [6] { &dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks };
-  cudaError_t error = cudaLaunchKernel((void *) kernel_dynamic, workers, num_threads, args, 0, main_stream);
+  cudaError_t error = cudaSuccess;// cudaLaunchKernel((void*)kernel_dynamic, workers, num_threads, args, 0, main_stream);
   fprintf(stderr, "Kernel Launch: %s\n\n", cudaGetErrorString(error));
 
   /*cudaDeviceSynchronize();
@@ -112,23 +114,14 @@ cudaError_t launchKernelWithArgs (int ** dev_insts, void ** dev_ptrs, int * comm
   return error;
 }
 
-cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, const int num_threads, const int kernel_size)
+cudaError_t dev_hierarchical_GETRF (Hierarchical * h, const int num_blocks, const int num_threads, const int kernel_size)
 {
   cudaSetDevice(0);
   if (sizeof(real_t) == 8 && cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) == cudaSuccess)
   { printf("Shared memory bank size configured to be 8-bytes.\n"); }
 
-  cudaDeviceProp deviceprop;
-  cudaGetDeviceProperties(&deviceprop, 0);
-  int numSMs = deviceprop.multiProcessorCount, numBlocksPerSm = 0;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, (void *) kernel_dynamic, num_threads, 0);
-  printf("# SMs: %d, # Blocks per SM for launch: %d\n\n", numSMs, numBlocksPerSm);
-
-  const int workers_max = numSMs * numBlocksPerSm, workers = workers_max < num_blocks ? workers_max : num_blocks;
-  if (workers == 0)
-  { printf("Launch Config: Too many resources requested for launch.\n\n"); return cudaErrorInvalidConfiguration; }
-  else if (workers < num_blocks)
-  { printf("Launch Config: Number of launched blocks reduced from %d to %d. \n\n", num_blocks, workers); }
+  int numSMs = 1;
+  printf("# SMs: %d\n\n", numSMs);
 
   const int ny = h -> getNy_abs(), nx = h -> getNx_abs();
   printf("Start Testing Hierarchical - LU for: %d x %d.\n\n", ny, nx);
@@ -159,15 +152,15 @@ cudaError_t hierarchical_GETRF (dev_hierarchical * h, const int num_blocks, cons
   for (int i = 0; i < iters && error == cudaSuccess; i++)
   {
     instructions_scheduler * schedule;
-    error = generateLaunchArgsFromTree (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks, &schedule, &clock_lapse, &tmp, tree, tmp_ptrs, workers, i * kernel_size, kernel_size);
+    error = generateLaunchArgsFromTree (&dev_insts, &dev_ptrs, &comm_space, &block_tmps, &dev_rnd_seed, &clocks, &schedule, &clock_lapse, &tmp, tree, tmp_ptrs, numSMs, i * kernel_size, kernel_size);
     printf("Host %f ms.\n\n", 1000. * clock_lapse);
     exeFLOPS += tmp;
 
     sprintf(event_name, "Kernel %d", i);
 
-    myTimer.newEvent(event_name, start, main_stream);
-    error = launchKernelWithArgs (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, clocks, workers, num_threads, main_stream);
-    myTimer.newEvent(event_name, end, main_stream);
+    /*myTimer.newEvent(event_name, start, main_stream);
+    error = launchKernelWithArgs (dev_insts, dev_ptrs, comm_space, block_tmps, dev_rnd_seed, clocks, numSMs, num_threads, main_stream);
+    myTimer.newEvent(event_name, end, main_stream);*/
 
     //schedule -> analyzeClocks(clocks);
     delete schedule;

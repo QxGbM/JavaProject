@@ -1,16 +1,16 @@
 
 #include <definitions.cuh>
-#include <matrix/dev_dense.cuh>
-#include <matrix/dev_low_rank.cuh>
-#include <matrix/dev_hierarchical.cuh>
-#include <matrix/dev_hierarchical_element.cuh>
+#include <matrix/Dense.cuh>
+#include <matrix/LowRank.cuh>
+#include <matrix/Hierarchical.cuh>
+#include <matrix/Element.cuh>
 #include <h_ops/dev_hierarchical_index.cuh>
 #include <h_ops/dev_hierarchical_ops.cuh>
 #include <h_ops/dev_hierarchical_ops_tree.cuh>
 #include <dev_temp.cuh>
 
 
-dev_low_rank::dev_low_rank (const int x, const int y, const int rank_in)
+LowRank::LowRank (const int x, const int y, const int rank_in)
 {
   nx = x;
   ny = y;
@@ -19,11 +19,11 @@ dev_low_rank::dev_low_rank (const int x, const int y, const int rank_in)
 
   rank = (rank_in > 0 && rank_in <= n) ? rank_in : n;
 
-  UxS = new dev_dense (rank, ny); 
-  VT = new dev_dense (rank, nx);
+  UxS = new Dense (rank, ny); 
+  VT = new Dense (rank, nx);
 }
 
-dev_low_rank::dev_low_rank (dev_dense * data_in)
+LowRank::LowRank (Dense * data_in)
 {
   nx = data_in -> getNx();
   ny = data_in -> getNy();
@@ -31,37 +31,37 @@ dev_low_rank::dev_low_rank (dev_dense * data_in)
   rank = nx;
 
   UxS = data_in;
-  VT = new dev_dense (nx, nx);
+  VT = new Dense (nx, nx);
 }
 
-dev_low_rank::~dev_low_rank ()
+LowRank::~LowRank ()
 {
   delete UxS;
   delete VT;
 }
 
-int dev_low_rank::getNx () const 
+int LowRank::getNx () const 
 { return nx; }
 
-int dev_low_rank::getNy () const
+int LowRank::getNy () const
 { return ny; }
 
-int dev_low_rank::getRank () const
+int LowRank::getRank () const
 { return rank; }
 
-dev_dense * dev_low_rank::getUxS () const
+Dense * LowRank::getUxS () const
 { return UxS; }
 
-dev_dense * dev_low_rank::getVT () const
+Dense * LowRank::getVT () const
 { return VT; }
 
-real_t * dev_low_rank::getElements (const int offset) const
+real_t * LowRank::getElements (const int offset) const
 { 
   const int offset_vt = getNy() * getRank();
   return offset >= offset_vt ? VT -> getElements (offset - offset_vt) : UxS -> getElements(offset); 
 }
 
-real_t dev_low_rank::getElement (const int y, const int x) const
+real_t LowRank::getElement (const int y, const int x) const
 {
   real_t element = 0;
   const int ld_u = UxS -> getLd(), ld_vt = VT -> getLd();
@@ -71,16 +71,16 @@ real_t dev_low_rank::getElement (const int y, const int x) const
   return element;
 }
 
-dev_dense * dev_low_rank::convertToDense() const
+Dense * LowRank::convertToDense() const
 {
-  dev_dense * d = new dev_dense (nx, ny);
+  Dense * d = new Dense (nx, ny);
   real_t * d_elements = d -> getElements();
   for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
   { d_elements[y * nx + x] = getElement(y, x); }
   return d;
 }
 
-cudaError_t dev_low_rank::adjustRank (const int rank_in)
+cudaError_t LowRank::adjustRank (const int rank_in)
 {
   if (rank_in > 0 && rank_in != rank)
   {
@@ -93,66 +93,66 @@ cudaError_t dev_low_rank::adjustRank (const int rank_in)
   { return cudaSuccess; }
 }
 
-h_ops_tree * dev_low_rank::generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
 { 
   printf("Error: GETRF should not be performed on low-rank matrices.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSML (const h_index * self, const dev_dense * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSML (const h_index * self, const Dense * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSML should not have a low-rank matrix be the lower triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSML (const h_index * self, const dev_low_rank * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSML (const h_index * self, const LowRank * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSML should not have a low-rank matrix be the lower triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSML (const h_index * self, const dev_hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSML (const h_index * self, const Hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSM should not have a low-rank matrix be the lower triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSML (const h_index * self, const dev_h_element * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSML (const h_index * self, const Element * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSM should not have a low-rank matrix be the lower triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSMR (const h_index * self, const dev_dense * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSMR (const h_index * self, const Dense * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSMR should not have a low-rank matrix be the upper triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSMR (const h_index * self, const dev_low_rank * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSMR (const h_index * self, const LowRank * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSMR should not have a low-rank matrix be the upper triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSMR (const h_index * self, const dev_hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSMR (const h_index * self, const Hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSMR should not have a low-rank matrix be the upper triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_TRSMR (const h_index * self, const dev_h_element * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_TRSMR (const h_index * self, const Element * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   printf("Error: TRSMR should not have a low-rank matrix be the upper triangular.\n");
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr)
+h_ops_tree * LowRank::generateOps_ACCM (const h_index * self, const h_index * index_tmp_lr)
 {
   return new h_ops_tree (accum, self, index_tmp_lr); 
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_dense * A, const h_index * index_a, const dev_dense * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Dense * A, const h_index * index_a, const Dense * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -179,7 +179,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_den
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low_rank * A, const h_index * index_a, const dev_dense * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const LowRank * A, const h_index * index_a, const Dense * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b), * op_;
 
@@ -210,7 +210,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hierarchical * A, const h_index * index_a, const dev_dense * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Hierarchical * A, const h_index * index_a, const Dense * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -240,7 +240,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hie
     {
       const int row = i / n_k, col = i - row * n_k;
       const h_index index_ai = h_index (A, index_a, row, col), index_m = h_index (&index_tmp, y[row], 0, index_ai.getNy(), x), index_bj = h_index (index_b, k[col], 0, index_ai.getNx(), x);
-      h_ops_tree * op_i = dev_dense::generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj, tmp_mngr);
+      h_ops_tree * op_i = Dense::generateOps_GEMM(&index_m, A -> getElement_blocks(row, col), &index_ai, B, &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -265,11 +265,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hie
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_element * A, const h_index * index_a, const dev_dense * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Element * A, const h_index * index_a, const Dense * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_a = A -> getElementHierarchical();
-  const dev_low_rank *lr_a = A -> getElementLowRank();
-  const dev_dense *d_a = A -> getElementDense();
+  const Hierarchical *h_a = A -> getElementHierarchical();
+  const LowRank *lr_a = A -> getElementLowRank();
+  const Dense *d_a = A -> getElementDense();
 
   if (d_a != nullptr)
   { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
@@ -281,7 +281,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_e
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_dense * A, const h_index * index_a, const dev_low_rank * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Dense * A, const h_index * index_a, const LowRank * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -311,7 +311,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_den
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low_rank * A, const h_index * index_a, const dev_low_rank * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const LowRank * A, const h_index * index_a, const LowRank * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -362,7 +362,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hierarchical * A, const h_index * index_a, const dev_low_rank * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Hierarchical * A, const h_index * index_a, const LowRank * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -420,11 +420,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hie
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_element * A, const h_index * index_a, const dev_low_rank * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Element * A, const h_index * index_a, const LowRank * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_a = A -> getElementHierarchical();
-  const dev_low_rank *lr_a = A -> getElementLowRank();
-  const dev_dense *d_a = A -> getElementDense();
+  const Hierarchical *h_a = A -> getElementHierarchical();
+  const LowRank *lr_a = A -> getElementLowRank();
+  const Dense *d_a = A -> getElementDense();
 
   if (d_a != nullptr)
   { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
@@ -436,7 +436,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_e
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_dense * A, const h_index * index_a, const dev_hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Dense * A, const h_index * index_a, const Hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -466,7 +466,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_den
     {
       const int row = i / n_n, col = i - row * n_n;
       const h_index index_bj = h_index (B, index_b, row, col), index_m = h_index (&index_tmp, 0, x[col], y, index_bj.getNx()), index_ai = h_index (index_a, 0, k[row], y, index_bj.getNy());
-      h_ops_tree * op_i = dev_dense::generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj, tmp_mngr);
+      h_ops_tree * op_i = Dense::generateOps_GEMM(&index_m, A, &index_ai, B -> getElement_blocks(row, col), &index_bj, tmp_mngr);
       op -> setChild(op_i, i);
       delete op_i;
     }
@@ -491,7 +491,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_den
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low_rank * A, const h_index * index_a, const dev_hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const LowRank * A, const h_index * index_a, const Hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   h_ops_tree * op = new h_ops_tree (gemm, self, index_a, index_b);
 
@@ -550,7 +550,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hierarchical * A, const h_index * index_a, const dev_hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Hierarchical * A, const h_index * index_a, const Hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
   const int n_k = A -> getNx_blocks(); if (n_k != B -> getNy_blocks())
   { printf("Matrices are partitioned differently in LR.H-H GEMM.\n"); return nullptr; }
@@ -585,7 +585,7 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hie
 
       const h_index index_ai = h_index (A, index_a, row, k), index_bj = h_index (B, index_b, k, col);
       const h_index index_m = h_index (&index_tmp, y[row], x[col], index_ai.getNy(), index_bj.getNx());
-      h_ops_tree * op_k = dev_dense::generateOps_GEMM (&index_m, A -> getElement_blocks(row, k), &index_ai, B -> getElement_blocks(k, col), &index_bj, tmp_mngr);
+      h_ops_tree * op_k = Dense::generateOps_GEMM (&index_m, A -> getElement_blocks(row, k), &index_ai, B -> getElement_blocks(k, col), &index_bj, tmp_mngr);
       op -> setChild(op_k, i);
       delete op_k;
     }
@@ -612,11 +612,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hie
   return op;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_element * A, const h_index * index_a, const dev_hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Element * A, const h_index * index_a, const Hierarchical * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_a = A -> getElementHierarchical();
-  const dev_low_rank *lr_a = A -> getElementLowRank();
-  const dev_dense *d_a = A -> getElementDense();
+  const Hierarchical *h_a = A -> getElementHierarchical();
+  const LowRank *lr_a = A -> getElementLowRank();
+  const Dense *d_a = A -> getElementDense();
 
   if (d_a != nullptr)
   { return generateOps_GEMM (self, d_a, index_a, B, index_b, tmp_mngr); }
@@ -628,11 +628,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_e
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_dense * A, const h_index * index_a, const dev_h_element * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Dense * A, const h_index * index_a, const Element * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_b = B -> getElementHierarchical();
-  const dev_low_rank *lr_b = B -> getElementLowRank();
-  const dev_dense *d_b = B -> getElementDense();
+  const Hierarchical *h_b = B -> getElementHierarchical();
+  const LowRank *lr_b = B -> getElementLowRank();
+  const Dense *d_b = B -> getElementDense();
 
   if (d_b != nullptr)
   { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
@@ -644,11 +644,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_den
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low_rank * A, const h_index * index_a, const dev_h_element * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const LowRank * A, const h_index * index_a, const Element * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_b = B -> getElementHierarchical();
-  const dev_low_rank *lr_b = B -> getElementLowRank();
-  const dev_dense *d_b = B -> getElementDense();
+  const Hierarchical *h_b = B -> getElementHierarchical();
+  const LowRank *lr_b = B -> getElementLowRank();
+  const Dense *d_b = B -> getElementDense();
 
   if (d_b != nullptr)
   { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
@@ -660,11 +660,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_low
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hierarchical * A, const h_index * index_a, const dev_h_element * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Hierarchical * A, const h_index * index_a, const Element * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_b = B -> getElementHierarchical();
-  const dev_low_rank *lr_b = B -> getElementLowRank();
-  const dev_dense *d_b = B -> getElementDense();
+  const Hierarchical *h_b = B -> getElementHierarchical();
+  const LowRank *lr_b = B -> getElementLowRank();
+  const Dense *d_b = B -> getElementDense();
 
   if (d_b != nullptr)
   { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
@@ -676,11 +676,11 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_hie
   return nullptr;
 }
 
-h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_element * A, const h_index * index_a, const dev_h_element * B, const h_index * index_b, dev_temp * tmp_mngr)
+h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Element * A, const h_index * index_a, const Element * B, const h_index * index_b, dev_temp * tmp_mngr)
 {
-  const dev_hierarchical *h_b = B -> getElementHierarchical();
-  const dev_low_rank *lr_b = B -> getElementLowRank();
-  const dev_dense *d_b = B -> getElementDense();
+  const Hierarchical *h_b = B -> getElementHierarchical();
+  const LowRank *lr_b = B -> getElementLowRank();
+  const Dense *d_b = B -> getElementDense();
 
   if (d_b != nullptr)
   { return generateOps_GEMM (self, A, index_a, d_b, index_b, tmp_mngr); }
@@ -692,41 +692,41 @@ h_ops_tree * dev_low_rank::generateOps_GEMM (const h_index * self, const dev_h_e
   return nullptr;
 }
 
-cudaError_t dev_low_rank::loadBinary (FILE * stream, const bool reverse_bytes)
+cudaError_t LowRank::loadBinary (FILE * stream, const bool reverse_bytes)
 {
   cudaError_t error = UxS -> loadBinary(stream, reverse_bytes);
   return error == cudaSuccess ? VT -> loadBinary(stream, reverse_bytes) : error;
 }
 
-dev_low_rank * dev_low_rank::readStructureFromFile (FILE * stream)
+LowRank * LowRank::readStructureFromFile (FILE * stream)
 {
   element_t type;
-  void * lr = dev_h_element  :: readStructureFromFile(stream, &type);
+  void * lr = Element  :: readStructureFromFile(stream, &type);
 
   if (type == low_rank)
-  { return (dev_low_rank *) lr; }
+  { return (LowRank *) lr; }
   else
   {
     printf("The Matrix Loaded is not a low rank matrix.\n");
 
     if (type == hierarchical)
-    { dev_hierarchical * h = (dev_hierarchical *) lr; delete h; }
+    { Hierarchical * h = (Hierarchical *) lr; delete h; }
     else if (type == dense)
-    { dev_dense * d = (dev_dense *) lr; delete d; }
+    { Dense * d = (Dense *) lr; delete d; }
 
     return nullptr;
   }
 
 }
 
-dev_low_rank * dev_low_rank::readFromFile (const char * file_name, const bool reverse_bytes)
+LowRank * LowRank::readFromFile (const char * file_name, const bool reverse_bytes)
 {
   char str[32], bin[32];
   strcpy(str, file_name); strcat(str, ".struct");
   strcpy(bin, file_name); strcat(bin, ".bin");
 
   FILE * stream = fopen(str, "r");
-  dev_low_rank * a = dev_low_rank :: readStructureFromFile (stream);
+  LowRank * a = LowRank :: readStructureFromFile (stream);
   fclose(stream);
 
   if (a != nullptr)
@@ -740,7 +740,7 @@ dev_low_rank * dev_low_rank::readFromFile (const char * file_name, const bool re
 }
 
 
-void dev_low_rank::print(const int y_start, const int ny_in, const int x_start, const int nx_in, const int rank_in) const
+void LowRank::print(const int y_start, const int ny_in, const int x_start, const int nx_in, const int rank_in) const
 {
   printf("\n-- LR: %d x %d, rank %d --\n", ny, nx, rank);
   UxS -> print(y_start, ny_in, 0, rank_in);

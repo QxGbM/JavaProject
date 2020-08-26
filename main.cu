@@ -2,38 +2,49 @@
 #define RUN
 #ifdef RUN
 
-#include <matrix/dev_dense.cuh>
-#include <matrix/dev_hierarchical.cuh>
+#include <matrix/Dense.cuh>
+#include <matrix/Hierarchical.cuh>
 #include <launcher.cuh>
 #include <timer.cuh>
+#include <cusolverDn.h>
 
-extern DEVICE void blockDenseGetrf(real_t* __restrict__ M, const int nx, const int ny, const int ld, real_t* __restrict__ shm);
 
-
-__global__ void getrf_kernel(double *matrix, const int nx, const int ny, const int ld, int *pivot)
-{
-  __shared__ double shm[6144];
-  blockDenseGetrf (matrix, nx, ny, ld, shm);
-}
-
-int test0 (char test_name[], const int blocks, const int threads, const int kernel_size, const bool ref, char ref_name[], const int shadow_rank = _SHADOW_RANK)
+int test0 (char test_name[], const int blocks, const int threads, const int kernel_size, const bool ref, char ref_name[])
 {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  dev_hierarchical * a = dev_hierarchical :: readFromFile(test_name, shadow_rank);
+  Hierarchical * a = Hierarchical :: readFromFile(test_name, 0);
   //a->print();
 
-  cudaError_t error = hierarchical_GETRF (a, blocks, threads, kernel_size);
+  cudaError_t error = dev_hierarchical_GETRF(a, blocks, threads, kernel_size);
 
   if (ref && error == cudaSuccess)
   {
-    dev_dense * b = a->convertToDense(), * c = dev_dense :: readFromFile(ref_name, 0);
+    Dense * b = a->convertToDense(), * c = Dense :: readFromFile(ref_name, 0);
+    b->print();
+    c->print();
+
+    int m = c->getNy();
+    int n = c->getNx();
+    int ld = c->getLd();
+    auto arr = c->getElements();
+
+    cusolverDnHandle_t handle;
+    cusolverDnCreate(&handle);
+    double* Workspace;
+    int Lwork;
+    int* devInfo;
+    cusolverDnDgetrf_bufferSize(handle, m, n, arr, ld, &Lwork);
+    Lwork = 16384;
+    cudaMalloc(&Workspace, Lwork);
+    cudaMalloc(&devInfo, sizeof(int));
 
     timer my_timer = timer();
     my_timer.newEvent("ref", start);
-    getrf_kernel <<<1, threads, 0, 0 >>> (c -> getElements(), c -> getNx(), c -> getNy(), c -> getLd(), nullptr);
+    cusolverDnDgetrf(handle, m, n, arr, ld, Workspace, nullptr, devInfo);
     my_timer.newEvent("ref", end);
+
 
     my_timer.dumpAllEvents_Sync();
 
@@ -81,7 +92,7 @@ int main(int argc, char * argv[])
     { printf("Unrecognized Arg: %s.\n", argv[i]); }
   }
 
-  test0 (test_name, blocks, threads, kernel_size, ref, ref_name, rank);
+  test0 (test_name, blocks, threads, kernel_size, ref, ref_name);
   
   return 0;
 }

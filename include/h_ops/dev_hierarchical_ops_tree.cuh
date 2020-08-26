@@ -1,7 +1,7 @@
 
 #pragma once
-#ifndef _DEV_HIERARCHICAL_OPS_TREE_CUH
-#define _DEV_HIERARCHICAL_OPS_TREE_CUH
+#ifndef _dev_hierarchical_OPS_TREE_CUH
+#define _dev_hierarchical_OPS_TREE_CUH
 
 #include <definitions.cuh>
 #include <h_ops/dev_hierarchical_ops.cuh>

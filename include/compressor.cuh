@@ -135,7 +135,7 @@ public:
     }
   }
 
-  void compress (dev_low_rank * M)
+  void compress (LowRank * M)
   {
     if (length == size)
     { resize(size * 2); }
@@ -176,7 +176,7 @@ public:
     cudaMemcpy(ranks, dev_ranks, length * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < length; i++)
     { 
-      dev_low_rank * lr = (dev_low_rank *) str_ptrs[i];
+      LowRank * lr = (LowRank *) str_ptrs[i];
       lr -> adjustRank(ranks[i]);
     }
 
