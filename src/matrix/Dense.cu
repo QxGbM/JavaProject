@@ -6,7 +6,7 @@
 #include <cuda_runtime_api.h>
 
 
-Dense::Dense (const int m, const int n, const int ld) : Element(element_t::dense, 0, 0){
+Dense::Dense (const int m, const int n, const int ld) : Element(element_t::dense, 0, 0) {
   using std::max;
   Dense::m = max(m, 0);
   Dense::n = max(n, 0);

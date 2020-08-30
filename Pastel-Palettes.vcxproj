@@ -98,13 +98,13 @@
   <ItemGroup>
     <CudaCompile Include="main.cu" />
     <CudaCompile Include="src\matrix\Clusterbasis.cu" />
+    <CudaCompile Include="src\matrix\Compressor.cu" />
     <CudaCompile Include="src\matrix\Dense.cu" />
     <CudaCompile Include="src\matrix\Hierarchical.cu" />
     <CudaCompile Include="src\matrix\Element.cu" />
     <CudaCompile Include="src\matrix\LowRank.cu" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\compressor.cuh" />
     <ClInclude Include="include\h_ops\dependency.cuh" />
     <ClInclude Include="include\h_ops\dependency_checker.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_index.cuh" />
@@ -118,6 +118,7 @@
     <ClInclude Include="include\kernel_cublas.cuh" />
     <ClInclude Include="include\launcher.cuh" />
     <ClInclude Include="include\matrix\Clusterbasis.cuh" />
+    <ClInclude Include="include\matrix\Compressor.cuh" />
     <ClInclude Include="include\matrix\Dense.cuh" />
     <ClInclude Include="include\matrix\Hierarchical.cuh" />
     <ClInclude Include="include\matrix\Element.cuh" />

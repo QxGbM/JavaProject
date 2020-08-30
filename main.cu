@@ -8,6 +8,7 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cusolverDn.h>
+#include <matrix/compressor.cuh>
 
 
 int test0 (char test_name[], const int blocks, const int threads, const int kernel_size, const bool ref, char ref_name[]) {
@@ -25,7 +26,7 @@ int test0 (char test_name[], const int blocks, const int threads, const int kern
   int ld = a.getLeadingDimension();
   a.print();
 
-  std::cout << cudaGetErrorString(cudaGetLastError());
+  std::cout << a.admissible(1);
 
 
   cusolverDnHandle_t handle;
@@ -46,6 +47,7 @@ int test0 (char test_name[], const int blocks, const int threads, const int kern
   a.print();
 
   Hierarchical h = Hierarchical(16, 16, 2, 2);
+  compressor c = compressor(h, 4, 0.5);
 
   return 0;
 }

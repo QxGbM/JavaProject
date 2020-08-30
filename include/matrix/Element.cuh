@@ -70,6 +70,8 @@ public:
 
   void setLocs(const int abs_y, const int abs_x);
 
+  bool admissible(const double condition) const;
+
   void setAccumulator(const int rank);
 
   void setAccumulator(Dense& U, Dense& V);

@@ -78,6 +78,12 @@ void Element::setLocs(const int abs_y, const int abs_x) {
   Element::abs_x = abs_x;
 }
 
+bool Element::admissible(const double condition) const {
+  using std::abs;
+  using std::min;
+  return condition * abs(abs_y - abs_x) > min(getRowDimension(), getColumnDimension());
+}
+
 void Element::setAccumulator(const int rank) {
 
 }

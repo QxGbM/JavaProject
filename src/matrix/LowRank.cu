@@ -4,13 +4,13 @@
 LowRank::LowRank(const int m, const int n, const int rank, const int ld) : Element (element_t::low_rank, 0, 0) {
   U = new Clusterbasis(m, rank, &(Element::abs_y), ld);
   V = new Clusterbasis(n, rank, &(Element::abs_x), ld);
-  S = nullptr;
+  S = new Dense(rank, rank);
 }
 
 LowRank::LowRank(const int m, const int n, const int rank, const int abs_y, const int abs_x, const int ld) : Element(element_t::low_rank, abs_y, abs_x) {
   U = new Clusterbasis(m, rank, &(Element::abs_y), ld);
   V = new Clusterbasis(n, rank, &(Element::abs_x), ld);
-  S = nullptr;
+  S = new Dense(rank, rank);
 }
 
 LowRank::~LowRank() {

@@ -13,11 +13,11 @@ private:
 
 public:
 
-  LowRank (const int m, const int n, const int rank, const int ld = 0);
+  LowRank(const int m, const int n, const int rank, const int ld = 0);
 
   LowRank(const int m, const int n, const int rank, const int abs_y, const int abs_x, const int ld = 0);
 
-  ~LowRank ();
+  ~LowRank();
 
   virtual LowRank* getElementLowRank() override;
 

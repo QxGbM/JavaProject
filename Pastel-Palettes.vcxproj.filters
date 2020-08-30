@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="include\compressor.cuh">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="include\timer.cuh">
       <Filter>include</Filter>
     </ClInclude>
@@ -58,6 +55,9 @@
     <ClInclude Include="include\matrix\Clusterbasis.cuh">
       <Filter>include\matrix</Filter>
     </ClInclude>
+    <ClInclude Include="include\matrix\Compressor.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
@@ -74,6 +74,9 @@
       <Filter>src\matrix</Filter>
     </CudaCompile>
     <CudaCompile Include="src\matrix\Clusterbasis.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\Compressor.cu">
       <Filter>src\matrix</Filter>
     </CudaCompile>
   </ItemGroup>
