@@ -1,32 +1,33 @@
 
 #pragma once
-#ifndef _Inst
-#define _Inst
+#ifndef _INST
+#define _INST
 
-#include <vector>
-
-enum class matrix_t;
+#include <matrix/Element.cuh>
 
 enum class op_t {
   getrf = 0,
   trsml = 1,
   trsmr = 2,
   gemm = 3,
-  accm = 4
+  accm = 4,
+  nop = -1
 };
-
-using std::vector;
 
 class instruction {
 protected:
   op_t op;
   vector<int> params;
-  vector<void*> dataptrs;
+  vector<real_t*> dataptrs;
   vector<int> locs;
-  vector<matrix_t> types;
+  vector<element_t> types;
 
 public:
-  virtual ~instruction() {
+  instruction() {
+    op = op_t::nop;
+  }
+
+  ~instruction() {
   }
   
   virtual void getReadWriteRange(int& y, int& x, int& m, int& n) const {

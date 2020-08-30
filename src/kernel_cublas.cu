@@ -1,8 +1,12 @@
 
 #include <kernel_cublas.cuh>
-#include <definitions.cuh>
+#include <vector>
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+
+using std::vector;
 
 void kernel_cublas(const int n_streams, const int n_insts, const vector<int>* insts, vector<double*> ptrs) {
 

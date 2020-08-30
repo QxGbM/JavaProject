@@ -1,31 +1,38 @@
 
 #include <matrix/Dense.cuh>
-#include <matrix/Element.cuh>
+#include <algorithm>
+#include <cmath>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
 
-Dense::Dense (const int m, const int n, const int ld = 0) : Element(element_t::dense, 0, 0){
-  Dense::m = m;
-  Dense::n = n;
-  Dense::ld = (m > ld) ? m : ld;
+Dense::Dense (const int m, const int n, const int ld) : Element(element_t::dense, 0, 0){
+  using std::max;
+  Dense::m = max(m, 0);
+  Dense::n = max(n, 0);
+  Dense::ld = max(m, ld);
 
-  cudaMallocManaged(reinterpret_cast<void**>(&elements), (size_t)ld * n * sizeof(real_t), cudaMemAttachGlobal);
-  cudaMemset(elements, 0, (size_t)ld * n * sizeof(real_t));
+  cudaMalloc(reinterpret_cast<void**>(&elements), (size_t)Dense::ld * Dense::n * sizeof(real_t));
+  cudaMemset(elements, 0, (size_t)Dense::ld * Dense::n * sizeof(real_t));
 }
 
-Dense::Dense(const int m, const int n, const int abs_y, const int abs_x, const int ld = 0) : Element(element_t::dense, abs_y, abs_x) {
-  Dense::m = m;
-  Dense::n = n;
-  Dense::ld = (m > ld) ? m : ld;
+Dense::Dense(const int m, const int n, const int abs_y, const int abs_x, const int ld) : Element(element_t::dense, abs_y, abs_x) {
+  using std::max;
+  Dense::m = max(m, 0);
+  Dense::n = max(n, 0);
+  Dense::ld = max(m, ld);
 
-  cudaMallocManaged(reinterpret_cast<void**>(&elements), (size_t)ld * n * sizeof(real_t), cudaMemAttachGlobal);
-  cudaMemset(elements, 0, (size_t)ld * n * sizeof(real_t));
+  cudaMalloc(reinterpret_cast<void**>(&elements), (size_t)Dense::ld * Dense::n * sizeof(real_t));
+  cudaMemset(elements, 0, (size_t)Dense::ld * Dense::n * sizeof(real_t));
 }
 
 Dense::~Dense () {
   cudaFree (elements);
   Element::~Element();
+}
+
+Dense* Dense::getElementDense() {
+  return this;
 }
 
 int Dense::getRowDimension () const
@@ -37,43 +44,57 @@ int Dense::getColumnDimension () const
 int Dense::getLeadingDimension () const
 { return ld; }
 
-real_t Dense::getElement(const int i, const int j) const {
-  return elements[j * ld + i];
+int Dense::getRank() const {
+  using std::min;
+  return min(m, n);
 }
 
-real_t* Dense::getElements () const
+real_t* Dense::getElements() const
 { return elements; }
 
-real_t* Dense::getElements (const int offset) const
+real_t* Dense::getElements(const int offset) const
 { return &elements[offset]; }
 
-void Dense::loadBinary (ifstream& stream) {
+real_t* Dense::getElements(real_t* host_ptr, const int ld) const {
+  if (ld != m || Dense::ld != m) {
+    cudaMemcpy2D(host_ptr, sizeof(real_t) * ld, elements, sizeof(real_t) * Dense::ld, sizeof(real_t) * m, n, cudaMemcpyDefault);
+  }
+  else {
+    cudaMemcpy(host_ptr, elements, sizeof(real_t) * m * n, cudaMemcpyDefault);
+  }
+  return elements;
+}
+
+void Dense::load(ifstream& stream) {
   size_t real_l = sizeof(real_t);
   size_t n_e = real_l * m * n;
   unsigned char* buf = new unsigned char[n_e];
   stream.read(reinterpret_cast<char*>(buf), n_e);
-
-  cudaError_t error;
-
-  if (ld != m) {
-    error = cudaMemcpy2D(elements, real_l * ld, buf, real_l * m, real_l * m, n, cudaMemcpyDefault);
-  }
-  else {
-    error = cudaMemcpy(elements, buf, n_e, cudaMemcpyDefault);
-  }
-
-  if (error != cudaSuccess)
-  { fprintf(stderr, "Memcpy: %s\n", cudaGetErrorString(error)); }
-
+  load(reinterpret_cast<real_t*>(buf), m);
   delete[] buf;
 }
+
+void Dense::load(const real_t* arr, const int ld) {
+  if (ld != m || Dense::ld != m) {
+    cudaMemcpy2D(elements, sizeof(real_t) * Dense::ld, arr, sizeof(real_t) * ld, sizeof(real_t) * m, n, cudaMemcpyDefault);
+  }
+  else {
+    cudaMemcpy(elements, arr, sizeof(real_t) * m * n, cudaMemcpyDefault);
+  }
+}
+
+void Dense::print() const {
+  print(vector<int>(), vector<int> {0, getRowDimension(), 0, getColumnDimension()});
+}
    
-void Dense::print (vector <int>& indices, vector<int>& config) const {
+void Dense::print(vector <int>& indices, vector<int>& config) const {
   Element::print(indices);
   using std::cout;
   using std::endl;
   using std::max;
   using std::min;
+  using std::fixed;
+  cout << fixed;
 
   if (ld != m)
   { cout << m << " x " << n << " by " << ld << endl; }
@@ -81,58 +102,46 @@ void Dense::print (vector <int>& indices, vector<int>& config) const {
   { cout << m << " x " << n << endl; }
 
   int y_start = max(config[0], 0);
-  int m = y_start + min(config[1], Dense::m);
+  int m = y_start + min(config[1], getRowDimension());
   int x_start = max(config[2], 0);
-  int n = x_start + min(config[3], Dense::n);
+  int n = x_start + min(config[3], getColumnDimension());
+
+  real_t* buf = new real_t[(size_t)m * n];
+  getElements(buf, m);
 
   for (int y = y_start; y < m; y++) {
     for (int x = x_start; x < n; x++) {
-      cout << getElement(y, x) << " ";
+      cout << buf[(size_t)x * m + y] << " ";
     }
     cout << endl;
   }
     
   cout << endl;
+  delete[] buf;
 }
 
 
 real_t Dense::sqrSum() const {
-  real_t* buf = new real_t[m * n];
-
-  if (ld != m) {
-    cudaMemcpy2D(buf, sizeof(real_t) * m, elements, sizeof(real_t) * ld, sizeof(real_t) * m, n, cudaMemcpyDefault);
-  }
-  else {
-    cudaMemcpy(buf, elements, sizeof(real_t) * m * n, cudaMemcpyDefault);
-  }
+  real_t* buf = new real_t[(size_t)m * n];
+  getElements(buf, m);
 
   real_t sum = 0.0;
   for (int x = 0; x < n; x++) {
     for (int y = 0; y < m; y++) {
-      real_t t = buf[x * m + y];
+      real_t t = buf[(size_t)x * m + y];
       sum += t * t;
     }
   }
+  delete[] buf;
   return sum;
 }
 
-real_t Dense::L2Error (const Dense& A) const {
-  real_t* buf = new real_t[m * n];
-  real_t* buf_a = new real_t[m * n];
+real_t Dense::L2Error(const Dense& A) const {
+  real_t* buf = new real_t[(size_t)m * n];
+  real_t* buf_a = new real_t[(size_t)m * n];
 
-  if (ld != m) {
-    cudaMemcpy2D(buf, sizeof(real_t) * m, elements, sizeof(real_t) * ld, sizeof(real_t) * m, n, cudaMemcpyDefault);
-  }
-  else {
-    cudaMemcpy(buf, elements, sizeof(real_t) * m * n, cudaMemcpyDefault);
-  }
-
-  if (A.ld != m) {
-    cudaMemcpy2D(buf_a, sizeof(real_t) * m, A.elements, sizeof(real_t) * A.ld, sizeof(real_t) * m, n, cudaMemcpyDefault);
-  }
-  else {
-    cudaMemcpy(buf_a, A.elements, sizeof(real_t) * m * n, cudaMemcpyDefault);
-  }
+  getElements(buf, m);
+  A.getElements(buf_a, m);
 
   using std::cout;
   using std::endl;
@@ -146,14 +155,14 @@ real_t Dense::L2Error (const Dense& A) const {
 
   for(int x = 0; x < n; x++) {
     for(int y = 0; y < m; y++) {
-      real_t t = buf[x * m + y];
-      real_t t_a = buf_a[x * A.m + y];
+      real_t t = buf[(size_t)x * m + y];
+      real_t t_a = buf_a[(size_t)x * A.m + y];
       real_t diff = t - t_a;
 
       if (fabs(diff) > 1.e-8) {
         error_count++;
         if (error_count < 10) { 
-          cout << "Error " << error_count << " : (" << y  << ", " << x << "). M: " << t << " Ref: " << t_a << endl; 
+          cout << "Error #" << error_count << ": (" << y  << ", " << x << "). M: " << t << " Ref: " << t_a << endl; 
         }
       }
       norm += diff * diff;
@@ -163,6 +172,9 @@ real_t Dense::L2Error (const Dense& A) const {
 
   if (error_count > 0)
   { cout << "Total Error Locations: " << error_count << endl; }
+  delete[] buf;
+  delete[] buf_a;
+
   return sqrt(norm / sum);
 }
 

@@ -1,203 +1,89 @@
 
 #pragma once
-#ifndef _CUDA_TIMER_CUH
-#define _CUDA_TIMER_CUH
+#ifndef _Timer
+#define _Timer
 
-#include <definitions.cuh>
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 
-class event_linked_list
-{
+#include <list>
+#include <map>
+#include <string>
+#include <iostream>
+
+using std::list;
+using std::map;
+using std::string;
+
+class timer {
 private:
-
-  cudaEvent_t event;
-  mark_t type;
-  event_linked_list *next;
+  map<string, list<cudaEvent_t>*> lis;
 
 public:
 
-  event_linked_list (const mark_t type_in, const cudaStream_t stream = 0)
-  {
-    cudaEventCreate (&event);
-    cudaEventRecord (event, stream);
-    type = type_in;
-    next = nullptr;
+  timer() {
+    lis = map<string, list<cudaEvent_t>*>();
   }
 
-  ~event_linked_list ()
-  {
-    cudaEventDestroy(event);
-    delete next;
-  }
-
-  void hookNewEvent (const mark_t type_in, const cudaStream_t stream = 0)
-  {
-    for (event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next)
-    { if (ptr -> next == nullptr) { ptr -> next = new event_linked_list (type_in, stream); return; } }
-  }
-
-  int length () const
-  { 
-    int l = 0;
-    for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) { l++; }
-    return l;
-  }
-
-  int length (const mark_t type_in) const
-  {
-    int l = 0;
-    for (const event_linked_list * ptr = this; ptr != nullptr; ptr = ptr -> next) 
-    { if (ptr -> type == type_in) { l++; } }
-    return l;
-  }
-
-  float getTotal_Sync (const event_linked_list *e = nullptr) const
-  {
-    float millis = 0.0;
-    switch (type)
-    {
-    case start:
-      millis = (next == nullptr) ? 0 : next -> getTotal_Sync (this);
-      break;
-    case end:
-      if (e != nullptr) { cudaEventElapsedTime(&millis, e -> event, event); }
-      millis += (next == nullptr) ? 0 : next -> getTotal_Sync (e);
-      break;
-    }
-    return millis;
-  }
-
-};
-
-class timer 
-{
-private:
-
-  event_linked_list ** events;
-  char ** names;
-  int event_counter;
-  int table_size;
-
-public:
-
-  timer (const int time_table_size = 16)
-  {
-    events = new event_linked_list * [time_table_size];
-    names = new char * [time_table_size];
-    memset ((void *) events, 0, time_table_size * sizeof(event_linked_list *));
-    memset ((void *) names, 0, time_table_size * sizeof(char *));
-    event_counter = 0;
-    table_size = (time_table_size > 0) ? time_table_size : 1;
-  }
-
-  ~timer ()
-  {
-    for (int i = 0; i < event_counter; i++)
-    { delete events[i]; delete names[i]; }
-    delete[] events;
-    delete[] names;
-  }
-
-  event_linked_list * getEvent (const char *event_name) const
-  {
-    for (int i = 0; i < event_counter; i++)
-    {
-      if (strcmp(event_name, names[i]) == 0) 
-      { return events[i]; }
-    }
-    return nullptr;
-  }
-
-  void change_table_size (const int time_table_size)
-  {
-    int size = (time_table_size > 0) ? time_table_size : 1;
-
-    event_linked_list ** events_old = events; 
-    events = new event_linked_list *[size];
-    memset((void *)events, 0, size * sizeof(event_linked_list *));
-
-    char ** names_old = names;
-    names = new char *[size];
-    memset((void *)names, 0, size * sizeof(char *));
-
-    for (int i = 0; i < event_counter && i < size; i++)
-    {
-      events[i] = events_old[i];
-      names[i] = names_old[i];
-    }
-    for (int i = size; i < table_size; i++)
-    {
-      delete events_old[i];
-      delete names_old[i];
-    }
-    delete[] events_old;
-    delete[] names_old;
-
-    table_size = size;
-    event_counter = (event_counter > table_size) ? table_size : event_counter;
-    printf("-- Timer: Table size changed to %d --\n\n", table_size);
-  }
-
-  void newEvent (const char *event_name, mark_t type, cudaStream_t stream = 0)
-  {
-    event_linked_list *p = getEvent(event_name);
-    
-    if (p == nullptr)
-    {
-      if (event_counter == table_size)
-      {
-        change_table_size(table_size * 2);
+  ~timer() {
+    for (auto iter = lis.rbegin(); iter != lis.rend(); iter++) {
+      list<cudaEvent_t>* lis_e = iter->second;
+      for (auto iter2 = lis_e->begin(); iter2 != lis_e->end(); iter2++) {
+        cudaEventDestroy(*iter2);
       }
-      events[event_counter] = new event_linked_list(type, stream);
-      const int length = (int) strlen(event_name) + 1;
-      names[event_counter] = new char[length];
-      strcpy(names[event_counter], event_name);
-      event_counter ++;
+      delete lis_e;
     }
-    else
-    { p -> hookNewEvent(type, stream); }
-
   }
 
-  double dumpAllEvents_Sync ()
-  {
-    cudaError_t error = cudaDeviceSynchronize();
-    if (error != cudaSuccess) 
-    { fprintf(stderr, "CUDA error from device synchronize: %s\n\n", cudaGetErrorString(error)); return 0.; }
-
-    printf("-- Timer Summary --\nCUDA device synchronization success.\n");
-
-    double accum = 0.;
-    for (int i = 0; i < event_counter; i++)
-    {
-      float millis = events[i] -> getTotal_Sync();
-      printf ("%s:  %f ms.\n", names[i], millis);
-      accum += millis;
-
-      delete events[i];
-      delete[] names[i];
-      events[i] = nullptr;
-      names[i] = nullptr;
-    }
-    event_counter = 0;
-
-    printf("All timed events cleared.\n\n");
-
-    return accum;
+  void newEvent(const char name[], cudaStream_t stream = 0) {
+    string s = string(name);
+    newEvent(s, stream);
   }
 
-  void printStatus () const
-  {
-    printf("-- Timer Status: --\n"
-      "Total Timed Events: %d.\n"
-      "Time Table Size: %d.\n", event_counter, table_size);
+  void newEvent(string& name, cudaStream_t stream = 0) {
+    using std::pair;
 
-    for (int i = 0; i < event_counter; i++)
-    {
-      printf("Event: %s has %d start and %d end marks.\n", 
-        names[i], events[i] -> length(start), events[i] -> length(end));
+    auto lis_i = lis.find(name);
+    cudaEvent_t event;
+    cudaEventCreate(&event);
+    cudaEventRecord(event, stream);
+    if (lis_i == lis.end()) {
+      list<cudaEvent_t>* lis_e = new list<cudaEvent_t>();
+      lis_e->push_back(event);
+      lis.insert(pair<string, list<cudaEvent_t>*>(name, lis_e));
+    }
+    else { 
+      list<cudaEvent_t>* lis_e = lis_i->second;
+      lis_e->push_back(event);
+    }
+  }
+
+  void dumpEvents() {
+    cudaDeviceSynchronize();
+    using std::cout;
+    using std::endl;
+
+    cout << "Timer:" << endl;
+
+    for (auto iter = lis.rbegin(); iter != lis.rend(); iter++) {
+      string name = iter->first;
+      list<cudaEvent_t>* lis_e = iter->second;
+      cudaEvent_t start = lis_e->front();
+      lis_e->pop_front();
+
+      for (auto iter2 = lis_e->begin(); iter2 != lis_e->end(); iter2++) {
+        cudaEvent_t end = *iter2;
+        float time;
+        cudaEventElapsedTime(&time, start, end);
+        cout << name << ": " << time << endl;
+        cudaEventDestroy(end);
+      }
+      cudaEventDestroy(start);
+      delete lis_e;
     }
 
-    printf("-- Timer Status End. --\n\n");
+    lis.clear();
+    cout << endl;
   }
 
 };

@@ -1,25 +1,24 @@
 
 #pragma once
-#ifndef _Getrf
-#define _Getrf
+#ifndef _GETRF
+#define _GETRF
 
-#include <instructions/instructions.h>
+#include <instructions/instructions.cuh>
 #include <matrix/Dense.cuh>
 
-enum class matrix_t;
-using std::vector;
-
-class getrf : protected instruction {
+class GETRF : public instruction {
 public:
-  getrf(Dense& d, int y, int x) {
+  GETRF(Dense& d) {
     op = op_t::getrf;
-    params = vector<int>{ d.getNy(), d.getNx(), d.getLd() };
-    dataptrs = vector<void*>{ reinterpret_cast<void*>(d.getElements()) };
+    params = vector<int>{ d.getRowDimension(), d.getColumnDimension(), d.getLeadingDimension() };
+    dataptrs = vector<real_t*>{ d.getElements() };
+    int y, x;
+    d.getLocs(y, x);
     locs = vector<int>{ y, x };
-    types = vector<matrix_t>{ matrix_t::dense };
+    types = vector<element_t>{ element_t::dense };
   }
 
-  virtual ~getrf() override {
+  ~GETRF() {
   }
   
   virtual void getReadWriteRange (int& y, int& x, int& m, int& n) const override {

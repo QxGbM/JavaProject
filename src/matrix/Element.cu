@@ -4,8 +4,7 @@
 
 Element::Element(const element_t type, const int abs_y, const int abs_x) {
   Element::type = type;
-  Element::abs_y = abs_y;
-  Element::abs_x = abs_x;
+  setLocs(abs_y, abs_x);
   accum_u = nullptr;
   accum_v = nullptr;
 }
@@ -17,20 +16,16 @@ Element::~Element() {
   { delete accum_v; }
 }
 
-Dense* Element::getElementDense() const {
+Dense* Element::getElementDense() {
   return nullptr;
 }
 
-LowRank* Element::getElementLowRank() const {
+LowRank* Element::getElementLowRank() {
   return nullptr;
 }
 
-Hierarchical* Element::getElementHierarchical() const {
+Hierarchical* Element::getElementHierarchical() {
   return nullptr;
-}
-
-element_t Element::getType() const { 
-  return type; 
 }
 
 int Element::getRowDimension() const {
@@ -49,8 +44,38 @@ int Element::getRank() const {
   return 0;
 }
 
-real_t Element::getElement (const int i, const int j) const {
-  return 0.;
+Dense* Element::convertToDense() const {
+  return nullptr;
+}
+
+void Element::load(ifstream& stream) {
+  
+}
+
+void Element::load(const real_t* arr, const int ld) {
+
+}
+
+void Element::print() const {
+
+}
+
+void Element::print(vector<int>& indices, vector<int>& config) const {
+
+}
+
+element_t Element::getType() const {
+  return type;
+}
+
+void Element::getLocs(int& abs_y, int& abs_x) const {
+  abs_y = Element::abs_y;
+  abs_x = Element::abs_x;
+}
+
+void Element::setLocs(const int abs_y, const int abs_x) {
+  Element::abs_y = abs_y;
+  Element::abs_x = abs_x;
 }
 
 void Element::setAccumulator(const int rank) {
@@ -70,19 +95,7 @@ Dense* Element::getAccumulatorV() {
   return accum_v;
 }
 
-Dense* Element::convertToDense() const {
-
-}
-
-void Element::loadBinary (ifstream& stream) {
-  
-}
-
-void print(vector<int>& indices, vector<int>& config) {
-
-}
-
-void print(vector<int>& indices) {
+void Element::print(vector<int>& indices) const {
   using std::cout;
   using std::endl;
   for (auto iter = indices.begin(); iter != indices.end(); iter++)

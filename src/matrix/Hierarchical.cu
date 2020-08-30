@@ -1,138 +1,139 @@
 
-#include <definitions.cuh>
-#include <matrix/Dense.cuh>
-#include <matrix/LowRank.cuh>
-#include <matrix/Hierarchical.cuh>
-#include <matrix/Element.cuh>
-#include <h_ops/dev_hierarchical_index.cuh>
-#include <h_ops/dev_hierarchical_ops.cuh>
-#include <h_ops/dev_hierarchical_ops_tree.cuh>
-#include <dev_temp.cuh>
+#include <matrix/hierarchical.cuh>
 
-Hierarchical::Hierarchical (const int nx_in, const int ny_in, const int abs_x, const int abs_y, element_t type, void ** elements_in)
-{
-  nx = nx_in > 0 ? nx_in : 1;
-  x_offsets = new int [(size_t) nx + 1];
-
-  ny = ny_in > 0 ? ny_in : 1;
-  y_offsets = new int [(size_t) ny + 1];
-
-  elements = new Element [nx * ny];
-  for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
-  { setElement((type == empty && elements_in == nullptr) ? nullptr : elements_in[y * nx + x], type, x, y, 0, 0); }
-
-  updateOffsets(abs_x, abs_y);
+Hierarchical::Hierarchical(const int m, const int n, const int part_y, const int part_x) : Element (element_t::hierarchical, 0, 0) {
+  index_tree(m, n, part_y, part_x);
+  elements = vector<Element*>((size_t)part_y * part_x, nullptr);
 }
 
-Hierarchical::~Hierarchical ()
-{
-  delete[] x_offsets;
-  delete[] y_offsets;
-  delete[] elements;
+Hierarchical::Hierarchical(const int m, const int n, const int part_y, const int part_x, const int abs_y, const int abs_x) : Element(element_t::hierarchical, abs_y, abs_x) {
+  index_tree(m, n, part_y, part_x);
+  elements = vector<Element*>((size_t)part_y * part_x, nullptr);
 }
 
-int Hierarchical::getNx_blocks () const
-{ return nx; }
+void Hierarchical::index_tree(const int m, const int n, const int part_y, const int part_x) {
+  row_i = vector<int>((size_t)part_y + 1, 0);
+  col_i = vector<int>((size_t)part_x + 1, 0);
+  int y_block = m / part_y;
+  int x_block = n / part_x;
+  int sum = 0;
+  for (auto iter = row_i.begin(); iter != row_i.end(); iter++)
+  { *iter = sum; sum += y_block; }
+  row_i[part_y] = m;
+  sum = 0;
+  for (auto iter = col_i.begin(); iter != col_i.end(); iter++)
+  { *iter = sum; sum += x_block; }
+  col_i[part_x] = n;
+}
 
-int Hierarchical::getNy_blocks () const
-{ return ny; }
-
-int Hierarchical::getNx_abs () const
-{ return x_offsets[nx]; }
-
-int Hierarchical::getNy_abs () const
-{ return y_offsets[ny]; }
-
-bool Hierarchical::updateOffsets (const int abs_x, const int abs_y)
-{
-  int accum = 0;
-  for (int y = 0; y < ny; y++)
-  { y_offsets[y] = accum; accum += elements[y * nx].getNy(); }
-  y_offsets[ny] = accum; 
-    
-  accum = 0;
-  for (int x = 0; x < nx; x++)
-  { 
-    x_offsets[x] = accum;
-    for (int y = 0; y < ny; y++)
-    { elements[y * nx + x].setAbs(accum + abs_x, y_offsets[y] + abs_y); }
-    accum += elements[x].getNx();
+Hierarchical::~Hierarchical() {
+  for (auto iter = elements.begin(); iter != elements.end(); iter++) { 
+    if (*iter != nullptr)
+    { delete *iter; }
   }
-  x_offsets[nx] = accum;
+  Element::~Element();
+}
 
-  for (int y = 1; y < ny; y++) for (int x = 1; x < nx; x++)
-  {
-    const int nx_i = elements[y * nx + x].getNx(), ny_i = elements[y * nx + x].getNy();
-    if ((nx_i != x_offsets[x + 1] - x_offsets[x]) && (ny_i != y_offsets[y + 1] - y_offsets[y]))
-    { return false; }
+Hierarchical* Hierarchical::getElementHierarchical() 
+{ return this; }
+
+int Hierarchical::getRowDimension() const
+{ return row_i[row_i.size() - 1]; }
+
+int Hierarchical::getColumnDimension() const
+{ return col_i[col_i.size() - 1]; }
+
+int Hierarchical::getPartY() const
+{ return (int)row_i.size() - 1; }
+
+int Hierarchical::getPartX() const
+{ return (int)col_i.size() - 1; }
+
+bool Hierarchical::in_tree(const int i, const int j) const
+{ return i >= 0 && j >= 0 && i < getPartY() && j < getPartX(); }
+
+void Hierarchical::setElement(Dense* d, const int i, const int j) {
+  if (in_tree(i, j)) {
+    int abs_y = row_i[i];
+    int abs_x = col_i[j];
+    d->setLocs(abs_y, abs_x);
+    elements[(size_t)j * getPartY() + i] = dynamic_cast<Element*>(d);
   }
-  return true;
 }
 
-void Hierarchical::setElement (void * M, const element_t type, const int x, const int y, const int abs_x, const int abs_y)
-{
-  if (x < nx && y < ny)
-  { elements[y * nx + x].setElement(M, type, abs_x, abs_y); }
-}
-
-Element * Hierarchical::getElement_blocks (const int y, const int x) const
-{ return (x < nx && y < ny) ? &elements[y * nx + x] : nullptr; }
-
-real_t Hierarchical::getElement_abs (const int y_in, const int x_in) const
-{
-  int block_y, block_x, offset_y = y_in, offset_x = x_in;
-
-  getElement_loc(&offset_y, &offset_x, &block_y, &block_x);
-
-  if (block_y >= 0 && block_x >= 0)
-  { return elements[block_y * nx + block_x].getElement(offset_y, offset_x); }
-  else
-  { return 0; }
-}
-
-void Hierarchical::getElement_loc (int * offset_y, int * offset_x, int * block_y, int * block_x) const
-{
-  int y = 0, x = 0, y_in = * offset_y, x_in = * offset_x;
-  while (y < ny && y_in >= y_offsets[y + 1]) { y++; }
-  while (x < nx && x_in >= x_offsets[x + 1]) { x++; }
-
-  if (y < ny && x < nx)
-  { * offset_y = y_in - y_offsets[y]; * offset_x = x_in - x_offsets[x]; * block_y = y; * block_x = x; }
-  else
-  { * block_y = -1; * block_x = -1; }
-}
-
-void Hierarchical::getOffsets_x (int ** x) const
-{
-  * x = new int[1 + (size_t) nx];
-  for (int i = 0; i <= nx; i++)
-  { (*x)[i] = x_offsets[i]; }
-}
-
-void Hierarchical::getOffsets_y (int ** y) const
-{
-  * y = new int [1 + (size_t) ny];
-  for (int i = 0; i <= ny; i++)
-  { (*y)[i] = y_offsets[i]; }
-}
-
-Dense * Hierarchical::convertToDense() const
-{
-  const int nx_d = getNx_abs(), ny_d = getNy_abs();
-  if (nx_d > 0 && ny_d > 0)
-  {
-    Dense * d = new Dense (nx_d, ny_d);
-    real_t * d_elements = d -> getElements();
-    for (int y = 0; y < ny_d; y++) for (int x = 0; x < nx_d; x++)
-    { d_elements[y * nx_d + x] = getElement_abs (y, x); }
-    return d;
+void Hierarchical::setElement(LowRank* lr, const int i, const int j) {
+  if (in_tree(i, j)) {
+    int abs_y = row_i[i];
+    int abs_x = col_i[j];
+    lr->setLocs(abs_y, abs_x);
+    elements[(size_t)j * getPartY() + i] = dynamic_cast<Element*>(lr);
   }
-  else
-  { return nullptr; }
 }
 
-h_index * Hierarchical::getRootIndex () const
-{ return new h_index (this, 0, 0); }
+void Hierarchical::setElement(Hierarchical* h, const int i, const int j) {
+  if (in_tree(i, j)) {
+    int abs_y = row_i[i];
+    int abs_x = col_i[j];
+    h->setLocs(abs_y, abs_x);
+    elements[(size_t)j * getPartY() + i] = dynamic_cast<Element*>(h);
+  }
+}
+
+Element* Hierarchical::getChild(const int i, const int j) const
+{ return in_tree(i, j) ? elements[(size_t)j * getPartY() + i] : nullptr; }
+
+void Hierarchical::findChild (int& i, int& j, int& b_i, int& b_j) const {
+  b_i = b_j = 0;
+  while (b_i < getPartY() && i >= row_i[(size_t)b_i + 1]) { b_i++; }
+  while (b_j < getPartX() && j >= col_i[(size_t)b_j + 1]) { b_j++; }
+
+  if (b_i < getPartY() && b_j < getPartX())
+  { i -= row_i[b_i]; j -= col_i[b_j]; }
+  else
+  { b_i = b_j = -1; }
+}
+
+Dense * Hierarchical::convertToDense() const {
+ 
+  return nullptr;
+}
+
+
+void Hierarchical::load(ifstream& stream) {
+  for (auto iter = elements.begin(); iter != elements.end(); iter++) {
+    (*iter)->load(stream);
+  }
+}
+
+void Hierarchical::load(const real_t* arr, const int ld) {
+  for (int x = 0; x < getPartX(); x++) {
+    int x_i = col_i[x] * ld;
+    for (int y = 0; y < getPartY(); y++) {
+      int y_i = row_i[y] + x_i;
+      getChild(y, x)->load(&arr[y_i], ld);
+    }
+  }
+}
+
+void Hierarchical::print() const {
+  print(vector<int>(), vector<int>{0, 16, 0, 16});
+}
+
+void Hierarchical::print(vector<int> &indices, vector<int>& config) const {
+  int count = 0;
+  for (auto iter = elements.begin(); iter != elements.end(); iter++) {
+    indices.push_back(count++);
+    (*iter)->print(indices, config);
+    indices.pop_back();
+  }
+}
+
+
+
+
+
+
+/*
 
 h_ops_tree * Hierarchical::generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr) const
 {
@@ -825,77 +826,6 @@ h_ops_tree * Hierarchical::generateOps_GEMM (const h_index * self, const Element
   { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
 
   return nullptr;
-}
-
-cudaError_t Hierarchical::loadBinary (FILE * stream, const bool reverse_bytes)
-{
-  cudaError_t error = cudaSuccess;
-  for (int i = 0; i < nx * ny; i++)
-  {
-    if (error != cudaSuccess)
-    { return error; }
-    else
-    { elements[i].loadBinary (stream, reverse_bytes); }
-  }
-  return error;
-}
-
-Hierarchical * Hierarchical::readStructureFromFile (FILE * stream, const int shadow_rank)
-{
-  element_t type;
-  void * h = Element :: readStructureFromFile(stream, &type, shadow_rank);
-
-  if (type == hierarchical)
-  { return (Hierarchical *) h; }
-  else
-  {
-    printf("The Matrix Loaded is not a hierarchical matrix.\n");
-
-    if (type == dense)
-    { Dense* d = (Dense*) h; delete d; }
-    else if (type == low_rank)
-    { LowRank* lr = (LowRank*) h; delete lr; }
-
-    return nullptr; 
-  }
-
-}
-
-Hierarchical * Hierarchical::readFromFile (const char * file_name, const int shadow_rank, const bool reverse_bytes)
-{
-  char str[32], bin[32];
-  strcpy(str, file_name); strcat(str, ".struct");
-  strcpy(bin, file_name); strcat(bin, ".bin");
-
-  FILE * stream = fopen(str, "r");
-  Hierarchical * a = Hierarchical :: readStructureFromFile (stream, shadow_rank);
-  fclose(stream);
-
-  if (a != nullptr)
-  {
-    stream = fopen(bin, "rb");
-    a -> loadBinary(stream, reverse_bytes);
-    fclose(stream);
-  }
-
-  return a;
-}
-
-void Hierarchical::print (std :: vector <int> &indices) const
-{
-  for (int i = 0; i < nx * ny; i++)
-  {
-    indices.push_back(i);
-    elements[i].print(indices);
-    indices.pop_back();
-  }
-}
-
-void Hierarchical::print() const
-{
-  std :: vector <int> indices = std :: vector <int>();
-  print(indices);
-}
-
+}*/
 
 

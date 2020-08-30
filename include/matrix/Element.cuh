@@ -1,7 +1,7 @@
 
 #pragma once
-#ifndef _Element_CUH
-#define _Element_CUH
+#ifndef _Element
+#define _Element
 
 #include <iostream>
 #include <fstream>
@@ -40,13 +40,11 @@ public:
 
   virtual ~Element();
 
-  virtual Dense* getElementDense() const;
+  virtual Dense* getElementDense();
 
-  virtual LowRank* getElementLowRank() const;
+  virtual LowRank* getElementLowRank();
 
-  virtual Hierarchical* getElementHierarchical() const;
-
-  element_t getType() const;
+  virtual Hierarchical* getElementHierarchical();
 
   virtual int getRowDimension() const;
 
@@ -56,21 +54,29 @@ public:
 
   virtual int getRank() const;
 
-  virtual real_t getElement (const int i, const int j) const;
+  virtual Dense* convertToDense() const;
 
-  virtual void setAccumulator(const int rank);
+  virtual void load(ifstream& stream);
+
+  virtual void load(const real_t* arr, const int ld);
+
+  virtual void print() const;
+
+  virtual void print(vector<int>& indices, vector<int>& config) const;
+
+  element_t getType() const;
+
+  void getLocs(int& abs_y, int& abs_x) const;
+
+  void setLocs(const int abs_y, const int abs_x);
+
+  void setAccumulator(const int rank);
 
   void setAccumulator(Dense& U, Dense& V);
 
   Dense* getAccumulatorU();
 
   Dense* getAccumulatorV();
-
-  virtual Dense* convertToDense() const;
-
-  virtual void loadBinary (ifstream& stream);
-
-  virtual void print(vector<int>& indices, vector<int>& config) const;
 
   void print(vector<int>& indices) const;
 

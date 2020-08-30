@@ -4,9 +4,6 @@
     <ClInclude Include="include\compressor.cuh">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\dev_temp.cuh">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="include\timer.cuh">
       <Filter>include</Filter>
     </ClInclude>
@@ -21,9 +18,6 @@
     </ClInclude>
     <ClInclude Include="include\h_ops\dev_hierarchical_ops_tree.cuh">
       <Filter>include\h_ops</Filter>
-    </ClInclude>
-    <ClInclude Include="include\definitions.cuh">
-      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\h_ops\dependency.cuh">
       <Filter>include\h_ops</Filter>
@@ -40,12 +34,6 @@
     <ClInclude Include="include\h_ops\dependency_checker.cuh">
       <Filter>include\h_ops</Filter>
     </ClInclude>
-    <ClInclude Include="include\instructions\instructions.h">
-      <Filter>include\instructions</Filter>
-    </ClInclude>
-    <ClInclude Include="include\instructions\getrf.h">
-      <Filter>include\instructions</Filter>
-    </ClInclude>
     <ClInclude Include="include\kernel_cublas.cuh">
       <Filter>include</Filter>
     </ClInclude>
@@ -61,39 +49,18 @@
     <ClInclude Include="include\matrix\Hierarchical.cuh">
       <Filter>include\matrix</Filter>
     </ClInclude>
+    <ClInclude Include="include\instructions\GETRF.cuh">
+      <Filter>include\instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="include\instructions\instructions.cuh">
+      <Filter>include\instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="include\matrix\Clusterbasis.cuh">
+      <Filter>include\matrix</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
-    <CudaCompile Include="src\h_ops\dev_hierarchical_index.cu">
-      <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\h_ops\dev_hierarchical_ops.cu">
-      <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\h_ops\dev_hierarchical_ops_tree.cu">
-      <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\launcher.cu">
-      <Filter>src</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\h_ops\dev_hierarchical_ops_dag.cu">
-      <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\instructions\instructions_manager.cu">
-      <Filter>src\instructions</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\instructions\instructions_scheduler.cu">
-      <Filter>src\instructions</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\h_ops\dependency.cu">
-      <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\h_ops\dependency_checker.cu">
-      <Filter>src\h_ops</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\kernel_cublas.cu">
-      <Filter>src</Filter>
-    </CudaCompile>
     <CudaCompile Include="src\matrix\Dense.cu">
       <Filter>src\matrix</Filter>
     </CudaCompile>
@@ -104,6 +71,9 @@
       <Filter>src\matrix</Filter>
     </CudaCompile>
     <CudaCompile Include="src\matrix\Hierarchical.cu">
+      <Filter>src\matrix</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\matrix\Clusterbasis.cu">
       <Filter>src\matrix</Filter>
     </CudaCompile>
   </ItemGroup>

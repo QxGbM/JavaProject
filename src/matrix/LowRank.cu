@@ -1,98 +1,55 @@
 
-#include <definitions.cuh>
-#include <matrix/Dense.cuh>
 #include <matrix/LowRank.cuh>
-#include <matrix/Hierarchical.cuh>
-#include <matrix/Element.cuh>
-#include <h_ops/dev_hierarchical_index.cuh>
-#include <h_ops/dev_hierarchical_ops.cuh>
-#include <h_ops/dev_hierarchical_ops_tree.cuh>
-#include <dev_temp.cuh>
 
-
-LowRank::LowRank (const int x, const int y, const int rank_in)
-{
-  nx = x;
-  ny = y;
-
-  const int n = (nx > ny) ? ny : nx;
-
-  rank = (rank_in > 0 && rank_in <= n) ? rank_in : n;
-
-  UxS = new Dense (rank, ny); 
-  VT = new Dense (rank, nx);
+LowRank::LowRank(const int m, const int n, const int rank, const int ld) : Element (element_t::low_rank, 0, 0) {
+  U = new Clusterbasis(m, rank, &(Element::abs_y), ld);
+  V = new Clusterbasis(n, rank, &(Element::abs_x), ld);
+  S = nullptr;
 }
 
-LowRank::LowRank (Dense * data_in)
-{
-  nx = data_in -> getNx();
-  ny = data_in -> getNy();
-
-  rank = nx;
-
-  UxS = data_in;
-  VT = new Dense (nx, nx);
+LowRank::LowRank(const int m, const int n, const int rank, const int abs_y, const int abs_x, const int ld) : Element(element_t::low_rank, abs_y, abs_x) {
+  U = new Clusterbasis(m, rank, &(Element::abs_y), ld);
+  V = new Clusterbasis(n, rank, &(Element::abs_x), ld);
+  S = nullptr;
 }
 
-LowRank::~LowRank ()
-{
-  delete UxS;
-  delete VT;
+LowRank::~LowRank() {
+  delete U;
+  delete V;
+  if (S != nullptr)
+  { delete S; }
+  Element::~Element();
 }
 
-int LowRank::getNx () const 
-{ return nx; }
+LowRank* LowRank::getElementLowRank()
+{ return this; }
 
-int LowRank::getNy () const
-{ return ny; }
+int LowRank::getRowDimension() const 
+{ return U->getDimension(); }
 
-int LowRank::getRank () const
-{ return rank; }
+int LowRank::getColumnDimension() const
+{ return V->getDimension(); }
 
-Dense * LowRank::getUxS () const
-{ return UxS; }
-
-Dense * LowRank::getVT () const
-{ return VT; }
-
-real_t * LowRank::getElements (const int offset) const
-{ 
-  const int offset_vt = getNy() * getRank();
-  return offset >= offset_vt ? VT -> getElements (offset - offset_vt) : UxS -> getElements(offset); 
+int LowRank::getRank () const {
+  using std::min;
+  return min(U->getRank(), V->getRank()); 
 }
 
-real_t LowRank::getElement (const int y, const int x) const
-{
-  real_t element = 0;
-  const int ld_u = UxS -> getLd(), ld_vt = VT -> getLd();
-  const real_t * UxS_E = UxS -> getElements(), * VT_E = VT -> getElements();
-  for (int i = 0; i < rank; i++)
-  { element += UxS_E[y * ld_u + i] * VT_E[x * ld_vt + i]; }
-  return element;
+Dense* LowRank::convertToDense() const {
+  return nullptr;
 }
 
-Dense * LowRank::convertToDense() const
-{
-  Dense * d = new Dense (nx, ny);
-  real_t * d_elements = d -> getElements();
-  for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
-  { d_elements[y * nx + x] = getElement(y, x); }
-  return d;
+void LowRank::print() const {
+  
 }
 
-cudaError_t LowRank::adjustRank (const int rank_in)
-{
-  if (rank_in > 0 && rank_in != rank)
-  {
-    const int rank_new = (rank_in <= nx || rank_in <= ny) ? rank_in : (nx < ny ? ny : nx);
-    rank = rank_new;
-    cudaError_t error = UxS -> resizeColumn (rank_new);
-    return error == cudaSuccess ? VT -> resizeColumn (rank_new) : error;
-  }
-  else
-  { return cudaSuccess; }
+void LowRank::print(vector<int>& indices, vector<int>& config) const {
+
 }
 
+
+
+/*
 h_ops_tree * LowRank::generateOps_GETRF (const h_index * self, dev_temp * tmp_mngr)
 { 
   printf("Error: GETRF should not be performed on low-rank matrices.\n");
@@ -690,61 +647,5 @@ h_ops_tree * LowRank::generateOps_GEMM (const h_index * self, const Element * A,
   { return generateOps_GEMM (self, A, index_a, h_b, index_b, tmp_mngr); }
 
   return nullptr;
-}
-
-cudaError_t LowRank::loadBinary (FILE * stream, const bool reverse_bytes)
-{
-  cudaError_t error = UxS -> loadBinary(stream, reverse_bytes);
-  return error == cudaSuccess ? VT -> loadBinary(stream, reverse_bytes) : error;
-}
-
-LowRank * LowRank::readStructureFromFile (FILE * stream)
-{
-  element_t type;
-  void * lr = Element  :: readStructureFromFile(stream, &type);
-
-  if (type == low_rank)
-  { return (LowRank *) lr; }
-  else
-  {
-    printf("The Matrix Loaded is not a low rank matrix.\n");
-
-    if (type == hierarchical)
-    { Hierarchical * h = (Hierarchical *) lr; delete h; }
-    else if (type == dense)
-    { Dense * d = (Dense *) lr; delete d; }
-
-    return nullptr;
-  }
-
-}
-
-LowRank * LowRank::readFromFile (const char * file_name, const bool reverse_bytes)
-{
-  char str[32], bin[32];
-  strcpy(str, file_name); strcat(str, ".struct");
-  strcpy(bin, file_name); strcat(bin, ".bin");
-
-  FILE * stream = fopen(str, "r");
-  LowRank * a = LowRank :: readStructureFromFile (stream);
-  fclose(stream);
-
-  if (a != nullptr)
-  {
-    stream = fopen(bin, "rb");
-    a -> loadBinary(stream, reverse_bytes);
-    fclose(stream);
-  }
-
-  return a;
-}
-
-
-void LowRank::print(const int y_start, const int ny_in, const int x_start, const int nx_in, const int rank_in) const
-{
-  printf("\n-- LR: %d x %d, rank %d --\n", ny, nx, rank);
-  UxS -> print(y_start, ny_in, 0, rank_in);
-  VT -> print(x_start, nx_in, 0, rank_in);
-}
-
+}*/
 

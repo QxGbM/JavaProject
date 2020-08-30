@@ -4,59 +4,48 @@
 
 #include <matrix/Dense.cuh>
 #include <matrix/Hierarchical.cuh>
-#include <launcher.cuh>
 #include <timer.cuh>
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <cusolverDn.h>
 
 
-int test0 (char test_name[], const int blocks, const int threads, const int kernel_size, const bool ref, char ref_name[])
-{
+int test0 (char test_name[], const int blocks, const int threads, const int kernel_size, const bool ref, char ref_name[]) {
   cudaSetDevice(0);
   cudaDeviceReset();
 
-  Hierarchical * a = Hierarchical :: readFromFile(test_name, 0);
-  //a->print();
+  int m = 3;
+  int n = 3;
+  Dense a = Dense(m, n);
 
-  cudaError_t error = dev_hierarchical_GETRF(a, blocks, threads, kernel_size);
+  double test[]{1, 2, 3, 2, 5, 5, 3, 7, 3};
+  a.load(&test[0], 3);
 
-  if (ref && error == cudaSuccess)
-  {
-    Dense * b = a->convertToDense(), * c = Dense :: readFromFile(ref_name, 0);
-    b->print();
-    c->print();
+  auto arr = a.getElements();
+  int ld = a.getLeadingDimension();
+  a.print();
 
-    int m = c->getNy();
-    int n = c->getNx();
-    int ld = c->getLd();
-    auto arr = c->getElements();
-
-    cusolverDnHandle_t handle;
-    cusolverDnCreate(&handle);
-    double* Workspace;
-    int Lwork;
-    int* devInfo;
-    cusolverDnDgetrf_bufferSize(handle, m, n, arr, ld, &Lwork);
-    Lwork = 16384;
-    cudaMalloc(&Workspace, Lwork);
-    cudaMalloc(&devInfo, sizeof(int));
-
-    timer my_timer = timer();
-    my_timer.newEvent("ref", start);
-    cusolverDnDgetrf(handle, m, n, arr, ld, Workspace, nullptr, devInfo);
-    my_timer.newEvent("ref", end);
+  std::cout << cudaGetErrorString(cudaGetLastError());
 
 
-    my_timer.dumpAllEvents_Sync();
+  cusolverDnHandle_t handle;
+  cusolverDnCreate(&handle);
+  double* Workspace;
+  int Lwork;
+  cusolverDnDgetrf_bufferSize(handle, m, n, arr, ld, &Lwork);
+  cudaMalloc(reinterpret_cast<void**>(&Workspace), Lwork);
 
-    printf("\033[0;31m");
-    printf("Rel. L2 Error: %e\n\n", c -> L2Error(b)); 
-    printf("\033[0m");
+  timer Timer = timer();
 
-    delete b; b = nullptr;
-    delete c; c = nullptr;
-  }
+  Timer.newEvent("test");
+  cusolverDnDgetrf(handle, m, n, arr, ld, Workspace, nullptr, nullptr);
+  Timer.newEvent("test");
 
-  delete a;
+
+  Timer.dumpEvents();
+  a.print();
+
+  Hierarchical h = Hierarchical(16, 16, 2, 2);
 
   return 0;
 }
@@ -65,7 +54,7 @@ int test0 (char test_name[], const int blocks, const int threads, const int kern
 
 int main(int argc, char * argv[])
 {
-  int blocks = 80, threads = 512, kernel_size = 0, rank = _SHADOW_RANK;
+  int blocks = 80, threads = 512, kernel_size = 0, rank = 16;
   bool ref = false;
 
   char tmp[32], dir[32] = "bin/", ref_name[32], test_name[32] = "bin/test";

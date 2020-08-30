@@ -88,7 +88,6 @@
       <CodeGeneration>compute_60,sm_60;compute_61,sm_61;compute_70,sm_70;compute_75,sm_75;</CodeGeneration>
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
       <Optimization>O3</Optimization>
-      <MaxRegCount>128</MaxRegCount>
       <AdditionalCompilerOptions>
       </AdditionalCompilerOptions>
       <AdditionalOptions>-Xcompiler "-openmp" %(AdditionalOptions)</AdditionalOptions>
@@ -98,16 +97,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="main.cu" />
-    <CudaCompile Include="src\h_ops\dependency.cu" />
-    <CudaCompile Include="src\h_ops\dependency_checker.cu" />
-    <CudaCompile Include="src\h_ops\dev_hierarchical_index.cu" />
-    <CudaCompile Include="src\h_ops\dev_hierarchical_ops.cu" />
-    <CudaCompile Include="src\h_ops\dev_hierarchical_ops_dag.cu" />
-    <CudaCompile Include="src\h_ops\dev_hierarchical_ops_tree.cu" />
-    <CudaCompile Include="src\instructions\instructions_manager.cu" />
-    <CudaCompile Include="src\instructions\instructions_scheduler.cu" />
-    <CudaCompile Include="src\kernel_cublas.cu" />
-    <CudaCompile Include="src\launcher.cu" />
+    <CudaCompile Include="src\matrix\Clusterbasis.cu" />
     <CudaCompile Include="src\matrix\Dense.cu" />
     <CudaCompile Include="src\matrix\Hierarchical.cu" />
     <CudaCompile Include="src\matrix\Element.cu" />
@@ -115,25 +105,24 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\compressor.cuh" />
-    <ClInclude Include="include\dev_temp.cuh" />
     <ClInclude Include="include\h_ops\dependency.cuh" />
     <ClInclude Include="include\h_ops\dependency_checker.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_index.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_ops.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_ops_dag.cuh" />
     <ClInclude Include="include\h_ops\dev_hierarchical_ops_tree.cuh" />
-    <ClInclude Include="include\instructions\getrf.h" />
-    <ClInclude Include="include\instructions\instructions.h" />
+    <ClInclude Include="include\instructions\GETRF.cuh" />
+    <ClInclude Include="include\instructions\instructions.cuh" />
     <ClInclude Include="include\instructions\instructions_manager.cuh" />
     <ClInclude Include="include\instructions\instructions_scheduler.cuh" />
     <ClInclude Include="include\kernel_cublas.cuh" />
     <ClInclude Include="include\launcher.cuh" />
+    <ClInclude Include="include\matrix\Clusterbasis.cuh" />
     <ClInclude Include="include\matrix\Dense.cuh" />
     <ClInclude Include="include\matrix\Hierarchical.cuh" />
     <ClInclude Include="include\matrix\Element.cuh" />
     <ClInclude Include="include\matrix\LowRank.cuh" />
     <ClInclude Include="include\timer.cuh" />
-    <ClInclude Include="include\definitions.cuh" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
