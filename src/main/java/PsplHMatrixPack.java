@@ -10,11 +10,11 @@ public class PsplHMatrixPack {
   public static final int MINIMAL_SEP = 512;
 
   private static int rank = 16;
-  private static int level = 1;
+  private static int level = 3;
   private static int nblocks = 2;
-  private static int nleaf = 2;
+  private static int nleaf = 128;
   private static int dim = nleaf * (int) Math.pow (nblocks, level);
-  private static double admis = 0;
+  private static double admis = 0.5;
   private static double[] rand;
 
   private static final Logger logger = System.getLogger("logger");
@@ -41,7 +41,7 @@ public class PsplHMatrixPack {
     if (integrity) {
       rand(dim);
 
-      /*Dense d = new Dense (dim, dim, 0, 0, testFunc);
+      Dense d = new Dense (dim, dim, 0, 0, testFunc);
 
       long startTime = System.nanoTime();
       Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
@@ -66,7 +66,7 @@ public class PsplHMatrixPack {
       infoOut("h Storage Compression Ratio: " + Double.toString(compress));
 
       startTime = System.nanoTime();
-      h2.getrf();
+      //h2.getrf();
       endTime = System.nanoTime();
       infoOut("H2-LU time: " +  (endTime - startTime) / 1000000);
 
@@ -75,12 +75,7 @@ public class PsplHMatrixPack {
       infoOut("LU Err: " + h2.compare(d) / dim / dim);
 
       compress = h2.getCompressionRatio();
-      infoOut("h Storage Compression Ratio: " + Double.toString(compress));*/
-      Hierarchical h = new Hierarchical(dim, dim, nleaf, nblocks, admis, 0, 0, testFunc);
-      h.writeToFile("test");
-
-      Dense d = h.toDense();
-      d.writeToFile("ref");
+      infoOut("h Storage Compression Ratio: " + Double.toString(compress));
 
     }
 

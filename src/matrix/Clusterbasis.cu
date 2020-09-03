@@ -19,6 +19,14 @@ int Clusterbasis::getRank() const {
   return basis->getColumnDimension();
 }
 
+Dense* Clusterbasis::getBasis() {
+  return basis;
+}
+
+real_t* Clusterbasis::getElements() {
+  return basis->getElements();
+}
+
 void Clusterbasis::print() const {
   basis->print();
 }

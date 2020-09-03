@@ -24,6 +24,10 @@ public:
 
   int getRank() const;
 
+  Dense* getBasis();
+
+  real_t* getElements();
+
   void print() const;
 
 };

@@ -15,45 +15,6 @@ public class H2Matrix implements Block {
     e = null;
   }
 
-  public H2Matrix (int m, int n, int nleaf, int partStrat, int rank, double admis, int yStart, int xStart, PsplHMatrixPack.DataFunction func) {
-    rowBasis = new ClusterBasis(yStart, m, true, nleaf, partStrat, rank, admis, func);
-    colBasis = new ClusterBasis(xStart, n, false, nleaf, partStrat, rank, admis, func);
-    e = new Block[partStrat][partStrat];
-
-    ClusterBasis[] rowBasisLower = rowBasis.getChildren();
-    ClusterBasis[] colBasisLower = colBasis.getChildren();
-
-    int mBlock = m / partStrat;
-    int mRemain = m - (partStrat - 1) * mBlock;
-    int nBlock = n / partStrat;
-    int nRemain = n - (partStrat - 1) * nBlock;
-
-    for (int i = 0; i < partStrat; i++) {
-      int mE = i == partStrat - 1 ? mRemain : mBlock;
-      int yE = yStart + mBlock * i;
-      ClusterBasis bI = rowBasisLower[i];
-
-      for (int j = 0; j < partStrat; j++) {
-        int nE = j == partStrat - 1 ? nRemain : nBlock;
-        int xE = xStart + nBlock * j;
-        ClusterBasis bJ = colBasisLower[j];
-
-        boolean admisible = Integer.max(mE, nE) <= admis * Math.abs(xE - yE);
-
-        if (admisible)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func).toLowRankFromBasis(bI, bJ); }
-        else if (bI.childrenLength() == 0 || bJ.childrenLength() == 0)
-        { e[i][j] = new Dense(mE, nE, yE, xE, func); }
-        else
-        { e[i][j] = new H2Matrix(bI, bJ, yE, xE, admis, func); }
-
-      }
-    }
-
-    rowBasis.convertReducedStorageForm();
-    colBasis.convertReducedStorageForm();
-  }
-
   public H2Matrix (ClusterBasis rowBasis, ClusterBasis colBasis, int yStart, int xStart, double admis, PsplHMatrixPack.DataFunction func) {
     this.rowBasis = rowBasis;
     this.colBasis = colBasis;

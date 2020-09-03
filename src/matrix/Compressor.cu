@@ -10,12 +10,12 @@ const int n_stream = 4;
 
 compressor::compressor(Hierarchical& h, const int rank, const double condition) {
   load(h, rank, condition);
-  compress();
+  compress(rank);
 }
 
 compressor::~compressor() {
   for (auto iter = d_lis.begin(); iter != d_lis.end(); iter++) {
-    delete* iter;
+    delete *iter;
   }
 }
 
@@ -39,7 +39,7 @@ void compressor::load(Hierarchical& h, const int rank, const double condition) {
   }
 }
 
-void compressor::compress() {
+void compressor::compress(const int rank) {
   cudaStream_t streams[n_stream];
   cusolverDnHandle_t shandle[n_stream];
   cublasHandle_t chandle[n_stream];
@@ -55,10 +55,20 @@ void compressor::compress() {
     cublasSetWorkspace(chandle[i], workspace[i], 16384);
   }
 
-#pragma omp parallel for num_threads(n_stream)
-  for (int i = 0; i < d_lis.size(); i++) {
+  int size = (int)d_lis.size() / n_stream;
+#pragma omp parallel num_threads(n_stream) 
+  {
     int tid = omp_get_thread_num();
+    int start_i = tid * size;
+    using std::min;
+    int end_i = min((int)d_lis.size(), start_i + size);
 
+    for (int i = start_i; i < end_i; i++) {
+      LowRank* lr = lr_lis[i]->getElementLowRank();
+      real_t* Q = lr->getU()->getElements();
+    }
+#pragma omp critical
+    std::cout << tid << ": " << start_i << " " << end_i << std::endl;
   }
 
   for (int i = 0; i < n_stream; i++) {

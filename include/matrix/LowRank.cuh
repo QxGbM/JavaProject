@@ -33,6 +33,10 @@ public:
 
   virtual void print(vector<int>& indices, vector<int>& config) const override;
 
+  Clusterbasis* getU();
+
+  Clusterbasis* getV();
+
 };
 
 

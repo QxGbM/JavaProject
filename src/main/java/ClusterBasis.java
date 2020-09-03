@@ -12,11 +12,16 @@ public class ClusterBasis {
   private int[] childDim;
   private ClusterBasis parent;
 
+  private Matrix weight;
+  private Matrix projection;
+
   public ClusterBasis (int m, int n) {
     basis = new Matrix(m, n);
     children = null;
     childDim = null;
     parent = null;
+    weight = null;
+    projection = null;
   }
 
   public ClusterBasis (Matrix m) {
@@ -24,38 +29,15 @@ public class ClusterBasis {
     children = null;
     childDim = null;
     parent = null;
-  }
-
-  public ClusterBasis (int xyStart, int mn, boolean rowB, int nleaf, int partStrat, int rank, double admis, PsplHMatrixPack.DataFunction func) {
-
-    if (rowB)
-    { basis = Dense.getBasisU(xyStart, mn, rank, admis, func); }
-    else
-    { basis = Dense.getBasisVT(xyStart, mn, rank, admis, func); }
-
-    if (mn > nleaf) {
-      int mnBlock = mn / partStrat;
-      int mnRemain = mn - (partStrat - 1) * mnBlock;
-      children = new ClusterBasis[partStrat];
-  
-      for (int i = 0; i < partStrat; i++) {
-        int mnE = i == partStrat - 1 ? mnRemain : mnBlock;
-        int xyE = xyStart + mnBlock * i;
-        children[i] = new ClusterBasis (xyE, mnE, rowB, nleaf, partStrat, rank, admis, func);
-        children[i].parent = this;
-      }
-    }
-    else
-    { children = null; }
-
-    childDim = null;
-    parent = null;
+    weight = null;
+    projection = null;
   }
 
   public ClusterBasis (Hierarchical h, boolean rowB, int rank) {
     children = null;
     childDim = null;
     parent = null;
+    projection = null;
     if (rowB) {
       basis = new Matrix(h.getRowDimension(), rank);
       spanChildrenRow(h, rank); 
@@ -86,8 +68,10 @@ public class ClusterBasis {
       for (int j = 0; j < n; j++) {
         Block b = h.getElement(i, j);
 
-        if (b.getType() == Block.Block_t.LOW_RANK)
-        { children[i].accBasis(b.toDense(), rank); }
+        if (b.getType() == Block.Block_t.LOW_RANK) {
+          LowRankBasic lr = b.toLowRankBasic();
+          children[i].accAdmisBlock(lr.getU(), lr.getVT(), rank); 
+        }
         else if (b.getType() == Block.Block_t.HIERARCHICAL)
         { children[i].spanChildrenRow(b.castHierarchical(), rank); }
       }
@@ -112,8 +96,10 @@ public class ClusterBasis {
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
         Block b = h.getElement(i, j);
-        if (b.getType() == Block.Block_t.LOW_RANK)
-        { children[j].accBasis(b.toDense().transpose(), rank); }
+        if (b.getType() == Block.Block_t.LOW_RANK) { 
+          LowRankBasic lr = b.toLowRankBasic();
+          children[j].accAdmisBlock(lr.getVT(), lr.getU(), rank); 
+        }
         else if (b.getType() == Block.Block_t.HIERARCHICAL)
         { children[j].spanChildrenCol(b.castHierarchical(), rank); }
       }
@@ -122,10 +108,10 @@ public class ClusterBasis {
   }
 
   private void propagateBasis () {
-    if (basis != null && children != null) {
-      Matrix[] mPart = partitionMatrix(basis);
+    if (weight != null && children != null) {
+      Matrix[] mPart = partitionMatrix(weight);
       for (int i = 0; i < children.length; i++)
-      { children[i].accBasis(mPart[i]); }
+      { children[i].accAdmisBlock(mPart[i]); }
     }
     if (children != null) {
       for (int i = 0; i < childrenLength(); i++)
@@ -134,32 +120,16 @@ public class ClusterBasis {
   }
 
   private void orthogonalize () {
-    if (basis != null) {
-      int dim = basis.getRowDimension();
-      int rank = basis.getColumnDimension();
-      QRDecomposition qrd = basis.qr();
+    if (weight != null) {
+      int dim = weight.getRowDimension();
+      int rank = weight.getColumnDimension();
+      QRDecomposition qrd = weight.qr();
       basis = qrd.getQ().getMatrix(0, dim - 1, 0, rank - 1);
     }
     if (children != null) {
       for (int i = 0; i < childrenLength(); i++)
       { children[i].orthogonalize(); }
     }
-  }
-
-  public ClusterBasis copyClusterBasis () {
-    ClusterBasis c = new ClusterBasis(basis);
-    int l = childrenLength();
-    if (l > 0) {
-      c.children = new ClusterBasis[l];
-      for (int i = 0; i < l; i++) { 
-        c.children[i] = children[i].copyClusterBasis(); 
-        c.children[i].parent = c; 
-      }
-    }
-    if (childDim != null) {
-      c.childDim = Arrays.copyOf(childDim, l + 1);
-    }
-    return c;
   }
 
   public int getDimension () {
@@ -212,22 +182,22 @@ public class ClusterBasis {
     return basis;
   }
 
-  public Matrix accBasis (Matrix m, int rank) {
-    Matrix r = Matrix.random(m.getColumnDimension(), rank);
-    Matrix mr = m.times(r);
-    if (basis == null)
-    { basis = mr.copy(); }
+  public Matrix accAdmisBlock (Matrix u, Matrix vt, int rank) {
+    Matrix r = Matrix.random(rank, vt.getRowDimension());
+    Matrix mr = u.times((r.times(vt)).transpose());
+    if (weight == null)
+    { weight = mr.copy(); }
     else
-    { basis.plusEquals(mr); }
-    return basis;
+    { weight.plusEquals(mr); }
+    return weight;
   }
 
-  public Matrix accBasis (Matrix m) {
-    if (basis == null)
-    { basis = m.copy(); }
+  public Matrix accAdmisBlock (Matrix m) {
+    if (weight == null)
+    { weight = m.copy(); }
     else
-    { basis.plusEquals(m); }
-    return basis;
+    { weight.plusEquals(m); }
+    return weight;
   }
 
   public ClusterBasis[] getChildren () {

@@ -47,6 +47,13 @@ void LowRank::print(vector<int>& indices, vector<int>& config) const {
 
 }
 
+Clusterbasis* LowRank::getU() {
+  return U;
+}
+
+Clusterbasis* LowRank::getV() {
+  return V;
+}
 
 
 /*

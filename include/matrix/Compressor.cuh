@@ -12,7 +12,7 @@ private:
 
   void load(Hierarchical& h, const int rank, const double condition);
 
-  void compress();
+  void compress(const int rank);
 
 public:
   compressor(Hierarchical& h, const int rank, const double condition);
