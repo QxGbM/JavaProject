@@ -1,8 +1,4 @@
 #pragma once
-#ifndef _DEP_CHECK_CUH
-#define _DEP_CHECK_CUH
-
-#include <definitions.cuh>
 
 class matrix_painter
 {
@@ -38,4 +34,3 @@ public:
 
 };
 
-#endif

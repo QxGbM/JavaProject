@@ -1,10 +1,5 @@
 
 #pragma once
-#ifndef _INSTRUCTIONS_SCHEDULER_CUH
-#define _INSTRUCTIONS_SCHEDULER_CUH
-
-#include <definitions.cuh>
-#include <h_ops/dev_hierarchical_ops_dag.cuh>
 
 class instructions_queue
 {
@@ -130,4 +125,3 @@ public:
 
 };
 
-#endif

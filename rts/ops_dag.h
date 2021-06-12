@@ -1,12 +1,5 @@
 
 #pragma once
-#ifndef _dev_hierarchical_OPS_DAG_CUH
-#define _dev_hierarchical_OPS_DAG_CUH
-
-#include <definitions.cuh>
-#include <h_ops/dependency.cuh>
-#include <h_ops/dev_hierarchical_ops.cuh>
-#include <h_ops/dev_hierarchical_ops_tree.cuh>
 
 class h_ops_dag 
 {
@@ -52,4 +45,3 @@ public:
 };
 
 
-#endif
