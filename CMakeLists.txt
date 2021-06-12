@@ -13,3 +13,6 @@ include_directories(./matrix ./rts)
 add_subdirectory(./matrix)
 add_subdirectory(./rts)
 
+add_executable(main main.cpp)
+target_link_libraries(main rts)
+set_property(TARGET main PROPERTY CUDA_ARCHITECTURES 60 70 75)

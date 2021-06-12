@@ -2,52 +2,63 @@
 
 #include <ops.h>
 #include <dependency.h>
+#include <algorithm>
+
+bool DataMap2D::checkOverlap(const DataMap2D& data) const {
+
+  unsigned char* ptr_a = reinterpret_cast<unsigned char*>(ptr);
+  unsigned char* ptr_b = reinterpret_cast<unsigned char*>(data.ptr);
+
+  auto diff = ptr_b - ptr_a;
+  if (diff < 0)
+    return data.checkOverlap(*this);
+  else if ((size_t)diff >= height * pitch)
+    return false;
+  else {
+    bool ol = ptr_a == ptr_b;
+    unsigned char* cmp_fin = ptr_b + data.height * data.pitch;
+    size_t i_end = std::min(height, ((size_t)(cmp_fin - ptr_a) + pitch - 1) / pitch);
+
+    for (size_t i = diff / pitch; i < i_end && !ol; i++) {
+      auto data_start = ptr_a + i * pitch;
+      auto data_end = data_start + width;
+      auto next_data = data_start + pitch;
+
+      auto diff_b = data_start - ptr_b;
+      auto cmp_start = diff_b > 0 ? ptr_b + (diff_b / data.pitch) * data.pitch : ptr_b;
+
+      while (cmp_start < data_end && cmp_start < cmp_fin && !ol) {
+        auto cmp_end = cmp_start + data.width;
+        if (!(cmp_end <= data_start || data_end <= cmp_start))
+          ol = true;
+        cmp_start = cmp_start + data.pitch;
+      }
+
+    }
+
+    return ol;
+  }
+}
 
 dependency_t Operation::checkDependencyFrom (const Operation& op_from) const {
-  int rw_from = op_from -> n_rw, ro_from = op_from -> n_ro, rw_to = n_rw, ro_to = n_ro, dep = (int) dependency_t::no_dep;
+  dependency_t dep = dependency_t::no;
 
-  for (int i = 0; i < rw_from * (rw_to + ro_to); i++)
-  {
-    const int to = i / rw_from, from = i - to * rw_from;
+  for (size_t i = 0; i < op_from.data.size(); i++)
+    for (size_t j = 0; j < data.size(); j++) {
 
-    if (to < rw_to)
-    {
-      relation_t relation = read_and_write[to].compare(&(op_from -> read_and_write)[from]);
-      switch (relation)
-      {
-      case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
-        break;
-      case same_branch_diff_node: case same_node_overlapped: case same_index:
-        dep |= (int) dependency_t::output_dep;
+      bool ol = op_from.data[i].second.checkOverlap(data[j].second);
+
+      if (ol) {
+        if (!op_from.data[i].first && data[j].first)
+          dep = dep + dependency_t::flow;
+        if (op_from.data[i].first && !data[j].first)
+          dep = dep + dependency_t::anti;
+        if (!op_from.data[i].first && !data[j].first)
+          dep = dep + dependency_t::out;
       }
     }
-    else
-    {
-      relation_t relation = read_only[to - rw_to].compare(&(op_from -> read_and_write)[from]);
-      switch (relation)
-      {
-      case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
-        break;
-      case same_branch_diff_node: case same_node_overlapped: case same_index:
-        dep |= (int) dependency_t::flow_dep;
-      }
-    }
-  }
 
-  for (int i = 0; i < ro_from * rw_to; i++)
-  {
-    const int to = i / ro_from, from = i - to * ro_from;
-    relation_t relation = read_and_write[to].compare(&(op_from -> read_only)[from]);
-    switch (relation)
-    {
-    case diff_mat: case same_mat_diff_branch: case same_node_no_overlap: case same_node_different_temp:
-      break;
-    case same_branch_diff_node: case same_node_overlapped: case same_index:
-      dep |= (int) dependency_t::anti_dep;
-    }
-  }
-
-  return (dependency_t) dep;
+  return dep;
 }
 
 dependency_t Operation::checkDependencyTo (const Operation& op_to) const

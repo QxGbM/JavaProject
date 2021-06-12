@@ -2,6 +2,7 @@
 #pragma once
 
 #include <vector>
+#include <cstddef>
 
 enum class dependency_t;
 
@@ -13,14 +14,16 @@ public:
   size_t height;
 
   DataMap2D(void* ptr, size_t pitch, size_t width, size_t height) : ptr(ptr), pitch(pitch), width(width), height(height) {}
+
+  bool checkOverlap(const DataMap2D& data) const;
+
 };
 
 class Operation {
 public:
-  std::vector<bool> ro_rw;
-  std::vector<DataMap2D> data;
+  std::vector<std::pair<bool, DataMap2D>> data;
 
-  Operation() : ro_rw(), data() {}
+  Operation() : data() {}
 
   ~Operation() {}
 
