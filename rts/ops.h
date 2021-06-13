@@ -20,8 +20,10 @@ public:
 };
 
 class Operation {
-public:
+private:
   std::vector<std::pair<bool, DataMap2D>> data;
+
+public:
 
   Operation() : data() {}
 

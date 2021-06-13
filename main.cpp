@@ -4,12 +4,13 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+#include <ctime>
 
 void test(int a, int ma, int na, int lda, int b, int mb, int nb, int ldb) {
   DataMap2D da(reinterpret_cast<void*>(a), lda, ma, na), db(reinterpret_cast<void*>(b), ldb, mb, nb);
 
   bool ol = false;
-  for (int i = std::max(a, b); i < std::max(a + lda * na, b + ldb * nb); i++) {
+  for (int i = std::max(a, b); i < std::min(a + lda * na, b + ldb * nb); i++) {
     int xa = (i - a) / lda, ya = i - a - xa * lda;
     int xb = (i - b) / ldb, yb = i - b - xb * ldb;
 
@@ -28,6 +29,8 @@ void test(int a, int ma, int na, int lda, int b, int mb, int nb, int ldb) {
 
 
 int main(int argc, const char* argv[]) {
+
+  std::srand(time(nullptr));
 
   for (int i = 0; i < 500; i++) {
     int a = std::rand() % 200, b = std::rand() % 200;

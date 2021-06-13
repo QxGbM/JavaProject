@@ -2,6 +2,8 @@
 #pragma once
 
 #include <map>
+#include <set>
+#include <vector>
 #include <cstdint>
 
 enum class dependency_t : int { 
@@ -20,15 +22,31 @@ dependency_t operator+ (dependency_t dep1, dependency_t dep2);
 bool operator> (dependency_t dep1, dependency_t dep2);
 
 class dependency_table {
+private:
+  std::set <std::pair<int64_t, int64_t>> table;
+  std::multimap <int64_t, int64_t> table_f;
+  std::multimap <int64_t, int64_t> table_t;
+  std::map <std::pair<int64_t, int64_t>, dependency_t> type;
 
 public:
-  std::map <std::pair<int64_t, int64_t>, dependency_t> table;
 
-  dependency_table() : table() {};
+  dependency_table() : table(), table_f(), table_t(), type() {};
 
   ~dependency_table() {}
 
   void update(int64_t inst_from, int64_t inst_to, dependency_t dep);
+
+  dependency_t lookup(int64_t inst_from, int64_t inst_to) const;
+
+  void getDepFrom(int64_t from, std::vector<int64_t>& lis) const;
+
+  void getDepTo(int64_t to, std::vector<int64_t>& lis) const;
+
+  size_t countDepFrom(int64_t from) const;
+
+  size_t countDepTo(int64_t to) const;
+
+  void clear();
 
   void print() const;
 

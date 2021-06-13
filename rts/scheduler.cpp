@@ -1,9 +1,6 @@
 
 
-#include <definitions.cuh>
-#include <h_ops/dependency.cuh>
-#include <h_ops/dev_hierarchical_ops_dag.cuh>
-#include <instructions/instructions_scheduler.cuh>
+#include <scheduler.h>
 
 instructions_queue::instructions_queue (const int inst_in, const bool ex_w_in, const long long int flops_in)
 {

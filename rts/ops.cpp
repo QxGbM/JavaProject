@@ -22,7 +22,6 @@ bool DataMap2D::checkOverlap(const DataMap2D& data) const {
     for (size_t i = diff / pitch; i < i_end && !ol; i++) {
       auto data_start = ptr_a + i * pitch;
       auto data_end = data_start + width;
-      auto next_data = data_start + pitch;
 
       auto diff_b = data_start - ptr_b;
       auto cmp_start = diff_b > 0 ? ptr_b + (diff_b / data.pitch) * data.pitch : ptr_b;
